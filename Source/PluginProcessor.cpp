@@ -1,0 +1,643 @@
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+#include "Engine/OrganismSerialization.h"
+#include <juce_audio_formats/juce_audio_formats.h>
+
+using namespace mutagen;
+
+MutagenProcessor::MutagenProcessor()
+    : juce::AudioProcessor (BusesProperties()
+          .withInput  ("Input",  juce::AudioChannelSet::stereo(), false)
+          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+      apvts (*this, nullptr, "MUTAGEN", params::createLayout())
+{
+    // a fresh, non-zero seed so a brand-new instance still evolves
+    const auto now = (uint64_t) juce::Time::getHighResolutionTicks();
+    colony.setSeed (0x9E3779B97F4A7C15ULL ^ (now * 0xD1B54A32D192ED03ULL));
+    history.clear();
+}
+
+MutagenProcessor::~MutagenProcessor()
+{
+    delete pendingSource.exchange (nullptr);
+    delete retiredSource.exchange (nullptr);
+}
+
+// ---------------------------------------------------------------------------
+
+bool MutagenProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+    const auto& out = layouts.getMainOutputChannelSet();
+    if (out != juce::AudioChannelSet::stereo() && out != juce::AudioChannelSet::mono())
+        return false;
+
+    const auto& in = layouts.getMainInputChannelSet();
+    return in.isDisabled()
+        || in == juce::AudioChannelSet::mono()
+        || in == juce::AudioChannelSet::stereo();
+}
+
+void MutagenProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    sampleRateHz = sampleRate;
+    blockSize    = samplesPerBlock;
+
+    colony.prepare (sampleRate, samplesPerBlock, params::maxCellsFor (cpuQuality()));
+
+    dryScratch.setSize (2, samplesPerBlock);
+    captureRing.setSize (1, juce::jmax (1, (int) (sampleRate * 12.0)));
+    captureRing.clear();
+    captureWritePos = 0;
+    captureRingFilled = false;
+
+    for (auto& s : snapshots) s = EngineSnapshot {};
+    for (auto& s : fullState) s = OrganismState {};
+
+    // germinate an initial colony so the plugin makes sound immediately
+    colony.germinateFromSource (*p (params::initialPopulation),
+                                *p (params::distGrain),
+                                *p (params::distSpectral),
+                                *p (params::distResonator));
+
+    lastCapturedGeneration = 0;
+    lastCaptureTime = 0.0;
+    hostTimeSeconds = 0.0;
+
+    if (history.size() == 0)
+    {
+        history.clear();
+        history.addNode (colony.captureOrganism(), -1, "germination");
+    }
+}
+
+void MutagenProcessor::releaseResources() {}
+
+// ---------------------------------------------------------------------------
+
+params::CpuQuality MutagenProcessor::cpuQuality() const
+{
+    return (params::CpuQuality) juce::jlimit (0, 2,
+        (int) *p (params::cpuQuality));
+}
+params::PluginRole MutagenProcessor::pluginRole() const
+{
+    return (params::PluginRole) juce::jlimit (0, 2,
+        (int) *p (params::pluginRole));
+}
+
+// ---------------------------------------------------------------------------
+
+Environment MutagenProcessor::buildEnvironment() const
+{
+    Environment e;
+    e.nutrients   = *p (params::nutrients);
+    e.mutation    = *p (params::mutation);
+    e.selection   = *p (params::selection);
+    e.metabolism  = *p (params::metabolism);
+    e.stability   = *p (params::stability);
+
+    e.fertility     = *p (params::fertility);
+    e.mutationDepth = *p (params::mutationDepth);
+    e.radiation     = *p (params::radiation);
+    e.temperature   = *p (params::temperature);
+    e.competition   = *p (params::competition);
+    e.symbiosis     = *p (params::symbiosis);
+    e.lifespan      = *p (params::lifespan);
+    e.apoptosis     = *p (params::apoptosis);
+    e.diversity     = *p (params::diversity);
+    e.migration     = *p (params::migration);
+
+    e.selBrightness  = *p (params::selBrightness);
+    e.selDensity     = *p (params::selDensity);
+    e.selHarmonicity = *p (params::selHarmonicity);
+    e.selAggression  = *p (params::selAggression);
+    e.selDivergence  = *p (params::selDivergence);
+
+    e.explore = *p (params::exploreMode) > 0.5f;
+    e.memory  = *p (params::memory);
+
+    // ---- performance macros fold on top ----
+    const float mGrowth   = *p (params::macroGrowth);
+    const float mMutation = *p (params::macroMutation);
+    const float mStress   = *p (params::macroStress);
+    const float mDensity  = *p (params::macroDensity);
+    const float mMovement = *p (params::macroMovement);
+    const float mDecay    = *p (params::macroDecay);
+    const float xyStab    = *p (params::xyStability);
+    const float xyRepro   = *p (params::xyRepro);
+
+    auto mix = [] (float base, float macro, float weight)
+    { return juce::jlimit (0.0f, 1.0f, base * (1.0f - weight) + macro * weight); };
+
+    e.nutrients   = mix (e.nutrients, mGrowth, 0.5f);
+    e.fertility   = mix (e.fertility, 0.5f * mGrowth + 0.5f * xyRepro, 0.5f);
+    e.mutation    = mix (e.mutation, mMutation, 0.6f);
+    e.mutationDepth = mix (e.mutationDepth, mMutation, 0.4f);
+    e.temperature = mix (e.temperature, mStress, 0.5f);
+    e.radiation   = mix (e.radiation, mStress * mStress, 0.4f);
+    e.apoptosis   = mix (e.apoptosis, 0.5f * mStress + 0.5f * mDecay, 0.4f);
+    e.competition = mix (e.competition, mDensity < 0.5f ? (1.0f - mDensity) : e.competition, 0.3f);
+    e.selDensity  = juce::jlimit (-1.0f, 1.0f, e.selDensity + (mDensity - 0.5f) * 1.4f);
+    e.lifespan    = mix (e.lifespan, 1.0f - mDecay, 0.4f);
+    e.migration   = mix (e.migration, mMovement, 0.5f);
+    e.stability   = mix (e.stability, xyStab, 0.6f);
+
+    return e;
+}
+
+void MutagenProcessor::updateEnvironmentFromParameters()
+{
+    colony.setEnvironment (buildEnvironment());
+
+    const float body  = *p (params::macroBody);
+    const float voice = *p (params::macroVoice);
+    // Body lifts resonators, Voice lifts spectral, both gently duck the others.
+    const float grainG = 1.0f - 0.35f * (body - 0.5f) - 0.35f * (voice - 0.5f);
+    const float specG  = 0.8f + 0.9f * voice;
+    const float resG   = 0.8f + 0.9f * body;
+    colony.setSpeciesEmphasis (juce::jlimit (0.3f, 1.6f, grainG),
+                               juce::jlimit (0.3f, 1.7f, specG),
+                               juce::jlimit (0.3f, 1.7f, resG));
+
+    colony.setMasterGain (*p (params::masterGain));
+    colony.setActiveCap (params::maxCellsFor (cpuQuality()));
+    exploringFlag.store (*p (params::exploreMode) > 0.5f);
+}
+
+void MutagenProcessor::resetEverything()
+{
+    // 1) every parameter back to its default
+    for (auto* param : getParameters())
+        if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (param))
+            rp->setValueNotifyingHost (rp->getDefaultValue());
+
+    // 2) wipe message-thread state
+    history.clear();
+    breedingLab.clear();
+    organismName = "MUTAGEN";
+
+    // 3) source back to the factory primitive
+    loadPrimitiveSource (params::SourceMode::primitiveNoise, 3.0f);
+
+    // 4) regrow the colony from a fresh seed on the audio thread
+    EngineCommand c;
+    c.type = CommandType::hardReset;
+    c.u64  = 0x9E3779B97F4A7C15ULL
+           ^ ((uint64_t) juce::Time::getHighResolutionTicks() * 0xD1B54A32D192ED03ULL);
+    pushCommand (c);
+
+    lastCapturedGeneration = 0;
+    lastCaptureTime = 0.0;
+    hostTimeSeconds = 0.0;
+}
+
+// ---------------------------------------------------------------------------
+
+bool MutagenProcessor::pushCommand (const EngineCommand& c)
+{
+    const int head = cmdHead.load (std::memory_order_relaxed);
+    const int next = (head + 1) % kCmdRing;
+    if (next == cmdTail.load (std::memory_order_acquire))
+        return false; // full
+    cmdRing[(size_t) head] = c;
+    cmdHead.store (next, std::memory_order_release);
+    return true;
+}
+
+void MutagenProcessor::pullCommands()
+{
+    int tail = cmdTail.load (std::memory_order_relaxed);
+    const int head = cmdHead.load (std::memory_order_acquire);
+    while (tail != head)
+    {
+        applyCommand (cmdRing[(size_t) tail]);
+        tail = (tail + 1) % kCmdRing;
+    }
+    cmdTail.store (tail, std::memory_order_release);
+}
+
+int MutagenProcessor::stageGenomePayload (const Genome& g)
+{
+    const int idx = payloadWrite.fetch_add (1) % kPayloads;
+    genomePayloads[(size_t) idx] = g;
+    return idx;
+}
+int MutagenProcessor::stageOrganismPayload (const OrganismState& o)
+{
+    const int idx = payloadWrite.fetch_add (1) % kPayloads;
+    organismPayloads[(size_t) idx] = o;
+    return idx;
+}
+
+void MutagenProcessor::applyCommand (const EngineCommand& c)
+{
+    const auto scope = c.scope;
+    const int  id    = c.scopeId;
+
+    switch (c.type)
+    {
+        case CommandType::none: break;
+
+        case CommandType::germinate:
+            colony.germinateFromSource (*p (params::initialPopulation), *p (params::distGrain),
+                                        *p (params::distSpectral), *p (params::distResonator));
+            captureRequest.store (true);
+            break;
+
+        case CommandType::reseedRandom:
+            colony.reseedRandom (*p (params::initialPopulation));
+            captureRequest.store (true);
+            break;
+
+        case CommandType::clearColony:
+            colony.clearAll();
+            break;
+
+        case CommandType::mutateNow:
+            colony.mutateScope (scope, id);
+            captureRequest.store (true);
+            break;
+
+        case CommandType::applySelection:
+            colony.applySelectionBurst (scope, id, c.fa > 0.0f ? c.fa : 0.4f);
+            break;
+
+        case CommandType::lockTraits:   colony.lockTraits (scope, id, c.traitMask, true);  break;
+        case CommandType::unlockTraits: colony.lockTraits (scope, id, c.traitMask, false); break;
+
+        case CommandType::setGeneValue:     colony.setGeneValue (scope, id, c.ia, c.fa); break;
+        case CommandType::setGeneDominance: colony.setGeneDominance (scope, id, c.ia, c.ib); break;
+
+        case CommandType::transferGenes:
+            colony.transferGenes (c.ia, c.ib, c.traitMask != 0 ? c.traitMask : 0xFFFFFFFFu);
+            break;
+
+        case CommandType::infect:
+            colony.infectScope (scope, id, (Infection) juce::jlimit (1, (int) Infection::count - 1, c.ia));
+            break;
+
+        case CommandType::cure: colony.cureScope (scope, id); break;
+
+        case CommandType::apoptosis:
+            colony.apoptosisScope (scope, id, c.fa > 0.0f ? c.fa : 0.3f);
+            captureRequest.store (true);
+            break;
+
+        case CommandType::isolate:   colony.isolateScope (scope, id); break;
+        case CommandType::unisolate: colony.clearIsolation(); break;
+        case CommandType::muteScope:     colony.muteScope (scope, id, c.ib != 0); break;
+        case CommandType::preserveScope: colony.preserveScope (scope, id, c.ib != 0); break;
+        case CommandType::eliminateScope:
+            colony.eliminateScope (scope, id);
+            captureRequest.store (true);
+            break;
+
+        case CommandType::injectGenome:
+            if (c.payloadIndex >= 0 && c.payloadIndex < kPayloads)
+                colony.injectGenome (genomePayloads[(size_t) c.payloadIndex],
+                                     (Species) juce::jlimit (0, numSpecies - 1, c.ia),
+                                     juce::jlimit (1, 24, c.ib));
+            captureRequest.store (true);
+            break;
+
+        case CommandType::restoreOrganism:
+            if (c.payloadIndex >= 0 && c.payloadIndex < kPayloads)
+            {
+                colony.restoreOrganism (organismPayloads[(size_t) c.payloadIndex]);
+                captureRequest.store (true);
+            }
+            break;
+
+        case CommandType::breedInject:
+            if (c.payloadIndex >= 0 && c.payloadIndex < kPayloads)
+            {
+                colony.injectOrganism (organismPayloads[(size_t) c.payloadIndex], true);
+                captureRequest.store (true);
+            }
+            break;
+
+        case CommandType::captureGeneration:
+            captureRequest.store (true);
+            break;
+
+        case CommandType::noteBurst:
+            colony.noteOn (c.ia, c.fa > 0.0f ? c.fa : 0.8f);
+            break;
+
+        case CommandType::hardReset:
+            colony.allNotesOff();
+            colony.clearAll();
+            colony.setSeed (c.u64 != 0 ? c.u64 : 0x1234ABCDULL);
+            colony.reset();
+            colony.germinateFromSource (*p (params::initialPopulation), *p (params::distGrain),
+                                        *p (params::distSpectral), *p (params::distResonator));
+            captureRequest.store (true);
+            break;
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    juce::ScopedNoDenormals noDenormals;
+
+    const int numSamples = buffer.getNumSamples();
+    const int totalOut   = getTotalNumOutputChannels();
+    const int totalIn    = getTotalNumInputChannels();
+
+    // adopt any freshly analysed source material
+    if (auto* incoming = pendingSource.exchange (nullptr))
+    {
+        SourceMaterial* old = colony.adoptSource (incoming);
+        SourceMaterial* expected = nullptr;
+        if (! retiredSource.compare_exchange_strong (expected, old))
+            delete old; // message thread was slow to clean up; rare
+    }
+
+    pullCommands();
+    updateEnvironmentFromParameters();
+
+    // ---- merge on-screen keyboard, then translate MIDI to colony events ----
+    keyboardState.processNextMidiBuffer (midi, 0, numSamples, true);
+    for (const auto meta : midi)
+    {
+        const auto m = meta.getMessage();
+        if (m.isNoteOn())            colony.noteOn (m.getNoteNumber(), m.getFloatVelocity());
+        else if (m.isNoteOff())      colony.noteOff (m.getNoteNumber());
+        else if (m.isAllNotesOff() || m.isAllSoundOff()) colony.allNotesOff();
+    }
+    midi.clear();
+
+    const auto role = pluginRole();
+    const bool wantDry = (role != params::PluginRole::instrument) && totalIn > 0;
+
+    // stash the dry input (also used to granulate live audio inside the colony)
+    dryScratch.setSize (2, numSamples, false, false, true);
+    dryScratch.clear();
+    if (totalIn > 0)
+    {
+        for (int ch = 0; ch < juce::jmin (2, totalIn); ++ch)
+            dryScratch.copyFrom (ch, 0, buffer, ch, 0, numSamples);
+        if (totalIn == 1) dryScratch.copyFrom (1, 0, buffer, 0, 0, numSamples);
+    }
+
+    // feed the live-capture ring (input if present, otherwise the output later)
+    if (totalIn > 0)
+    {
+        const float* src0 = buffer.getReadPointer (0);
+        const int rn = captureRing.getNumSamples();
+        float* rd = captureRing.getWritePointer (0);
+        for (int n = 0; n < numSamples; ++n)
+        {
+            rd[captureWritePos] = src0[n];
+            if (++captureWritePos >= rn) { captureWritePos = 0; captureRingFilled = true; }
+        }
+    }
+
+    // clear the buffer; the colony renders the wet signal into it
+    for (int ch = 0; ch < totalOut; ++ch)
+        buffer.clear (ch, 0, numSamples);
+
+    const juce::AudioBuffer<float>* liveIn =
+        (role != params::PluginRole::instrument && totalIn > 0) ? &dryScratch : nullptr;
+
+    colony.process (buffer, liveIn);
+
+    // dry / wet blend for effect + hybrid roles
+    if (wantDry)
+    {
+        const float wet = *p (params::dryWet);
+        const float dry = 1.0f - wet;
+        for (int ch = 0; ch < juce::jmin (totalOut, 2); ++ch)
+        {
+            buffer.applyGain (ch, 0, numSamples, wet);
+            buffer.addFrom (ch, 0, dryScratch, ch, 0, numSamples, dry);
+        }
+    }
+
+    // capture the output into the ring if there was no input to capture
+    if (totalIn == 0)
+    {
+        const float* o0 = buffer.getReadPointer (0);
+        const int rn = captureRing.getNumSamples();
+        float* rd = captureRing.getWritePointer (0);
+        for (int n = 0; n < numSamples; ++n)
+        {
+            rd[captureWritePos] = o0[n];
+            if (++captureWritePos >= rn) { captureWritePos = 0; captureRingFilled = true; }
+        }
+    }
+
+    // ---- publish visual snapshot ----
+    colony.writeSnapshot (snapshots[(size_t) snapWrite]);
+    snapPublished.store (snapWrite, std::memory_order_release);
+    snapWrite = (snapWrite + 1) % 3;
+
+    // ---- history / full-state captures ----
+    hostTimeSeconds += (double) numSamples / sampleRateHz;
+
+    const int gen = colony.generation();
+    const bool genAdvanced = gen > lastCapturedGeneration;
+    const bool timeOk = (hostTimeSeconds - lastCaptureTime) > 3.5;
+    bool doCapture = captureRequest.exchange (false);
+    if (genAdvanced && timeOk && colony.isExploring())
+        doCapture = true;
+
+    if (doCapture)
+    {
+        const auto scope = historyFifo.write (1);
+        if (scope.blockSize1 > 0)
+        {
+            const int i = scope.startIndex1;
+            historyStates[(size_t) i] = colony.captureOrganism();
+            historyGenNum[(size_t) i] = gen;
+            historyWasGen[(size_t) i] = genAdvanced;
+        }
+        lastCapturedGeneration = gen;
+        lastCaptureTime = hostTimeSeconds;
+    }
+
+    // ---- publish full organism state ~2x/sec for the editor ----
+    fullStateClock += (double) numSamples / sampleRateHz;
+    if (fullStateClock > 0.5)
+    {
+        fullStateClock = 0.0;
+        fullState[(size_t) fullStateWrite] = colony.captureOrganism();
+        fullStatePublished.store (fullStateWrite, std::memory_order_release);
+        fullStateWrite ^= 1;
+        fullStateStamp.fetch_add (1);
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+void MutagenProcessor::copyLatestSnapshot (EngineSnapshot& dest) const
+{
+    const int idx = snapPublished.load (std::memory_order_acquire);
+    dest = snapshots[(size_t) idx];
+}
+
+OrganismState MutagenProcessor::latestOrganism() const
+{
+    const int idx = fullStatePublished.load (std::memory_order_acquire);
+    return fullState[(size_t) idx];
+}
+
+int MutagenProcessor::pumpHistory()
+{
+    // clean up any retired source material handed back by the audio thread
+    if (auto* r = retiredSource.exchange (nullptr))
+        delete r;
+
+    int filed = 0;
+    const auto ready = historyFifo.getNumReady();
+    if (ready > 0)
+    {
+        const auto scope = historyFifo.read (ready);
+        auto handleRange = [&] (int start, int size)
+        {
+            for (int k = 0; k < size; ++k)
+            {
+                const int i = start + k;
+                int parent = history.consumeBranchParent();
+                if (parent < 0) parent = history.currentId();
+                const bool wasGen = historyWasGen[(size_t) i];
+                const juce::String label = wasGen
+                    ? juce::String ("gen ") + juce::String (historyGenNum[(size_t) i])
+                    : juce::String ("mark");
+                history.addNode (historyStates[(size_t) i], parent, label, ! wasGen);
+                ++filed;
+            }
+        };
+        handleRange (scope.startIndex1, scope.blockSize1);
+        handleRange (scope.startIndex2, scope.blockSize2);
+    }
+    return filed;
+}
+
+// ---------------------------------------------------------------------------
+//  Source loading (message thread)
+// ---------------------------------------------------------------------------
+
+void MutagenProcessor::loadSourceFromBuffer (const juce::AudioBuffer<float>& buf, double sr,
+                                             float transientSensitivity)
+{
+    auto* sm = new SourceMaterial (analyzer.analyse (buf, sr, transientSensitivity));
+    if (auto* stale = pendingSource.exchange (sm))
+        delete stale;
+}
+
+void MutagenProcessor::loadPrimitiveSource (params::SourceMode mode, float lengthSeconds)
+{
+    auto* sm = new SourceMaterial (analyzer.makePrimitive (mode, sampleRateHz, lengthSeconds));
+    if (auto* stale = pendingSource.exchange (sm))
+        delete stale;
+}
+
+bool MutagenProcessor::loadSourceFromFile (const juce::File& file)
+{
+    juce::AudioFormatManager fm;
+    fm.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader (fm.createReaderFor (file));
+    if (reader == nullptr) return false;
+
+    const int len = (int) juce::jmin ((juce::int64) (reader->sampleRate * 20.0),
+                                      reader->lengthInSamples);
+    if (len < 64) return false;
+
+    juce::AudioBuffer<float> tmp ((int) reader->numChannels, len);
+    reader->read (&tmp, 0, len, 0, true, true);
+    loadSourceFromBuffer (tmp, reader->sampleRate, *p (params::transientSens));
+    return true;
+}
+
+void MutagenProcessor::copyRecentOutput (juce::AudioBuffer<float>& dst, float seconds) const
+{
+    const int rn = captureRing.getNumSamples();
+    const int want = juce::jlimit (1, rn, (int) (seconds * sampleRateHz));
+    dst.setSize (1, want, false, false, true);
+    const int head = captureWritePos;
+    const int start = ((head - want) % rn + rn) % rn;
+    for (int n = 0; n < want; ++n)
+        dst.setSample (0, n, captureRing.getSample (0, (start + n) % rn));
+}
+
+void MutagenProcessor::captureLiveToSource (float seconds, float transientSensitivity)
+{
+    const int rn = captureRing.getNumSamples();
+    const int want = juce::jlimit (1024, rn, (int) (seconds * sampleRateHz));
+    juce::AudioBuffer<float> tmp (1, want);
+    const int start = ((captureWritePos - want) % rn + rn) % rn;
+    for (int n = 0; n < want; ++n)
+        tmp.setSample (0, n, captureRing.getSample (0, (start + n) % rn));
+    loadSourceFromBuffer (tmp, sampleRateHz, transientSensitivity);
+}
+
+// ---------------------------------------------------------------------------
+//  State
+// ---------------------------------------------------------------------------
+
+void MutagenProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    juce::ValueTree root ("MUTAGEN_STATE");
+    root.setProperty ("version", 1, nullptr);
+
+    root.appendChild (apvts.copyState(), nullptr);
+
+    // current organism (frozen genome / population / seed / env / history)
+    const auto organism = latestOrganism();
+    root.setProperty ("organism", organismToBase64 (organism), nullptr);
+    root.setProperty ("seed", juce::String (colony.seed()), nullptr);
+    root.setProperty ("name", organismName, nullptr);
+
+    root.appendChild (history.toValueTree(), nullptr);
+
+    if (auto xml = root.createXml())
+        copyXmlToBinary (*xml, destData);
+}
+
+void MutagenProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    auto xml = getXmlFromBinary (data, sizeInBytes);
+    if (xml == nullptr) return;
+
+    juce::ValueTree root = juce::ValueTree::fromXml (*xml);
+    if (! root.hasType ("MUTAGEN_STATE")) return;
+
+    if (auto apvtsChild = root.getChildWithName (apvts.state.getType()); apvtsChild.isValid())
+        apvts.replaceState (apvtsChild);
+
+    if (auto evo = root.getChildWithName ("EVOLUTION"); evo.isValid())
+        history.fromValueTree (evo);
+
+    const juce::String seedStr = root.getProperty ("seed").toString();
+    if (seedStr.isNotEmpty())
+        colony.setSeed ((uint64_t) seedStr.getLargeIntValue());
+
+    organismName = root.getProperty ("name", "MUTAGEN").toString();
+
+    OrganismState o;
+    if (organismFromBase64 (root.getProperty ("organism").toString(), o) && o.cellCount > 0)
+    {
+        // apply on the audio thread
+        EngineCommand c;
+        c.type = CommandType::restoreOrganism;
+        c.payloadIndex = stageOrganismPayload (o);
+        pushCommand (c);
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+juce::AudioProcessorEditor* MutagenProcessor::createEditor()
+{
+    return new MutagenEditor (*this);
+}
+
+// ---------------------------------------------------------------------------
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new MutagenProcessor();
+}

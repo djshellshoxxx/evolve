@@ -1,0 +1,31 @@
+                    GNU AFFERO GENERAL PUBLIC LICENSE
+                       Version 3, 19 November 2007
+
+ Copyright (C) 2026 MUTAGEN authors
+
+ Everyone is permitted to copy and distribute verbatim copies of this
+ license document, but changing it is not allowed.
+
+MUTAGEN is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your
+option) any later version.
+
+MUTAGEN is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+The full text of the GNU Affero General Public License version 3 is
+available at: https://www.gnu.org/licenses/agpl-3.0.txt
+
+--------------------------------------------------------------------------
+
+This project builds against the JUCE framework (https://juce.com), which
+is used here under the terms of the GNU Affero General Public License v3.
+JUCE is Copyright (c) Raw Material Software Limited. If you require a
+closed-source distribution you must obtain a commercial JUCE licence and
+may then relicense your own MUTAGEN modifications accordingly.

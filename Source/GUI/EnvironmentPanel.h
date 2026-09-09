@@ -1,0 +1,30 @@
+#pragma once
+
+#include "Widgets.h"
+#include <array>
+
+namespace mutagen
+{
+    class MutagenProcessor;
+
+    /*  Environment: the ecology the musician cultivates. Five large controls
+        up top, the deeper ecological parameters beneath, and the selection
+        target (what "fitness" means right now) along the bottom.               */
+    class EnvironmentPanel : public PanelFrame
+    {
+    public:
+        explicit EnvironmentPanel (MutagenProcessor&);
+        void resized() override;
+
+    private:
+        MutagenProcessor& processor;
+
+        std::array<std::unique_ptr<LabeledKnob>, 5>  big;
+        std::array<std::unique_ptr<LabeledKnob>, 10> small;
+        std::array<std::unique_ptr<LabeledKnob>, 5>  sel;
+
+        juce::Label selHeader;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EnvironmentPanel)
+    };
+}

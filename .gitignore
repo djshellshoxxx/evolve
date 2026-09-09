@@ -1,0 +1,40 @@
+# Build output
+build/
+build-*/
+cmake-build-*/
+out/
+install/
+
+# JUCE / CMake fetched deps
+_deps/
+Builds/
+JuceLibraryCode/
+
+# IDE
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.sln
+*.vcxproj*
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Misc
+*.o
+*.obj
+*.exe
+*.dll
+*.dylib
+*.so
+*.a
+*.lib
+*.log
+compile_commands.json

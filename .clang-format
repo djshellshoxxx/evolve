@@ -1,0 +1,24 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+AccessModifierOffset: -4
+AlignAfterOpenBracket: Align
+AllowShortFunctionsOnASingleLine: Inline
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  BeforeCatch: true
+  BeforeElse: true
+BreakBeforeBraces: Custom
+ColumnLimit: 110
+IndentWidth: 4
+NamespaceIndentation: All
+PointerAlignment: Left
+SpaceBeforeParens: Always
+TabWidth: 4
+UseTab: Never
+...
