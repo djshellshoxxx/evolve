@@ -67,14 +67,115 @@ namespace mutagen::params
     inline constexpr auto xyStability     = "xyStability";
     inline constexpr auto xyRepro         = "xyRepro";
 
+    // =====================================================================
+    //  Post-colony processing rack: oscillators, filter + LFOs, EQ, gator.
+    //  The colony is still the instrument - this is the signal it flows into.
+    // =====================================================================
+
+    inline constexpr int numOscillators = 4;
+    inline constexpr int numLfos        = 4;   // 0 filter, 1 volume, 2 pan, 3 environment
+    inline constexpr int gatorSteps     = 16;
+    inline constexpr int envLfoIndex    = 3;   // the LFO that modulates the colony's ecology
+
+    // Oscillator bank (id built as "osc1_wave" etc.)
+    juce::String oscParam (int index, const char* leaf);   // index 0..3
+    inline constexpr auto oscLevel     = "oscLevel";        // bank output level
+    inline constexpr auto oscKeytrack  = "oscKeytrack";     // follow last MIDI note
+    inline constexpr auto oscFreeHz    = "oscFreeHz";       // base freq when not key-tracking
+    inline constexpr auto oscSpread    = "oscSpread";       // stereo width of the bank
+
+    // Subtractive-synth blend: the osc bank is a full subtractive voice
+    // (oscillators -> shared filter -> ADSR). oscBlend is bipolar:
+    //   -1  subtract the voice from the colony (phase-cancel / carve)
+    //    0  voice silent in the mix
+    //   +1  add the voice as an extra layer
+    inline constexpr auto oscBlend     = "oscBlend";
+    inline constexpr auto synthAttack  = "synthAttack";
+    inline constexpr auto synthDecay   = "synthDecay";
+    inline constexpr auto synthSustain = "synthSustain";
+    inline constexpr auto synthRelease = "synthRelease";
+    inline constexpr auto synthDrone   = "synthDrone";      // ignore the gate, always on
+
+    // Filter (LFO-modulated, LFO 0)
+    inline constexpr auto filterOn     = "filterOn";
+    inline constexpr auto filterType   = "filterType";      // choice
+    inline constexpr auto filterCutoff = "filterCutoff";    // Hz
+    inline constexpr auto filterRes    = "filterRes";
+    inline constexpr auto filterDrive  = "filterDrive";
+
+    // LFOs (id built as "lfo1_rate" etc., index 0..2)
+    juce::String lfoParam (int index, const char* leaf);
+    // leaves: "sync" (bool), "rate" (Hz), "div" (choice), "depth", "shape" (choice), "phase"
+    // LFO index envLfoIndex also has "dest" (choice) - which ecology control it drives.
+
+    enum class EnvLfoDest { mutation = 0, mutationDepth, nutrients, selection,
+                            radiation, temperature, fertility };
+    juce::StringArray envLfoDestChoices();
+
+    // EQ (3 band: low shelf / mid peak / high shelf)
+    inline constexpr auto eqOn        = "eqOn";
+    inline constexpr auto eqLowFreq   = "eqLowFreq";
+    inline constexpr auto eqLowGain   = "eqLowGain";
+    inline constexpr auto eqMidFreq   = "eqMidFreq";
+    inline constexpr auto eqMidGain   = "eqMidGain";
+    inline constexpr auto eqMidQ      = "eqMidQ";
+    inline constexpr auto eqHighFreq  = "eqHighFreq";
+    inline constexpr auto eqHighGain  = "eqHighGain";
+
+    // Gator (rhythmic gate)
+    inline constexpr auto gatorOn      = "gatorOn";
+    inline constexpr auto gatorSync    = "gatorSync";
+    inline constexpr auto gatorRate    = "gatorRate";       // Hz when free-running
+    inline constexpr auto gatorDiv     = "gatorDiv";        // choice (BPM-synced step length)
+    inline constexpr auto gatorLength  = "gatorLength";     // active pattern length 2..16
+    inline constexpr auto gatorAttack  = "gatorAttack";
+    inline constexpr auto gatorRelease = "gatorRelease";
+    inline constexpr auto gatorDepth   = "gatorDepth";
+    juce::String gatorStepParam (int step);                 // step 0..15 (bool)
+
+    // ---- Glitch (beat-repeat / stutter / crush / reverse / tape-stop) --
+    inline constexpr auto glitchOn      = "glitchOn";
+    inline constexpr auto glitchAmount  = "glitchAmount";   // probability a slice glitches
+    inline constexpr auto glitchSync    = "glitchSync";
+    inline constexpr auto glitchRate    = "glitchRate";     // Hz when free-running
+    inline constexpr auto glitchDiv     = "glitchDiv";      // choice (slice length)
+    inline constexpr auto glitchRepeat  = "glitchRepeat";   // stutter subdivision depth
+    inline constexpr auto glitchReverse = "glitchReverse";  // chance a slice reverses
+    inline constexpr auto glitchCrush   = "glitchCrush";    // sample-rate / bit reduction
+    inline constexpr auto glitchTape    = "glitchTape";     // tape-stop chance / strength
+    inline constexpr auto glitchMix     = "glitchMix";
+
+    // ---- MIDI reactivity -------------------------------------------------
+    inline constexpr auto lfoKeyRetrigger = "lfoKeyRetrigger"; // reset LFO phases on note-on
+    inline constexpr auto gatorRetrigger  = "gatorRetrigger";  // reset gator pattern on note-on
+    inline constexpr auto midiBendRange   = "midiBendRange";   // pitch-bend range, semitones
+    inline constexpr auto modWheelDest    = "modWheelDest";    // choice
+    inline constexpr auto modWheelAmount  = "modWheelAmount";
+    inline constexpr auto velToSynth      = "velToSynth";      // note velocity -> synth level
+    inline constexpr auto velToFilter     = "velToFilter";     // note velocity -> filter cutoff
+    inline constexpr auto midiReactive    = "midiReactive";    // master enable for the above
+
+    enum class ModDest { off = 0, filterCutoff, synthBlend, mutation, nutrients, lfoDepth, gatorDepth_ };
+    juce::StringArray modWheelDestChoices();
+
     juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
     enum class SourceMode  { sample = 0, liveInput, primitiveNoise, primitiveImpulse, preservedOrganism };
     enum class CpuQuality   { eco = 0, balanced, pristine };
     enum class PluginRole   { instrument = 0, effect, hybrid };
+    enum class OscWave      { sine = 0, triangle, saw, square, pulse, noise };
+    enum class FilterType   { lowpass = 0, highpass, bandpass, notch };
+    enum class LfoShape     { sine = 0, triangle, sawUp, sawDown, square, sampleHold, randomSmooth };
 
     int   maxCellsFor (CpuQuality q);
     juce::StringArray sourceModeChoices();
     juce::StringArray cpuQualityChoices();
     juce::StringArray pluginRoleChoices();
+    juce::StringArray oscWaveChoices();
+    juce::StringArray filterTypeChoices();
+    juce::StringArray lfoShapeChoices();
+    juce::StringArray syncDivChoices();
+
+    /** Beats per cycle/step for a syncDivChoices() index. */
+    double syncDivBeats (int index);
 }

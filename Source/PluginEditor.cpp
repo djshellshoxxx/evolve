@@ -48,7 +48,8 @@ namespace mutagen
           inspector (p),
           timeline (p),
           breedingLab (p),
-          performance (p)
+          performance (p),
+          fxRack (p)
     {
         setLookAndFeel (&lnf);
 
@@ -60,6 +61,7 @@ namespace mutagen
         addAndMakeVisible (timeline);
         addChildComponent (breedingLab);
         addChildComponent (performance);
+        addChildComponent (fxRack);
 
         renderStatus.setColour (juce::Label::textColourId, theme::spectral);
         renderStatus.setJustificationType (juce::Justification::centredRight);
@@ -92,6 +94,11 @@ namespace mutagen
             showPerformance = false;
             performance.setVisible (false);
         };
+        fxRack.onClose = [this]
+        {
+            showFx = false;
+            fxRack.setVisible (false);
+        };
 
         topBar.onClone = [this]
         {
@@ -110,7 +117,13 @@ namespace mutagen
         {
             showPerformance = on;
             performance.setVisible (on);
-            if (on) performance.toFront (false);
+            if (on) { showFx = false; fxRack.setVisible (false); performance.toFront (false); }
+        };
+        topBar.onFxToggled = [this] (bool on)
+        {
+            showFx = on;
+            fxRack.setVisible (on);
+            if (on) { showPerformance = false; performance.setVisible (false); fxRack.toFront (false); }
         };
         topBar.onInspectorToggled = [this] (bool on)
         {
@@ -249,5 +262,6 @@ namespace mutagen
         const auto overlay = juce::Rectangle<int> (0, 48, getWidth(), getHeight() - 48);
         breedingLab.setBounds (overlay.reduced (24));
         performance.setBounds (overlay.reduced (24));
+        fxRack.setBounds (overlay.reduced (16));
     }
 }

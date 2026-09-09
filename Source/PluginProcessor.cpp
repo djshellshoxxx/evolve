@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "Engine/OrganismSerialization.h"
 #include <juce_audio_formats/juce_audio_formats.h>
+#include <cmath>
 
 using namespace mutagen;
 
@@ -43,6 +44,7 @@ void MutagenProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     blockSize    = samplesPerBlock;
 
     colony.prepare (sampleRate, samplesPerBlock, params::maxCellsFor (cpuQuality()));
+    postChain.prepare (sampleRate, samplesPerBlock, 2);
 
     dryScratch.setSize (2, samplesPerBlock);
     captureRing.setSize (1, juce::jmax (1, (int) (sampleRate * 12.0)));
@@ -142,6 +144,35 @@ Environment MutagenProcessor::buildEnvironment() const
     e.migration   = mix (e.migration, mMovement, 0.5f);
     e.stability   = mix (e.stability, xyStab, 0.6f);
 
+    // ---- LFO 4 modulates the ecology (mutation by default) ----
+    const float lfoDepth = postChain.environmentLfoDepth();
+    if (lfoDepth > 1.0e-4f)
+    {
+        const float m = postChain.environmentLfoValue() * lfoDepth; // -depth..depth
+        switch ((params::EnvLfoDest) postChain.environmentLfoDest())
+        {
+            case params::EnvLfoDest::mutation:      e.mutation      = juce::jlimit (0.0f, 1.0f, e.mutation      + m); break;
+            case params::EnvLfoDest::mutationDepth: e.mutationDepth = juce::jlimit (0.0f, 1.0f, e.mutationDepth + m); break;
+            case params::EnvLfoDest::nutrients:     e.nutrients     = juce::jlimit (0.0f, 1.0f, e.nutrients     + m); break;
+            case params::EnvLfoDest::selection:     e.selection     = juce::jlimit (0.0f, 1.0f, e.selection     + m); break;
+            case params::EnvLfoDest::radiation:     e.radiation     = juce::jlimit (0.0f, 1.0f, e.radiation     + m); break;
+            case params::EnvLfoDest::temperature:   e.temperature   = juce::jlimit (0.0f, 1.0f, e.temperature   + m); break;
+            case params::EnvLfoDest::fertility:     e.fertility     = juce::jlimit (0.0f, 1.0f, e.fertility     + m); break;
+        }
+    }
+
+    // ---- mod wheel routing into the ecology ----
+    if (*p (params::midiReactive) > 0.5f)
+    {
+        const float mw = modWheelNorm * *p (params::modWheelAmount);
+        switch ((params::ModDest) (int) *p (params::modWheelDest))
+        {
+            case params::ModDest::mutation:  e.mutation  = juce::jlimit (0.0f, 1.0f, e.mutation  + mw); break;
+            case params::ModDest::nutrients: e.nutrients = juce::jlimit (0.0f, 1.0f, e.nutrients + mw); break;
+            default: break;
+        }
+    }
+
     return e;
 }
 
@@ -159,9 +190,117 @@ void MutagenProcessor::updateEnvironmentFromParameters()
                                juce::jlimit (0.3f, 1.7f, specG),
                                juce::jlimit (0.3f, 1.7f, resG));
 
-    colony.setMasterGain (*p (params::masterGain));
+    colony.setMasterGain (1.0f);   // final trim now lives in the post chain
     colony.setActiveCap (params::maxCellsFor (cpuQuality()));
     exploringFlag.store (*p (params::exploreMode) > 0.5f);
+
+    PostParams ppp;
+    buildPostParams (ppp);
+    postChain.setParams (ppp);
+}
+
+void MutagenProcessor::buildPostParams (PostParams& q) const
+{
+    auto f = [this] (const juce::String& id) { return apvts.getRawParameterValue (id)->load(); };
+    auto b = [&f] (const juce::String& id) { return f (id) > 0.5f; };
+
+    for (int i = 0; i < params::numOscillators; ++i)
+    {
+        auto& O = q.osc[(size_t) i];
+        O.on    = b (params::oscParam (i, "on"));
+        O.wave  = (int) f (params::oscParam (i, "wave"));
+        O.tune  = f (params::oscParam (i, "tune"));
+        O.fine  = f (params::oscParam (i, "fine"));
+        O.level = f (params::oscParam (i, "level"));
+        O.pan   = f (params::oscParam (i, "pan"));
+    }
+    q.oscLevel    = f (params::oscLevel);
+    q.oscKeytrack = b (params::oscKeytrack);
+    q.oscFreeHz   = f (params::oscFreeHz);
+    q.oscSpread   = f (params::oscSpread);
+    q.oscBlend    = f (params::oscBlend);
+
+    q.synthA = f (params::synthAttack);
+    q.synthD = f (params::synthDecay);
+    q.synthS = f (params::synthSustain);
+    q.synthR = f (params::synthRelease);
+    q.synthDrone = b (params::synthDrone);
+
+    q.filterOn   = b (params::filterOn);
+    q.filterType = (int) f (params::filterType);
+    q.cutoff     = f (params::filterCutoff);
+    q.res        = f (params::filterRes);
+    q.drive      = f (params::filterDrive);
+
+    for (int i = 0; i < params::numLfos; ++i)
+    {
+        auto& Lo = q.lfo[(size_t) i];
+        Lo.sync  = b (params::lfoParam (i, "sync"));
+        Lo.rateHz = f (params::lfoParam (i, "rate"));
+        Lo.div   = (int) f (params::lfoParam (i, "div"));
+        Lo.depth = f (params::lfoParam (i, "depth"));
+        Lo.shape = (int) f (params::lfoParam (i, "shape"));
+        Lo.phase = f (params::lfoParam (i, "phase"));
+    }
+    q.envLfoDest = (int) f (params::lfoParam (params::envLfoIndex, "dest"));
+
+    q.eqOn   = b (params::eqOn);
+    q.eqLowF = f (params::eqLowFreq);  q.eqLowG = f (params::eqLowGain);
+    q.eqMidF = f (params::eqMidFreq);  q.eqMidG = f (params::eqMidGain);  q.eqMidQ = f (params::eqMidQ);
+    q.eqHighF = f (params::eqHighFreq); q.eqHighG = f (params::eqHighGain);
+
+    q.gatorOn      = b (params::gatorOn);
+    q.gatorSync    = b (params::gatorSync);
+    q.gatorRateHz  = f (params::gatorRate);
+    q.gatorDiv     = (int) f (params::gatorDiv);
+    q.gatorLength  = (int) f (params::gatorLength);
+    q.gatorAttack  = f (params::gatorAttack);
+    q.gatorRelease = f (params::gatorRelease);
+    q.gatorDepth   = f (params::gatorDepth);
+    for (int s = 0; s < params::gatorSteps; ++s)
+        q.gatorPattern[(size_t) s] = b (params::gatorStepParam (s));
+
+    q.glitchOn      = b (params::glitchOn);
+    q.glitchAmount  = f (params::glitchAmount);
+    q.glitchSync    = b (params::glitchSync);
+    q.glitchRateHz  = f (params::glitchRate);
+    q.glitchDiv     = (int) f (params::glitchDiv);
+    q.glitchRepeat  = f (params::glitchRepeat);
+    q.glitchReverse = f (params::glitchReverse);
+    q.glitchCrush   = f (params::glitchCrush);
+    q.glitchTape    = f (params::glitchTape);
+    q.glitchMix     = f (params::glitchMix);
+
+    q.midiReactive    = b (params::midiReactive);
+    q.lfoKeyRetrigger = b (params::lfoKeyRetrigger);
+    q.gatorRetrigger  = b (params::gatorRetrigger);
+    q.bendRange       = f (params::midiBendRange);
+    q.velToSynth      = f (params::velToSynth);
+    q.velToFilter     = f (params::velToFilter);
+
+    q.masterGain = f (params::masterGain);
+
+    q.pitchBend    = pitchBendNorm;
+    q.lastNote     = lastMidiNote;
+    q.heldNotes    = heldNoteCount;
+
+    // mod-wheel routing into the post chain
+    if (q.midiReactive)
+    {
+        const float mw = modWheelNorm * f (params::modWheelAmount);
+        switch ((params::ModDest) (int) f (params::modWheelDest))
+        {
+            case params::ModDest::filterCutoff:
+                q.cutoff = juce::jlimit (20.0f, 20000.0f, q.cutoff * std::pow (2.0f, mw * 4.0f)); break;
+            case params::ModDest::synthBlend:
+                q.oscBlend = juce::jlimit (-1.0f, 1.0f, q.oscBlend + mw); break;
+            case params::ModDest::lfoDepth:
+                for (auto& lo : q.lfo) lo.depth = juce::jlimit (0.0f, 1.0f, lo.depth + mw); break;
+            case params::ModDest::gatorDepth_:
+                q.gatorDepth = juce::jlimit (0.0f, 1.0f, q.gatorDepth + mw); break;
+            default: break;
+        }
+    }
 }
 
 void MutagenProcessor::resetEverything()
@@ -356,18 +495,57 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     }
 
     pullCommands();
-    updateEnvironmentFromParameters();
 
-    // ---- merge on-screen keyboard, then translate MIDI to colony events ----
+    // ---- merge on-screen keyboard, then translate MIDI ----
     keyboardState.processNextMidiBuffer (midi, 0, numSamples, true);
     for (const auto meta : midi)
     {
         const auto m = meta.getMessage();
-        if (m.isNoteOn())            colony.noteOn (m.getNoteNumber(), m.getFloatVelocity());
-        else if (m.isNoteOff())      colony.noteOff (m.getNoteNumber());
-        else if (m.isAllNotesOff() || m.isAllSoundOff()) colony.allNotesOff();
+        if (m.isNoteOn())
+        {
+            const int note = m.getNoteNumber();
+            const float vel = m.getFloatVelocity();
+            colony.noteOn (note, vel);
+            postChain.noteOn (note, vel);
+            lastMidiNote = note;
+            heldNoteCount = juce::jmin (128, heldNoteCount + 1);
+        }
+        else if (m.isNoteOff())
+        {
+            colony.noteOff (m.getNoteNumber());
+            postChain.noteOff (m.getNoteNumber());
+            heldNoteCount = juce::jmax (0, heldNoteCount - 1);
+        }
+        else if (m.isAllNotesOff() || m.isAllSoundOff())
+        {
+            colony.allNotesOff();
+            postChain.allNotesOff();
+            heldNoteCount = 0;
+        }
+        else if (m.isPitchWheel())
+        {
+            pitchBendNorm = juce::jlimit (-1.0f, 1.0f, (m.getPitchWheelValue() - 8192) / 8192.0f);
+        }
+        else if (m.isController() && m.getControllerNumber() == 1)
+        {
+            modWheelNorm = m.getControllerValue() / 127.0f;
+        }
     }
     midi.clear();
+
+    updateEnvironmentFromParameters();
+
+    // ---- host transport, for tempo-synced LFOs / gator / glitch ----
+    TransportInfo transport;
+    if (auto* ph = getPlayHead())
+    {
+        if (auto pos = ph->getPosition())
+        {
+            if (auto bpm = pos->getBpm())            transport.bpm = *bpm;
+            if (auto ppq = pos->getPpqPosition())    transport.ppqPosition = *ppq;
+            transport.isPlaying = pos->getIsPlaying();
+        }
+    }
 
     const auto role = pluginRole();
     const bool wantDry = (role != params::PluginRole::instrument) && totalIn > 0;
@@ -403,6 +581,10 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         (role != params::PluginRole::instrument && totalIn > 0) ? &dryScratch : nullptr;
 
     colony.process (buffer, liveIn);
+
+    // ---- post-colony rack: subtractive synth, filter+LFOs, EQ, gator,
+    //      glitch, tremolo, auto-pan, output trim ----
+    postChain.process (buffer, transport);
 
     // dry / wet blend for effect + hybrid roles
     if (wantDry)

@@ -49,7 +49,7 @@ namespace mutagen
         };
 
         for (auto* b : { &cloneBtn, &freezeBtn, &reanimateBtn, &renderBtn, &resetBtn,
-                         &perfToggle, &inspToggle })
+                         &perfToggle, &fxToggle, &inspToggle })
             addAndMakeVisible (b);
 
         cloneBtn.onClick     = [this] { if (onClone) onClone(); };
@@ -65,7 +65,19 @@ namespace mutagen
 
         perfToggle.setClickingTogglesState (true);
         perfToggle.getProperties().set ("tint", (int) spectralV.getARGB());
-        perfToggle.onClick = [this] { if (onPerformanceToggled) onPerformanceToggled (perfToggle.getToggleState()); };
+        perfToggle.onClick = [this]
+        {
+            if (perfToggle.getToggleState()) { fxToggle.setToggleState (false, juce::dontSendNotification); if (onFxToggled) onFxToggled (false); }
+            if (onPerformanceToggled) onPerformanceToggled (perfToggle.getToggleState());
+        };
+
+        fxToggle.setClickingTogglesState (true);
+        fxToggle.getProperties().set ("tint", (int) infection.getARGB());
+        fxToggle.onClick = [this]
+        {
+            if (fxToggle.getToggleState()) { perfToggle.setToggleState (false, juce::dontSendNotification); if (onPerformanceToggled) onPerformanceToggled (false); }
+            if (onFxToggled) onFxToggled (fxToggle.getToggleState());
+        };
 
         inspToggle.setClickingTogglesState (true);
         inspToggle.setToggleState (true, juce::dontSendNotification);
@@ -109,24 +121,24 @@ namespace mutagen
         r.removeFromLeft (8);
 
         // right-hand cluster
-        auto right = r.removeFromRight (560);
-
-        auto row = right;
-        resetBtn.setBounds     (row.removeFromRight (60));
-        row.removeFromRight (6);
-        renderBtn.setBounds    (row.removeFromRight (64));
-        row.removeFromRight (6);
-        reanimateBtn.setBounds (row.removeFromRight (78));
-        row.removeFromRight (4);
-        freezeBtn.setBounds    (row.removeFromRight (60));
-        row.removeFromRight (4);
-        cloneBtn.setBounds     (row.removeFromRight (54));
-        row.removeFromRight (10);
-        exploreToggle.setBounds (row.removeFromRight (96));
-        row.removeFromRight (10);
-        perfToggle.setBounds   (row.removeFromRight (72));
-        row.removeFromRight (4);
-        inspToggle.setBounds   (row.removeFromRight (76));
+        auto row = r.removeFromRight (628);
+        resetBtn.setBounds     (row.removeFromRight (58));
+        row.removeFromRight (5);
+        renderBtn.setBounds    (row.removeFromRight (60));
+        row.removeFromRight (5);
+        reanimateBtn.setBounds (row.removeFromRight (74));
+        row.removeFromRight (3);
+        freezeBtn.setBounds    (row.removeFromRight (56));
+        row.removeFromRight (3);
+        cloneBtn.setBounds     (row.removeFromRight (50));
+        row.removeFromRight (9);
+        exploreToggle.setBounds (row.removeFromRight (92));
+        row.removeFromRight (9);
+        perfToggle.setBounds   (row.removeFromRight (64));
+        row.removeFromRight (3);
+        fxToggle.setBounds     (row.removeFromRight (40));
+        row.removeFromRight (3);
+        inspToggle.setBounds   (row.removeFromRight (74));
 
         // middle: role + cpu + stats
         roleBox.setBounds (r.removeFromLeft (96).withSizeKeepingCentre (96, 24));

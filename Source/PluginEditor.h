@@ -10,6 +10,7 @@
 #include "GUI/EvolutionTimeline.h"
 #include "GUI/BreedingLabView.h"
 #include "GUI/PerformanceView.h"
+#include "GUI/FxRackView.h"
 #include "GUI/TopBar.h"
 #include "Engine/RenderEngine.h"
 
@@ -42,6 +43,7 @@ namespace mutagen
         EvolutionTimeline timeline;
         BreedingLabView   breedingLab;
         PerformanceView   performance;
+        FxRackView        fxRack;
 
         juce::Label       renderStatus;
         RenderEngine      renderEngine;
@@ -52,6 +54,7 @@ namespace mutagen
         double inspectorAccum = 0.0;
         bool   showInspector = true;
         bool   showPerformance = false;
+        bool   showFx = false;
         int    labParentFilled = 0;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MutagenEditor)

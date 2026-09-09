@@ -9,6 +9,7 @@
 #include "Engine/EvolutionHistory.h"
 #include "Engine/BreedingLab.h"
 #include "Engine/OrganismState.h"
+#include "Engine/PostChain.h"
 
 namespace mutagen
 {
@@ -113,11 +114,20 @@ namespace mutagen
         void updateEnvironmentFromParameters();
         Environment buildEnvironment() const;
 
+        void   buildPostParams (PostParams&) const;
+
         // engine
         Colony         colony;
         SourceAnalyzer analyzer;
+        PostChain      postChain;
         double sampleRateHz = 44100.0;
         int    blockSize = 512;
+
+        // live MIDI state for the post-chain / ecology
+        int   lastMidiNote = -1;
+        float pitchBendNorm = 0.0f;
+        float modWheelNorm  = 0.0f;
+        int   heldNoteCount = 0;
 
         // parameter atomics (fetched once per block)
         std::atomic<float>* p (const char* id) const { return apvts.getRawParameterValue (id); }

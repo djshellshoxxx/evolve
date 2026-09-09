@@ -24,6 +24,7 @@ namespace mutagen
         std::function<void()> onReset;
         std::function<void (bool)> onPerformanceToggled;
         std::function<void (bool)> onInspectorToggled;
+        std::function<void (bool)> onFxToggled;
 
     private:
         MutagenProcessor& processor;
@@ -44,6 +45,7 @@ namespace mutagen
         juce::TextButton resetBtn   { "RESET" };
 
         juce::TextButton perfToggle { "Perform" };
+        juce::TextButton fxToggle   { "FX" };
         juce::TextButton inspToggle { "Inspector" };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TopBar)

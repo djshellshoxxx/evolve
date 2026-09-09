@@ -77,6 +77,7 @@ target_sources(MUTAGEN PRIVATE
     Source/Engine/EvolutionHistory.cpp
     Source/Engine/BreedingLab.cpp
     Source/Engine/OrganismSerialization.cpp
+    Source/Engine/PostChain.cpp
     Source/Engine/RenderEngine.cpp
 
     Source/GUI/MutagenLookAndFeel.cpp
@@ -88,6 +89,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/EvolutionTimeline.cpp
     Source/GUI/BreedingLabView.cpp
     Source/GUI/PerformanceView.cpp
+    Source/GUI/FxRackView.cpp
     Source/GUI/TopBar.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)
