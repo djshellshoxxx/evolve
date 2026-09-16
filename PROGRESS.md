@@ -43,6 +43,10 @@ Verbatim requirements, grouped. Each maps to a milestone in §5.
 ### Visualisation
 22. Very **interactive and colourful**.
 23. **More noise ⇒ greyer.** **More varied ⇒ more colourful.**
+24. **Fractal ghost reward.** When the audio is *appealing* and the score is climbing, a ghostly
+    fractal flashes over the mutations as a reward. Must be **brief**, **rare** ("once in a while"),
+    and **shown once** per earning — never a constant overlay. It is the game's "you're doing well"
+    signal, so it has to stay scarce enough to feel earned.
 
 ---
 
@@ -227,7 +231,8 @@ Each milestone: implement → build → commit → push. Tick when pushed.
 - [ ] **M5 — Score & persistence.** ScoreSystem, combo, events, freeze-on-noise, high-score table,
       save/load runs. Req. 16-21.
 - [ ] **M6 — Interactive visuals.** WaveField, left-click mutate, drag waves ⇒ mass mutation,
-      right-click subtractive damage, colour⇄grey mapping, score HUD. Req. 9-12, 22, 23.
+      right-click subtractive damage, colour⇄grey mapping, score HUD, rare fractal-ghost reward
+      flash gated on appeal + rising score. Req. 9-12, 22, 23, 24.
 - [ ] **M7 — Ingestion.** Drag & drop samples eaten into the colony, multi-sample source pool,
       mic capture with feedback protection, radio-noise entropy tap. Req. 13-15.
 - [ ] **M8 — Polish & extras.** Additional fun features, README rewrite, final tuning pass.
