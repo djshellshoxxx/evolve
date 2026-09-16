@@ -40,6 +40,32 @@ Verbatim requirements, grouped. Each maps to a milestone in §5.
 20. **Save** sounds / score / game state; show a **high-score table**.
 21. Other fun features welcome.
 
+### Direct-control knobs
+25. **Gesture knobs** - a few knobs that hit the sound directly: **PITCH**, **LFO**, **OSC**.
+    They are not ordinary parameters. What they do depends on *when* and in *which direction* they
+    are turned, and it is partly random, so the same gesture is never guaranteed the same result.
+    Turning them can improve the sound or damage it. Direction gives intent (up = grow/add,
+    down = strip/subtract), speed gives violence, and timing decides which part of the colony is
+    caught by the gesture.
+
+### Enzymes
+26. An **"ADD ENZYME"** button. It puts **sparkles** into both the audio and the visuals, and
+    randomly affects the sound positively or negatively - but **usually as a *positive subtraction***.
+    Read biologically: an enzyme digests. So the common case is that it strips the roughest /
+    noisiest / most crowded elements and the result is cleaner, with an audible shimmer as it works;
+    the uncommon case is that it eats something the sound needed. A cheap, repeatable "tidy this up"
+    action that is not guaranteed safe.
+
+27. An **"ADD CATALYST"** button. It makes the sound **wobble quickly up and down in pitch**, and
+    that wobble then **subtracts something from the sound, subtly**. The pitch excursion is the
+    visible/audible part; the quiet removal it leaves behind is the actual effect. Louder gesture
+    than the enzyme, gentler consequence.
+
+28. **Both buttons re-roll every press.** Enzyme and catalyst are random in *amount* and in
+    *effect* each time they are used. No fixed dose and no fixed target - pressing the same button
+    twice in a row must not do the same thing twice. The bias stated in 26/27 describes the
+    distribution the roll is drawn from, not a guaranteed outcome.
+
 ### Visualisation
 22. Very **interactive and colourful**.
 23. **More noise ⇒ greyer.** **More varied ⇒ more colourful.**
@@ -230,9 +256,10 @@ Each milestone: implement → build → commit → push. Tick when pushed.
       Anti-noise guard + anti-static "boredom" drive + appeal-seeking fitness. Req. 6/7/8.
 - [ ] **M5 — Score & persistence.** ScoreSystem, combo, events, freeze-on-noise, high-score table,
       save/load runs. Req. 16-21.
-- [ ] **M6 — Interactive visuals.** WaveField, left-click mutate, drag waves ⇒ mass mutation,
+- [ ] **M6 — Interactive visuals + gesture knobs.** WaveField, left-click mutate, drag waves ⇒ mass mutation,
       right-click subtractive damage, colour⇄grey mapping, score HUD, rare fractal-ghost reward
-      flash gated on appeal + rising score. Req. 9-12, 22, 23, 24.
+      flash gated on appeal + rising score, and the PITCH / LFO / OSC gesture knobs.
+      Req. 9-12, 22-28.
 - [ ] **M7 — Ingestion.** Drag & drop samples eaten into the colony, multi-sample source pool,
       mic capture with feedback protection, radio-noise entropy tap. Req. 13-15.
 - [ ] **M8 — Polish & extras.** Additional fun features, README rewrite, final tuning pass.
