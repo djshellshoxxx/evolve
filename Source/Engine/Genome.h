@@ -39,6 +39,25 @@ namespace mutagen
         density,          // internal grain/partial density
         noiseColour,      // tonal <-> noisy balance
 
+        // ---- modulation genes (see ModBank.h) ----------------------------
+        //  These are what make two genetically similar cells sound like two
+        //  organisms rather than two copies. Everything above describes a
+        //  static timbre; everything below describes how that timbre moves.
+        lfoRateCentre,    // where this cell's six LFO lanes sit in the rate range
+        lfoRateSpread,    // how far apart the lanes are (0 = all one speed)
+        lfoRateSkew,      // bunches the lanes toward the slow or fast end
+        lfoDepth,         // master modulation depth
+        lfoDepthPitch,    // depth bias for pitch-ish destinations
+        lfoDepthTimbre,   // depth bias for timbral destinations
+        lfoShape,         // waveform family for the lanes
+        lfoPhaseScatter,  // how desynchronised the lanes start
+        wobbleSync,       // 1 = lanes lock together, 0 = fully independent
+        drift,            // slow bounded random walk on pitch/brightness/formant
+        jitter,           // per-sample white noise on grain position & detune
+        vibrato,          // dedicated pitch wobble
+        tremolo,          // dedicated amplitude wobble
+        curiosity,        // how strongly this lineage is rewarded for novelty
+
         count
     };
 
@@ -81,6 +100,14 @@ namespace mutagen
         /** Randomise every gene into a plausible starting spread. */
         void randomise (Rng& rng);
 
+        /** True for the modulation block - those genes are treated differently
+            by mutation (they are allowed to move much further, because a
+            colony whose movement stops being varied is the failure mode). */
+        static bool isModulationTrait (int i)
+        {
+            return i >= (int) Trait::lfoRateCentre && i <= (int) Trait::tremolo;
+        }
+
         /** In-place mutation. rate 0..1 = probability a given gene moves;
             depth 0..1 scales the excursion; radiation 0..1 adds rare large jumps. */
         void mutate (Rng& rng, float rate, float depth, float radiation);
@@ -106,6 +133,10 @@ namespace mutagen
 
         /** Nudge every unlocked gene a little toward a target genome (selection). */
         void driftToward (const Genome& target, float amount);
+
+        /** Guarantee the cell still moves. Called at the end of every mutation;
+            call it after any external edit that could zero the modulation block. */
+        void enforceMovementFloor();
 
         std::array<Gene, numTraits>&       raw()       { return genes; }
         const std::array<Gene, numTraits>& raw() const { return genes; }

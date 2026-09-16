@@ -25,6 +25,25 @@ namespace mutagen
         genes[(int) Trait::pitch].value      = rng.range (0.4f, 0.6f);
         genes[(int) Trait::metabolism].value = rng.range (0.35f, 0.65f);
         genes[(int) Trait::lifespan].value   = rng.range (0.4f, 0.8f);
+
+        // A cell that does not move is the one failure we never want, so the
+        // modulation block gets floors rather than a flat 0..1 roll. Depth and
+        // rate spread in particular are never allowed near zero: at zero the
+        // six LFO lanes collapse onto one rate and the cell sounds static.
+        genes[(int) Trait::lfoDepth].value       = rng.range (0.30f, 1.0f);
+        genes[(int) Trait::lfoRateSpread].value  = rng.range (0.45f, 1.0f);
+        genes[(int) Trait::lfoRateCentre].value  = rng.range (0.15f, 0.85f);
+        genes[(int) Trait::lfoPhaseScatter].value = rng.range (0.35f, 1.0f);
+        genes[(int) Trait::wobbleSync].value     = rng.range (0.0f, 0.55f);
+        genes[(int) Trait::drift].value          = rng.range (0.12f, 0.8f);
+        genes[(int) Trait::vibrato].value        = rng.range (0.0f, 0.55f);
+        genes[(int) Trait::tremolo].value        = rng.range (0.0f, 0.5f);
+        genes[(int) Trait::jitter].value         = rng.range (0.0f, 0.35f);
+
+        // Modulation genes also mutate harder than structural ones.
+        for (int i = 0; i < numTraits; ++i)
+            if (isModulationTrait (i))
+                genes[i].mutationRange = rng.range (0.14f, 0.42f);
     }
 
     void Genome::mutate (Rng& rng, float rate, float depth, float radiation)
@@ -58,6 +77,39 @@ namespace mutagen
             }
 
             g.clampValue();
+        }
+
+        enforceMovementFloor();
+    }
+
+    void Genome::enforceMovementFloor()
+    {
+        /*  Mutation is free to push the modulation genes anywhere, including
+            to zero - and a lineage that drifts to zero depth stops moving and
+            never recovers, because there is no selection pressure that can see
+            a gene which currently does nothing. So the floor is enforced
+            structurally instead: a cell may be *subtle*, but it may not be
+            still, and its lanes may not all collapse onto one rate.          */
+        auto floorAt = [this] (Trait t, float minimum)
+        {
+            auto& g = genes[(int) t];
+            if (g.value < minimum) g.value = minimum;
+        };
+
+        floorAt (Trait::lfoDepth,      0.12f);
+        floorAt (Trait::lfoRateSpread, 0.25f);
+
+        // If both dedicated wobbles and the drift term all land near zero,
+        // wake the one that was closest to surviving rather than all three -
+        // that keeps the cell's character instead of flattening it.
+        const float vib = genes[(int) Trait::vibrato].value;
+        const float trem = genes[(int) Trait::tremolo].value;
+        const float dr  = genes[(int) Trait::drift].value;
+        if (vib < 0.04f && trem < 0.04f && dr < 0.04f)
+        {
+            if (vib >= trem && vib >= dr)      genes[(int) Trait::vibrato].value = 0.10f;
+            else if (trem >= dr)               genes[(int) Trait::tremolo].value = 0.10f;
+            else                               genes[(int) Trait::drift].value   = 0.12f;
         }
     }
 

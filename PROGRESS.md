@@ -66,6 +66,24 @@ Verbatim requirements, grouped. Each maps to a milestone in §5.
     twice in a row must not do the same thing twice. The bias stated in 26/27 describes the
     distribution the roll is drawn from, not a guaranteed outcome.
 
+29. A **"RADIATE"** button - the high-stakes one.
+    - **5%**: kills the sound and **resets the score to zero**.
+    - **10%**: adds to the sound in some **random beneficial** way.
+    - the remaining **85%**: a minor, mostly-neutral mutation.
+    - **Visual:** a brief **red flash** that fades back to normal.
+    - **Audio:** a subtle **click** (Geiger-counter) layer over the loop for several seconds,
+      then fading out.
+    Unlike the enzyme and catalyst this one can cost the player everything, so the odds are fixed
+    and stated rather than randomised.
+
+30. An **"ADD HEAT"** button. It **speeds up the frequency** of one thing chosen at random: an
+    **oscillator**, an **LFO lane**, or the **loop/grain playback rate**. Which of the three it
+    catches is the roll; heat does not say what it will accelerate.
+
+31. An **"ADD WATER"** button - the opposite of heat. It **slows down** one randomly chosen
+    oscillator, LFO lane or loop/grain rate. Together heat and water are the player's coarse
+    tempo controls over the colony's movement, and neither says in advance what it will catch.
+
 ### Visualisation
 22. Very **interactive and colourful**.
 23. **More noise ⇒ greyer.** **More varied ⇒ more colourful.**
@@ -244,10 +262,10 @@ Key new files (planned):
 Each milestone: implement → build → commit → push. Tick when pushed.
 
 - [x] **M0 — Recon + research + this file.** Repo created, baseline pushed.
-- [ ] **M1 — Entropy & per-run identity.** `EntropyPool` (random_device + timer jitter + audio-input
+- [x] **M1 — Entropy & per-run identity.** `EntropyPool` (random_device + timer jitter + audio-input
       LSBs w/ von Neumann debiasing + mouse jitter), `Rng` stirring, `WorldSeed` randomising the
       per-run character. Fixes C3, C7.
-- [ ] **M2 — Wobble.** Genome gains modulation traits; `ModBank` gives every cell octave-spaced
+- [x] **M2 — Wobble.** Genome gains modulation traits; `ModBank` gives every cell octave-spaced
       LFOs from ~24 Hz to ~0.004 Hz routed to pitch/amp/formant/brightness/pan/density/resonance.
       Fixes C5, C6, satisfies req. 4/5.
 - [ ] **M3 — Anti-convergence.** Niche attractors (islands), fitness sharing, novelty term,
@@ -259,7 +277,7 @@ Each milestone: implement → build → commit → push. Tick when pushed.
 - [ ] **M6 — Interactive visuals + gesture knobs.** WaveField, left-click mutate, drag waves ⇒ mass mutation,
       right-click subtractive damage, colour⇄grey mapping, score HUD, rare fractal-ghost reward
       flash gated on appeal + rising score, and the PITCH / LFO / OSC gesture knobs.
-      Req. 9-12, 22-28.
+      Req. 9-12, 22-31.
 - [ ] **M7 — Ingestion.** Drag & drop samples eaten into the colony, multi-sample source pool,
       mic capture with feedback protection, radio-noise entropy tap. Req. 13-15.
 - [ ] **M8 — Polish & extras.** Additional fun features, README rewrite, final tuning pass.
@@ -272,3 +290,18 @@ Each milestone: implement → build → commit → push. Tick when pushed.
 - Read the whole engine + GUI. Wrote the root-cause table in §2.
 - Ran 8 web searches; wrote §3.
 - Created this file. Next: create the GitHub repo, push M0, then start M1.
+- Repo: https://github.com/djshellshoxxx/evolve (private).
+- **M1 done.** `Entropy.{h,cpp}` (pool + four harvesters, von Neumann debiased audio tap),
+  `WorldSeed.h` (per-run rules: tuning, partial palette, life tempo, lane routing, niche count,
+  fitness weights, per-world noise ceiling). Colony now owns a `WorldSeed` and re-points every
+  cell at it via `setWorld`.
+- **M2 done.** `ModBank.h` - 6 LFO lanes per cell, log-spread ~0.0028 Hz..26 Hz (about six minutes
+  per cycle at the slow end), Voss-McCartney summed to 1/f, routed by the world, phase-scattered
+  per cell. Genome grew 14 modulation traits (numTraits 20 -> 34) with a `enforceMovementFloor()`
+  that runs after every mutation so a lineage can become subtle but never still.
+  `Cells.cpp` renderAdd rewritten: modulation applied to pitch/amp/formant/brightness/pan/density/
+  resonance/grain-rate/detune, world tuning quantisation, world partial palette for both the
+  spectral and resonator species, per-world noise ceiling, and the enzyme/catalyst/Geiger overlays.
+  Builds clean (Release standalone, exit 0).
+- Next: M3 - replace the single global attractor in `Colony::ecologyTick` with niche attractors,
+  novelty + fitness sharing, MAP-Elites re-seeding, stagnation storms. `Novelty.h` is written.

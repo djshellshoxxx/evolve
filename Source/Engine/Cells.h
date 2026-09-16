@@ -4,6 +4,8 @@
 #include <vector>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "Genome.h"
+#include "ModBank.h"
+#include "WorldSeed.h"
 #include "Rng.h"
 
 namespace mutagen
@@ -70,6 +72,20 @@ namespace mutagen
         float visualPulse = 0.0f;     // decays; spikes on divide / gene transfer
         int   linkTo = -1;            // symbiotic partner slot (-1 = none)
 
+        // ---- modulation ----
+        ModBank mod;                  // six LFOs, ~6 min/cycle .. 26 Hz
+        const WorldSeed* world = nullptr;   // owned by the Colony, never null after prepare()
+
+        // ---- transient gestures (enzyme / catalyst / radiation / damage) ----
+        float catalystAmount = 0.0f;  // fast pitch wobble depth, decays
+        float catalystPhase  = 0.0f;
+        float catalystRate   = 7.0f;
+        float sparkle        = 0.0f;  // enzyme shimmer, decays
+        float geiger         = 0.0f;  // radiation click layer, decays over seconds
+        uint32_t geigerState = 0x9E3779B9u;
+        float clickEnv = 0.0f, clickPhase = 0.0f, clickRate = 0.0f;  // one Geiger click
+        float sparkleZ1 = 0.0f, sparkleZ2 = 0.0f;                    // enzyme shimmer filter
+
         // ---- DSP scratch (per species) ----
         double sampleRate = 44100.0;
 
@@ -97,10 +113,48 @@ namespace mutagen
 
         // ---- API ----
         void prepare (double sr);
+        void setWorld (const WorldSeed* w) { world = w; }
         void germinate (Species sp, const Genome& g, int family, int group,
                         int gen, Rng& rng);
         void updateLifecycle (double dt, float envStress, float nutrients,
                               float metabolism, float lifespanScale, Rng& rng);
+
+        /** Advance the modulation bank and the transient gestures. Called once
+            per audio chunk, before renderAdd. */
+        void advanceModulation (float dtSeconds) noexcept;
+
+        /** Kick a fast pitch wobble that decays away (the CATALYST button). */
+        void applyCatalyst (float amount, float rateHz) noexcept
+        {
+            catalystAmount = juce::jlimit (0.0f, 1.0f, catalystAmount + amount);
+            catalystRate   = rateHz;
+        }
+
+        /** Add shimmer (the ENZYME button). */
+        void addSparkle (float amount) noexcept
+        {
+            sparkle = juce::jlimit (0.0f, 1.0f, sparkle + amount);
+        }
+
+        /** Start the Geiger-click layer (the RADIATE button). Decays over
+            several seconds on its own. */
+        void addGeiger (float amount) noexcept
+        {
+            geiger = juce::jlimit (0.0f, 1.0f, geiger + amount);
+        }
+
+        /** How much this cell is currently moving, 0..1. Feeds the score's
+            "variety" term and the visualiser's colour. */
+        float movementAmount() const noexcept;
+
+        /** Additive sparkle + Geiger-click layer, summed into every species'
+            output stage so the gesture buttons are audible whatever the cell is. */
+        float overlaySample (float sr) noexcept;
+
+    private:
+        const WorldSeed& worldOrDefault() const;
+
+    public:
 
         /** grain + spectral cells write here (the excitation bus). resonator
             cells read `exc` and add their resonated output to `out`.          */

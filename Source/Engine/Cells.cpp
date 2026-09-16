@@ -75,6 +75,104 @@ namespace mutagen
 
         for (int i = 0; i < maxModes; ++i)   { modeY1[i] = modeY2[i] = 0.0f; }
         for (int i = 0; i < maxPartials; ++i) { partialPhase[i] = rng.nextFloat() * juce::MathConstants<float>::twoPi; }
+
+        catalystAmount = sparkle = geiger = 0.0f;
+        catalystPhase = clickEnv = clickPhase = 0.0f;
+        sparkleZ1 = sparkleZ2 = 0.0f;
+        geigerState = 0x9E3779B9u ^ (uint32_t) (family * 2246822519u) ^ (uint32_t) group;
+
+        mod.configure (genome, worldOrDefault(), rng);
+    }
+
+    // ----------------------------------------------------------------------
+
+    const WorldSeed& Cell::worldOrDefault() const
+    {
+        // A cell should always have the colony's world, but a default keeps
+        // the DSP safe if one is ever rendered before prepare() runs.
+        static const WorldSeed fallback = WorldSeed::fromSeed (0xA5A5A5A5A5A5A5A5ULL);
+        return world != nullptr ? *world : fallback;
+    }
+
+    void Cell::advanceModulation (float dt) noexcept
+    {
+        if (! alive) return;
+
+        mod.advance (dt);
+
+        // The catalyst is a fast pitch wobble that decays over a few seconds.
+        // It is loud while it lasts; what it leaves behind is handled by the
+        // colony, which strips an element as the wobble fades.
+        if (catalystAmount > 1.0e-4f)
+        {
+            catalystPhase += catalystRate * dt;
+            if (catalystPhase > 1.0f) catalystPhase -= std::floor (catalystPhase);
+            catalystAmount *= std::exp (-dt / 2.2f);
+        }
+        else catalystAmount = 0.0f;
+
+        if (sparkle > 1.0e-4f) sparkle *= std::exp (-dt / 1.6f); else sparkle = 0.0f;
+
+        // Radiation clicks linger noticeably longer than the other gestures -
+        // the point is that you keep hearing the Geiger counter after the
+        // decision has already been made for you.
+        if (geiger > 1.0e-4f) geiger *= std::exp (-dt / 4.5f); else geiger = 0.0f;
+    }
+
+    float Cell::movementAmount() const noexcept
+    {
+        if (! alive) return 0.0f;
+        const float depth = genome.get (Trait::lfoDepth);
+        const float spread = genome.get (Trait::lfoRateSpread);
+        const float extra = 0.5f * (genome.get (Trait::vibrato) + genome.get (Trait::tremolo))
+                          + genome.get (Trait::drift);
+        return clamp01 (0.45f * depth + 0.30f * spread + 0.25f * clamp01 (extra));
+    }
+
+    float Cell::overlaySample (float sr) noexcept
+    {
+        float out = 0.0f;
+
+        // ---- enzyme shimmer -------------------------------------------
+        // A bright, thin band of noise that rings just above the cell's own
+        // register, so it reads as "something is being dissolved" rather than
+        // as an extra voice.
+        if (sparkle > 1.0e-4f)
+        {
+            const float wn = cellNoise (noiseState);
+            const float wc = juce::jlimit (0.02f, 0.45f, 9000.0f * 2.0f / sr);
+            sparkleZ1 += wc * (wn - sparkleZ1 - sparkleZ2 * 0.35f);
+            sparkleZ2 += wc * sparkleZ1;
+            out += sparkleZ1 * sparkle * 0.22f;
+        }
+
+        // ---- Geiger clicks ---------------------------------------------
+        if (geiger > 1.0e-4f)
+        {
+            // Poisson-ish: a small per-sample chance of starting a click,
+            // scaled by how much radiation is still in the cell.
+            geigerState = geigerState * 1664525u + 1013904223u;
+            const float u = (float) (geigerState >> 8) * (1.0f / 16777216.0f);
+            if (u < geiger * 26.0f / sr)
+            {
+                clickEnv = 1.0f;
+                clickPhase = 0.0f;
+                geigerState = geigerState * 1664525u + 1013904223u;
+                clickRate = 1800.0f + (float) (geigerState >> 20) * 0.35f;
+            }
+
+            if (clickEnv > 1.0e-4f)
+            {
+                clickPhase += clickRate / sr;
+                if (clickPhase > 1.0f) clickPhase -= std::floor (clickPhase);
+                const float tick = std::sin (clickPhase * juce::MathConstants<float>::twoPi);
+                out += tick * clickEnv * clickEnv * 0.12f;
+                clickEnv *= 0.9985f - 0.0035f;      // ~2 ms tick
+            }
+            else clickEnv = 0.0f;
+        }
+
+        return out;
     }
 
     void Cell::updateLifecycle (double dt, float envStress, float nutrients,
@@ -165,20 +263,51 @@ namespace mutagen
         const int   nS = out.getNumSamples();
         const float sr = (float) sampleRate;
         const float g  = genome.expressed (Trait::pitch, envStress);
+        const WorldSeed& W = worldOrDefault();
 
         float* outL = out.getWritePointer (0);
         float* outR = out.getNumChannels() > 1 ? out.getWritePointer (1) : outL;
         float* excL = exc.getWritePointer (0);
         float* excR = exc.getNumChannels() > 1 ? exc.getWritePointer (1) : excL;
 
-        const float targetPan = juce::jlimit (-0.95f, 0.95f, (x - 0.5f) * 1.7f);
+        // ---- modulation for this block -----------------------------------
+        auto md = [this] (ModDest d) { return juce::jlimit (-1.5f, 1.5f, mod.get (d)); };
+
+        const float mPitch  = md (ModDest::pitch);
+        const float mAmp    = md (ModDest::amp);
+        const float mForm   = md (ModDest::formant);
+        const float mBright = md (ModDest::brightness);
+        const float mPan    = md (ModDest::pan);
+        const float mDens   = md (ModDest::density);
+        const float mRes    = md (ModDest::resonance);
+        const float mRate   = md (ModDest::grainRate);
+        const float mDet    = md (ModDest::detune);
+
+        // The catalyst rides on top of everything: a fast, obvious pitch
+        // excursion that decays away over a couple of seconds.
+        const float catSemis = catalystAmount > 0.0f
+            ? std::sin (catalystPhase * juce::MathConstants<float>::twoPi) * catalystAmount * 9.0f
+            : 0.0f;
+
+        const float pitchSemis = mPitch * 5.0f + catSemis;
+        const float ampScale   = juce::jlimit (0.25f, 1.6f, 1.0f + 0.45f * mAmp);
+
+        const float targetPan = juce::jlimit (-0.95f, 0.95f,
+                                              (x - 0.5f) * 1.7f + mPan * 0.5f);
         const float panCoeff  = 1.0f - std::exp (-1.0f / (0.010f * sr));
         const float ampCoeff  = 1.0f - std::exp (-1.0f / (0.005f * sr));
         const bool  destab    = infection == Infection::destabilise;
-        const float targetAmp = stageGain * extGain * (0.85f - (destab ? 0.4f * infectionLoad : 0.0f));
+        const float targetAmp = stageGain * extGain * ampScale
+                              * (0.85f - (destab ? 0.4f * infectionLoad : 0.0f));
 
-        const float depthCut = 300.0f + (1.0f - y) * 9000.0f;
+        // Brightness modulation moves the one-pole "depth" filter, which is
+        // the cheapest place to hear a slow lane doing its work.
+        const float brightShift = std::pow (2.0f, mBright * 1.6f);
+        const float depthCut = juce::jlimit (120.0f, sr * 0.45f,
+                                             (300.0f + (1.0f - y) * 9000.0f) * brightShift);
         const float depthA   = std::exp (-2.0f * juce::MathConstants<float>::pi * depthCut / sr);
+
+        const bool wantOverlay = (sparkle > 1.0e-4f) || (geiger > 1.0e-4f);
 
         if (species == Species::grain)
         {
@@ -186,13 +315,17 @@ namespace mutagen
             float dirSign = dirGene < 0.5f ? -1.0f : 1.0f;
             if (infection == Infection::reverse && infectionLoad > 0.5f) dirSign = -dirSign;
 
-            const float semis    = (g - 0.5f) * 48.0f;
-            const float rate     = semisToRatio (semis);
+            const float semis    = (g - 0.5f) * 48.0f + pitchSemis;
+            // grainRate modulation is separate from pitch: it slides the
+            // playback speed of the loop rather than transposing the grain.
+            const float rate     = semisToRatio (semis) * std::pow (2.0f, mRate * 0.8f);
             const float grainMs  = 5.0f + 245.0f * std::pow (genome.get (Trait::duration), 2.0f);
             const int   grainLen = juce::jmax (32, (int) (grainMs * 0.001f * sr));
-            const float hop      = juce::jmax (0.05f, 1.0f - genome.get (Trait::density)) * (float) grainLen;
+            const float densMod  = juce::jlimit (0.0f, 1.0f,
+                                                 genome.get (Trait::density) + mDens * 0.35f);
+            const float hop      = juce::jmax (0.05f, 1.0f - densMod) * (float) grainLen;
             const int   nSrc     = juce::jmax (2, src.numSamples());
-            const float jitter   = destab ? infectionLoad * 0.06f : 0.0f;
+            const float jitterAmt = (destab ? infectionLoad * 0.06f : 0.0f);
             const float phaseInc = 1.0f / (float) grainLen;
 
             for (int n = 0; n < nS; ++n)
@@ -209,7 +342,8 @@ namespace mutagen
                     }
                     const float win = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * grainPhase[gr]);
                     s += win * src.readInterp (grainReadPos[gr]);
-                    const float rr = rate * (1.0f + jitter * std::sin ((float) grainReadPos[gr] * 0.001f));
+                    const float rr = rate * (1.0f + jitterAmt * std::sin ((float) grainReadPos[gr] * 0.001f)
+                                                  + mod.jitter() * 0.02f);
                     grainReadPos[gr] += (double) (rr * dirSign);
                     grainPhase[gr]   += phaseInc;
                 }
@@ -217,6 +351,8 @@ namespace mutagen
 
                 toneZ = s + depthA * (toneZ - s);
                 s = toneZ;
+
+                if (wantOverlay) s += overlaySample (sr);
 
                 panSmoothed += (targetPan - panSmoothed) * panCoeff;
                 ampSmoothed += (targetAmp - ampSmoothed) * ampCoeff;
@@ -228,22 +364,47 @@ namespace mutagen
         }
         else if (species == Species::spectral)
         {
-            const float baseHz   = juce::jlimit (25.0f, 6000.0f, midiToHz (24.0f + g * 90.0f));
-            const int   nPart    = juce::jlimit (2, maxPartials,
-                                     2 + (int) (genome.get (Trait::density) * (maxPartials - 2)));
-            const float bright   = genome.expressed (Trait::brightness, envStress);
-            const float tilt     = 1.7f - bright * 1.5f;
-            const float noiseMix = clamp01 (genome.get (Trait::noiseColour) * (0.35f + 0.65f * src.noisiness));
-            float formantHz      = juce::jlimit (150.0f, 5000.0f,
-                                     150.0f + genome.expressed (Trait::formant, envStress) * 4000.0f);
+            // The world decides the tuning. Quantise the *unmodulated* pitch so
+            // the cell sits in the world's scale, then apply modulation on top
+            // as a continuous ratio - otherwise vibrato would stair-step.
+            float baseHz = juce::jlimit (25.0f, 6000.0f, midiToHz (24.0f + g * 90.0f));
+            baseHz = juce::jlimit (25.0f, 6000.0f, W.quantise (baseHz));
+            baseHz *= semisToRatio (pitchSemis);
+            baseHz = juce::jlimit (20.0f, 7000.0f, baseHz);
+
+            const float densMod = juce::jlimit (0.0f, 1.0f,
+                                                genome.get (Trait::density) + mDens * 0.3f);
+            const int   nPart   = juce::jlimit (2, maxPartials,
+                                     2 + (int) (densMod * (maxPartials - 2)));
+            const float bright  = juce::jlimit (0.0f, 1.0f,
+                                    genome.expressed (Trait::brightness, envStress) + mBright * 0.25f);
+            const float tilt    = 1.7f - bright * 1.5f;
+
+            // The world's noise ceiling is a hard cap. A cell may be grainy or
+            // breathy; it may not become a noise generator, because a colony of
+            // noise generators is the one outcome that is never interesting.
+            const float noiseMix = juce::jlimit (0.0f, W.noiseCeiling,
+                                     genome.get (Trait::noiseColour) * (0.35f + 0.65f * src.noisiness));
+
+            float formantHz = juce::jlimit (150.0f, 5000.0f,
+                                150.0f + genome.expressed (Trait::formant, envStress) * 4000.0f);
+            formantHz *= std::pow (2.0f, mForm * 1.1f);
+            formantHz = juce::jlimit (120.0f, 6000.0f, formantHz);
+
             if (infection == Infection::vocalise)
                 formantHz = formantHz * (1.0f - infectionLoad) + 850.0f * infectionLoad;
-            const float inharm   = (infection == Infection::metallize) ? infectionLoad * 0.10f : 0.0f;
+            const float inharm = (infection == Infection::metallize) ? infectionLoad * 0.10f : 0.0f;
+
+            // Detune modulation spreads the partials apart and back together,
+            // which is the chorusing "breathing" of the spectral species.
+            const float detune = mDet * 0.012f + genome.get (Trait::jitter) * 0.004f;
 
             for (int k = 0; k < nPart; ++k)
             {
-                const float ratio = (float) (k + 1) * std::pow (1.0f + inharm, (float) k);
-                const float f     = baseHz * ratio;
+                const float ratio = W.partialRatio (k)
+                                  * std::pow (1.0f + inharm, (float) k)
+                                  * (1.0f + detune * (float) k);
+                const float f     = juce::jlimit (10.0f, sr * 0.47f, baseHz * ratio);
                 partialInc[k] = juce::MathConstants<float>::twoPi * f / sr;
                 float amp = std::pow ((float) (k + 1), -tilt);
                 const float df = (f - formantHz) / (formantHz * 0.35f + 1.0f);
@@ -255,7 +416,8 @@ namespace mutagen
             ampNorm = ampNorm > 0.0f ? 1.0f / ampNorm : 1.0f;
 
             const float wc = bpCoeff (formantHz, sr);
-            const float q  = 0.5f + 8.0f * genome.get (Trait::resonance);
+            const float q  = 0.5f + 8.0f * juce::jlimit (0.0f, 1.0f,
+                                    genome.get (Trait::resonance) + mRes * 0.25f);
 
             for (int n = 0; n < nS; ++n)
             {
@@ -279,6 +441,8 @@ namespace mutagen
                 toneZ = s + depthA * (toneZ - s);
                 s = toneZ;
 
+                if (wantOverlay) s += overlaySample (sr);
+
                 panSmoothed += (targetPan - panSmoothed) * panCoeff;
                 ampSmoothed += (targetAmp - ampSmoothed) * ampCoeff;
                 const float l = s * ampSmoothed * (0.5f - 0.5f * panSmoothed) * 0.6f;
@@ -289,16 +453,25 @@ namespace mutagen
         }
         else // resonator
         {
-            const float baseHz = juce::jlimit (20.0f, 2500.0f, midiToHz (12.0f + g * 84.0f));
-            const float res    = genome.expressed (Trait::resonance, envStress);
+            float baseHz = juce::jlimit (20.0f, 2500.0f, midiToHz (12.0f + g * 84.0f));
+            baseHz = juce::jlimit (20.0f, 2500.0f, W.quantise (baseHz));
+            baseHz *= semisToRatio (pitchSemis);
+            baseHz = juce::jlimit (18.0f, 3000.0f, baseHz);
+
+            const float res    = juce::jlimit (0.0f, 1.0f,
+                                   genome.expressed (Trait::resonance, envStress) + mRes * 0.2f);
             const float decayG = genome.get (Trait::decayShape);
             const float rGain  = 0.90f + 0.0995f * res;
-            static const float ratios[maxModes] = { 1.0f, 2.01f, 2.99f, 4.21f, 5.44f, 7.13f };
             const float metal  = (infection == Infection::metallize) ? infectionLoad : 0.0f;
+            const float detune = mDet * 0.01f;
 
             for (int i = 0; i < maxModes; ++i)
             {
-                float f = baseHz * (ratios[i] + metal * (float) i * 0.15f) * (0.5f + res);
+                // The world's partial palette also sets the resonator's modes,
+                // so a "golden" world rings like a bell and a "harmonic" world
+                // rings like a string, using the same code.
+                float f = baseHz * W.partialRatio (i) * (1.0f + detune * (float) i)
+                          * (1.0f + metal * (float) i * 0.05f) * (0.5f + res);
                 f = juce::jlimit (20.0f, sr * 0.45f, f);
                 modeF[i]  = juce::MathConstants<float>::twoPi * f / sr;
                 modeFb[i] = juce::jlimit (0.80f, 0.9995f,
@@ -310,6 +483,7 @@ namespace mutagen
             for (int n = 0; n < nS; ++n)
             {
                 float in = 0.5f * (excL[n] + excR[n]) + selfNoise * cellNoise (noiseState);
+                if (wantOverlay) in += overlaySample (sr) * 0.6f;
 
                 float s = 0.0f;
                 for (int i = 0; i < maxModes; ++i)

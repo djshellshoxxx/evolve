@@ -70,6 +70,7 @@ target_sources(MUTAGEN PRIVATE
     Source/PluginEditor.cpp
     Source/Parameters.cpp
 
+    Source/Engine/Entropy.cpp
     Source/Engine/Genome.cpp
     Source/Engine/Cells.cpp
     Source/Engine/SourceAnalyzer.cpp

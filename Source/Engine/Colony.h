@@ -7,6 +7,7 @@
 #include "Cells.h"
 #include "Genome.h"
 #include "Environment.h"
+#include "WorldSeed.h"
 #include "SourceAnalyzer.h"
 #include "OrganismState.h"
 #include "Rng.h"
@@ -27,6 +28,12 @@ namespace mutagen
 
         void prepare (double sampleRate, int maxBlock, int maxCells);
         void reset();
+
+        // ---- per-run world -------------------------------------------------
+        /** Replace the world. Every cell holds a pointer to the colony's copy,
+            so this re-points them all; safe on the audio thread. */
+        void setWorld (const WorldSeed& w);
+        const WorldSeed& getWorld() const { return world; }
 
         // ---- seeding -------------------------------------------------------
         /** Take ownership of new source material (called on audio thread with a
@@ -115,6 +122,7 @@ namespace mutagen
         std::unique_ptr<SourceMaterial> src;
 
         Environment env;
+        WorldSeed world { WorldSeed::fromSeed (0x51ED5EEDULL) };
         Rng   rng;
         uint64_t colonySeed = 0x1234ABCDULL;
 

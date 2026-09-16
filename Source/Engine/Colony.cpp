@@ -25,7 +25,7 @@ namespace mutagen
         // always allocate the absolute maximum so CPU-quality changes only move
         // a soft cap and never reallocate on the audio thread.
         cells.assign ((size_t) EngineSnapshot::maxCells, Cell {});
-        for (auto& c : cells) { c.prepare (sr); c.alive = false; }
+        for (auto& c : cells) { c.prepare (sr); c.setWorld (&world); c.alive = false; }
 
         excBuffer.setSize (2, maxBlockSize);
         workBuffer.setSize (2, maxBlockSize);
@@ -50,6 +50,14 @@ namespace mutagen
         for (auto& n : noteGroup) n = -1;
         noteActiveCount = 0;
         rng.seed (colonySeed);
+    }
+
+    void Colony::setWorld (const WorldSeed& w)
+    {
+        world = w;
+        // cells store a pointer into this object, so re-point rather than
+        // assuming the vector never moved.
+        for (auto& c : cells) c.setWorld (&world);
     }
 
     // ---------------------------------------------------------------------
@@ -576,6 +584,12 @@ namespace mutagen
                                                excBuffer.getNumChannels(), 0, chunk);
 
             const float stress = env.stress();
+
+            // Advance every cell's modulation bank once per chunk. This is the
+            // control-rate tick for the six LFO lanes, the drift walk and the
+            // decaying gesture effects.
+            for (auto& c : cells)
+                if (c.alive) c.advanceModulation ((float) dt);
 
             const bool isolate = isolation.active;
             for (auto& c : cells)
