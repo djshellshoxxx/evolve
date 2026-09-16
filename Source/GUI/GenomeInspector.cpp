@@ -117,6 +117,15 @@ namespace mutagen
             addAndMakeVisible (b);
 
         mutateBtn.onClick = [this] { mutateScope(); };
+        // Four buttons share one narrow row, so the captions have to fit the
+        // width the panel actually has; the tooltip carries the full meaning.
+        mutateBtn.setTooltip ("Mutate whatever is selected - a cell, a family, a "
+                              "species, or the whole colony.");
+        selectBtn.setTooltip ("Push the selected genome into the environment's selection "
+                              "targets, so the colony starts evolving toward it.");
+        lockAllBtn.setTooltip ("Lock every gene, so mutation leaves them alone.");
+        unlockAllBtn.setTooltip ("Unlock every gene.");
+
         selectBtn.onClick = [this]
         {
             EngineCommand c;

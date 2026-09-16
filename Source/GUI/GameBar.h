@@ -83,6 +83,10 @@ namespace mutagen
         juce::TextButton saveRun { "SAVE RUN" };
         juce::TextButton loadRun { "LOAD RUN" };
         juce::TextButton scores { "SCORES" };
+        // Where resized() left room for the entropy / mic read-out, so paint()
+        // draws it in the gap rather than underneath the bottom row.
+        juce::Rectangle<int> statusArea;
+
         juce::TextButton micArm { "ARM MIC" };
         juce::TextButton micCapture { "CAPTURE 4s" };
 

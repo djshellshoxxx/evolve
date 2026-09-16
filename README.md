@@ -106,6 +106,40 @@ colony already is. It takes *some* of the dropped sound's form, which is the poi
    capture, notches the offending frequency and ducks.
 3. A hard output ceiling underneath both.
 
+### Presets, files and the manual
+
+The header strip carries the chrome every plugin in this range has: the name on the
+left, and on the right the **FILE** menu, the preset selector, the **A/B** compare
+pair, the **options gear** and the **manual**.
+
+- **Presets** are the *environment*, not the organism — the conditions the colony
+  lives in. Loading one changes the world and lets the running colony react to it,
+  rather than replacing the thing that has been evolving. Twenty-odd factory presets in
+  six categories, plus your own in `%APPDATA%/MUTAGEN/Presets`.
+- **A/B** holds two whole parameter states and flips between them under the same living
+  colony. The first switch copies the slot you are leaving into the empty one, so there
+  is always something to compare against.
+- **RANDOM** re-rolls everything. The first press randomises from wherever you are;
+  every press after that resets to defaults first, so press two is a genuinely new world
+  rather than a drift away from press one. Output level, dry/wet, CPU budget and plugin
+  role are left alone — they are your setup, not the sound.
+- **RESET** returns every parameter, the history, the Breeding Lab, the source, the MIDI
+  mappings and the colony itself to factory state.
+- **Save / Open Run** (`.mutagen`) is the whole thing: parameters, the living colony, its
+  history, the score and the run statistics. **Export Audio** records what the colony
+  plays next to a WAV.
+- **Right-click any control** for *Set Value*, *Reset to Default* and *Map to MIDI*.
+  MIDI learn claims the first CC that moves, and that same message sets the value so the
+  gesture lands immediately. One parameter answers to one CC; mappings travel with the
+  plugin state.
+- **Hover anything** for a sentence explaining it. Turn tooltips off in Options if you
+  would rather not see them.
+- **Options** holds the interface switches, the MIDI mappings and — in the standalone —
+  the audio device, sample rate, buffer size and MIDI inputs. Inside a host that section
+  says plainly that the host owns the soundcard rather than showing controls that would
+  do nothing.
+- **Help** is the whole manual, in the plugin, with the version number in its footer.
+
 ---
 
 ## The score
@@ -248,10 +282,28 @@ Source/Engine/
   PostChain.*      the post-colony rack (filter, EQ, gator, glitch)
 
 Source/GUI/
+  MutagenLookAndFeel.* the house visual identity - palette, type, knobs, meters
+  TopBar.*         the house header (presets, A/B, options, help) + the run verbs
   CultureChamber.* the play surface
   WaveField.*      the 2-D wave simulation behind it
   ScoreHud.*       score, meters, event feed, high-score table, fractal ghost
   GameBar.*        the verbs and the gesture knobs
+  ParamControl.*   the right-click contract: set value, reset, map to MIDI
+  HelpView.*       the manual
+  OptionsView.*    tooltips, MIDI mappings, audio/MIDI devices
+  DeviceSetupHook.h  how the options page reaches the standalone's soundcard
+
+Source/
+  Parameters.*     the parameter surface
+  ParamHelp.cpp    one sentence per control, for the tooltips
+  AppOptions.h     per-machine settings (tooltips, device state)
+
+Source/Standalone/
+  DeviceSetup.cpp  compiled into the standalone only; installs the device selector
+
+Resources/
+  icon.png         the application icon
+  make_icon.py     the script that cuts it
 
 Tests/
   DivergenceTest.cpp   the measurement above

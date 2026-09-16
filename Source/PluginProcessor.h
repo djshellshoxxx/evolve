@@ -11,6 +11,8 @@
 #include "Engine/OrganismState.h"
 #include "Engine/PostChain.h"
 #include "Engine/Ingest.h"
+#include "Engine/MidiLearn.h"
+#include "Engine/PresetManager.h"
 
 namespace mutagen
 {
@@ -61,6 +63,13 @@ namespace mutagen
         EvolutionHistory history;
         BreedingLab      breedingLab;
         juce::MidiKeyboardState keyboardState;   // on-screen keyboard in the editor
+
+        /** CC -> parameter bindings made by right-clicking a control. Read on
+            the audio thread, written from the editor; see MidiLearn. */
+        MidiLearn      midiLearn;
+
+        /** The factory bank and the user's own presets. Message thread. */
+        PresetManager  presets { apvts };
 
         /** Latest visual snapshot for the GUI. Safe to call from the message
             thread; copies the most recently published buffer. */

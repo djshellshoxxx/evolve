@@ -28,6 +28,10 @@ MutagenProcessor::MutagenProcessor()
     colony.setWorld (WorldSeed::fromSeed (entropy.nextSeed()));
 
     history.clear();
+
+    // The MIDI map addresses parameters by index into this processor's
+    // parameter list, so it has to be built after the APVTS layout exists.
+    midiLearn.prepare (*this);
 }
 
 MutagenProcessor::~MutagenProcessor()
@@ -329,6 +333,12 @@ void MutagenProcessor::resetEverything()
     breedingLab.clear();
     organismName = "MUTAGEN";
 
+    // MIDI mappings are settings too, so RESET forgets them. The randomiser's
+    // history goes with them: after a reset, the next RANDOM should randomise
+    // from defaults rather than reset a second time.
+    midiLearn.clearAll();
+    presets.clearRandomHistory();
+
     // 3) source back to the factory primitive
     loadPrimitiveSource (params::SourceMode::primitiveTone, 3.0f);
 
@@ -589,9 +599,17 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         {
             pitchBendNorm = juce::jlimit (-1.0f, 1.0f, (m.getPitchWheelValue() - 8192) / 8192.0f);
         }
-        else if (m.isController() && m.getControllerNumber() == 1)
+        else if (m.isController())
         {
-            modWheelNorm = m.getControllerValue() / 127.0f;
+            const int cc = m.getControllerNumber();
+
+            if (cc == 1)
+                modWheelNorm = m.getControllerValue() / 127.0f;
+
+            // Learned mappings are handled after the mod wheel, not instead
+            // of it: mapping something to CC1 should not silently disable the
+            // mod wheel's own routing.
+            midiLearn.handleController (cc, m.getControllerValue());
         }
     }
     midi.clear();
@@ -852,6 +870,10 @@ void MutagenProcessor::getStateInformation (juce::MemoryBlock& destData)
 
     root.appendChild (history.toValueTree(), nullptr);
 
+    // MIDI mappings travel with the plugin state: they belong to this
+    // instance in this session, not to the machine.
+    root.appendChild (midiLearn.toValueTree(), nullptr);
+
     if (auto xml = root.createXml())
         copyXmlToBinary (*xml, destData);
 }
@@ -869,6 +891,11 @@ void MutagenProcessor::setStateInformation (const void* data, int sizeInBytes)
 
     if (auto evo = root.getChildWithName ("EVOLUTION"); evo.isValid())
         history.fromValueTree (evo);
+
+    if (auto midiMap = root.getChildWithName ("MIDIMAP"); midiMap.isValid())
+        midiLearn.fromValueTree (midiMap);
+    else
+        midiLearn.clearAll();
 
     const juce::String seedStr = root.getProperty ("seed").toString();
     if (seedStr.isNotEmpty())

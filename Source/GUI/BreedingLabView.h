@@ -39,8 +39,8 @@ namespace mutagen
 
         std::array<juce::ComboBox, 6> recipeBoxes;
         std::array<juce::Label, 6>    recipeLabels;
-        juce::ToggleButton autoRecombine { "Auto-recombine per gene" };
-        juce::Slider countSlider, mutationSlider, spreadSlider;
+        ParamToggle autoRecombine { "Auto-recombine per gene" };
+        ParamSlider countSlider, mutationSlider, spreadSlider;
         juce::Label  countLabel, mutationLabel, spreadLabel;
         juce::TextButton breedBtn { "BREED" };
         juce::TextButton closeBtn { "Close" };

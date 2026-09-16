@@ -1,5 +1,6 @@
 #include "FxRackView.h"
 #include "../PluginProcessor.h"
+#include "../Parameters.h"
 
 namespace mutagen
 {
@@ -177,29 +178,35 @@ namespace mutagen
         return k;
     }
 
-    juce::ToggleButton* FxRackView::addToggle (const juce::String& id, const juce::String& caption, juce::Colour tint)
+    ParamToggle* FxRackView::addToggle (const juce::String& id, const juce::String& caption, juce::Colour tint)
     {
-        auto* t = toggles.add (new juce::ToggleButton (caption));
+        auto* t = toggles.add (new ParamToggle (caption));
         t->getProperties().set ("tint", (int) tint.getARGB());
+        paramMenu::tag (*t, id);
+        t->setTooltip (params::describe (id));
         content->addAndMakeVisible (t);
         toggleAtt.add (new juce::AudioProcessorValueTreeState::ButtonAttachment (processor.apvts, id, *t));
         return t;
     }
 
-    juce::ComboBox* FxRackView::addCombo (const juce::String& id, const juce::StringArray& choices)
+    ParamCombo* FxRackView::addCombo (const juce::String& id, const juce::StringArray& choices)
     {
-        auto* c = combos.add (new juce::ComboBox());
+        auto* c = combos.add (new ParamCombo());
         c->addItemList (choices, 1);
+        paramMenu::tag (*c, id);
+        c->setTooltip (params::describe (id));
         content->addAndMakeVisible (c);
         comboAtt.add (new juce::AudioProcessorValueTreeState::ComboBoxAttachment (processor.apvts, id, *c));
         return c;
     }
 
-    juce::TextButton* FxRackView::addStep (const juce::String& id)
+    ParamButton* FxRackView::addStep (const juce::String& id)
     {
-        auto* b = steps.add (new juce::TextButton());
+        auto* b = steps.add (new ParamButton());
         b->setClickingTogglesState (true);
         b->getProperties().set ("tint", (int) nutrient.getARGB());
+        paramMenu::tag (*b, id);
+        b->setTooltip ("One step of the gate pattern. Right-click to map it to MIDI.");
         content->addAndMakeVisible (b);
         toggleAtt.add (new juce::AudioProcessorValueTreeState::ButtonAttachment (processor.apvts, id, *b));
         return b;

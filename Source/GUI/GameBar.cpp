@@ -201,27 +201,38 @@ namespace mutagen
 
         b.removeFromRight (10);
 
+        // The read-out gets its own strip: it used to be drawn at a fixed
+        // offset from the bottom edge, which the second row of buttons grew
+        // over once the bar ran the full width of the window.
+        statusArea = b.removeFromBottom (12);
+
         // two rows of verbs
         auto top = b.removeFromTop (b.getHeight() / 2).reduced (0, 2);
         auto bottom = b.reduced (0, 2);
 
-        auto lay = [] (juce::Rectangle<int>& row, juce::Component& c, int w)
+        /*  The widths below are the widths the labels want. The row is then
+            scaled to whatever width it actually has, so the strip fills the
+            window when there is room and shrinks rather than clipping its
+            right-hand end when there is not - RADIATE and the mic controls
+            used to fall off the edge at the minimum window size.            */
+        auto layRow = [] (juce::Rectangle<int> row,
+                          std::initializer_list<std::pair<juce::Component*, int>> items)
         {
-            c.setBounds (row.removeFromLeft (w).reduced (3, 0));
+            int wanted = 0;
+            for (const auto& [c, w] : items) wanted += w;
+            if (wanted <= 0) return;
+
+            const float scale = juce::jlimit (0.55f, 1.45f,
+                                              (float) row.getWidth() / (float) wanted);
+            for (const auto& [c, w] : items)
+                c->setBounds (row.removeFromLeft (juce::roundToInt (w * scale)).reduced (3, 0));
         };
 
-        lay (top, enzyme, 104);
-        lay (top, catalyst, 112);
-        lay (top, heat, 86);
-        lay (top, water, 92);
-        lay (top, radiate, 84);
+        layRow (top, { { &enzyme, 104 }, { &catalyst, 112 }, { &heat, 86 },
+                       { &water, 92 }, { &radiate, 84 } });
 
-        lay (bottom, newWorld, 96);
-        lay (bottom, saveRun, 84);
-        lay (bottom, loadRun, 84);
-        lay (bottom, scores, 74);
-        lay (bottom, micArm, 86);
-        lay (bottom, micCapture, 96);
+        layRow (bottom, { { &newWorld, 96 }, { &saveRun, 84 }, { &loadRun, 84 },
+                          { &scores, 74 }, { &micArm, 86 }, { &micCapture, 96 } });
     }
 
     void GameBar::paint (juce::Graphics& g)
@@ -241,9 +252,9 @@ namespace mutagen
             g.fillRoundedRectangle (b, 6.0f);
         }
 
-        // ---- entropy / mic read-out, bottom-right of the strip ----------
-        auto strip = juce::Rectangle<float> (b.getX() + 10.0f, b.getBottom() - 15.0f,
-                                             b.getWidth() - 200.0f, 12.0f);
+        // ---- entropy / mic read-out, in the strip resized() reserved ------
+        auto strip = statusArea.toFloat();
+        if (strip.isEmpty()) return;
 
         g.setFont (9.0f);
         g.setColour (text.withAlpha (0.4f));

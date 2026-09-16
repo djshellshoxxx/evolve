@@ -14,6 +14,8 @@
 #include "GUI/TopBar.h"
 #include "GUI/ScoreHud.h"
 #include "GUI/GameBar.h"
+#include "GUI/HelpView.h"
+#include "GUI/OptionsView.h"
 #include "Engine/ScoreSystem.h"
 #include "Engine/RenderEngine.h"
 
@@ -36,6 +38,8 @@ namespace mutagen
         void layoutMain();
 
         void wireGameLayer();
+        void wireChrome();
+        void applyTooltipSetting (bool enabled);
         void sendSimple (CommandType t);
         void saveRun();
         void loadRun();
@@ -54,13 +58,17 @@ namespace mutagen
         PerformanceView   performance;
         FxRackView        fxRack;
 
+        // ---- the chrome every plugin in the range carries ----
+        HelpView          helpView;
+        OptionsView       optionsView;
+        std::unique_ptr<juce::TooltipWindow> tooltips;
+
         // ---- the game layer ----
         ScoreSystem       scoreSystem;
         ScoreHud          scoreHud;
         GameBar           gameBar;
         uint64_t          lastRadiationCounter = 0;
 
-        juce::Label       renderStatus;
         RenderEngine      renderEngine;
         std::unique_ptr<juce::FileChooser> chooser;
 

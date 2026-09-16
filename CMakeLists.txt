@@ -61,6 +61,9 @@ juce_add_plugin(MUTAGEN
     COPY_PLUGIN_AFTER_BUILD   TRUE
     VST3_CATEGORIES           "Instrument" "Synth" "Fx"
     AU_MAIN_TYPE              kAudioUnitType_MusicDevice
+    # Every plugin in the range carries its own mark: MUTAGEN's is the petri
+    # dish and colony in Resources/icon.png, cut by Resources/make_icon.py.
+    ICON_BIG                  "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"
     PRODUCT_NAME             "MUTAGEN")
 
 juce_generate_juce_header(MUTAGEN)
@@ -69,6 +72,7 @@ target_sources(MUTAGEN PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/Parameters.cpp
+    Source/ParamHelp.cpp
 
     Source/Engine/Entropy.cpp
     Source/Engine/Descriptors.cpp
@@ -83,6 +87,7 @@ target_sources(MUTAGEN PRIVATE
     Source/Engine/RenderEngine.cpp
     Source/Engine/ScoreSystem.cpp
     Source/Engine/Ingest.cpp
+    Source/Engine/PresetManager.cpp
 
     Source/GUI/MutagenLookAndFeel.cpp
     Source/GUI/Widgets.cpp
@@ -97,9 +102,24 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/BreedingLabView.cpp
     Source/GUI/PerformanceView.cpp
     Source/GUI/FxRackView.cpp
-    Source/GUI/TopBar.cpp)
+    Source/GUI/TopBar.cpp
+    Source/GUI/ParamControl.cpp
+    Source/GUI/HelpView.cpp
+    Source/GUI/OptionsView.cpp
+    Source/GUI/DeviceSetupHook.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)
+
+# The options page shows the audio/MIDI device selector only where there is a
+# device manager to show - i.e. in the standalone app. The shared code cannot
+# see it (it is compiled once, with JucePlugin_Build_Standalone = 0), so the
+# standalone target compiles one extra file that installs a factory into
+# GUI/DeviceSetupHook.h. In a plugin build that factory stays empty and the
+# page says the host owns the soundcard, which there it does.
+if(MUTAGEN_BUILD_STANDALONE AND TARGET MUTAGEN_Standalone)
+    target_sources(MUTAGEN_Standalone PRIVATE Source/Standalone/DeviceSetup.cpp)
+    target_include_directories(MUTAGEN_Standalone PRIVATE Source)
+endif()
 
 target_compile_definitions(MUTAGEN PUBLIC
     JUCE_WEB_BROWSER=0

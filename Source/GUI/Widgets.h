@@ -3,12 +3,14 @@
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "MutagenLookAndFeel.h"
+#include "ParamControl.h"
 
 namespace mutagen
 {
     /*  A rotary slider with a caption underneath, wired to an APVTS parameter,
         carrying its own accent tint. The building block of every panel.        */
-    class LabeledKnob : public juce::Component
+    class LabeledKnob : public juce::Component,
+                        public juce::SettableTooltipClient
     {
     public:
         LabeledKnob (juce::AudioProcessorValueTreeState& state,
@@ -20,7 +22,7 @@ namespace mutagen
         void resized() override;
         void paint (juce::Graphics&) override;
 
-        juce::Slider slider;
+        ParamSlider slider;
 
     private:
         juce::Label label;

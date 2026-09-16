@@ -160,6 +160,11 @@ namespace mutagen::params
 
     juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
+    /** One sentence explaining a control, for the hover tooltips. Empty when
+        the parameter has no entry, in which case the caller should fall back
+        to the parameter's own name. Implemented in ParamHelp.cpp. */
+    juce::String describe (const juce::String& id);
+
     /*  primitiveTone is appended rather than inserted so that saved states
         keep referring to the same modes they were written with. */
     enum class SourceMode  { sample = 0, liveInput, primitiveNoise, primitiveImpulse,

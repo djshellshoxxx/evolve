@@ -28,9 +28,9 @@ namespace mutagen
         struct Canvas;
 
         LabeledKnob*      addKnob (const juce::String& id, const juce::String& caption, juce::Colour tint);
-        juce::ToggleButton* addToggle (const juce::String& id, const juce::String& caption, juce::Colour tint);
-        juce::ComboBox*   addCombo (const juce::String& id, const juce::StringArray& choices);
-        juce::TextButton* addStep (const juce::String& id);
+        ParamToggle*      addToggle (const juce::String& id, const juce::String& caption, juce::Colour tint);
+        ParamCombo*       addCombo (const juce::String& id, const juce::StringArray& choices);
+        ParamButton*      addStep (const juce::String& id);
 
         MutagenProcessor& processor;
 
@@ -39,9 +39,9 @@ namespace mutagen
         std::unique_ptr<Canvas> content;
 
         juce::OwnedArray<LabeledKnob> knobs;
-        juce::OwnedArray<juce::ToggleButton> toggles;
-        juce::OwnedArray<juce::ComboBox> combos;
-        juce::OwnedArray<juce::TextButton> steps;
+        juce::OwnedArray<ParamToggle> toggles;
+        juce::OwnedArray<ParamCombo>  combos;
+        juce::OwnedArray<ParamButton> steps;
         juce::OwnedArray<juce::AudioProcessorValueTreeState::SliderAttachment>  knobAtt;
         juce::OwnedArray<juce::AudioProcessorValueTreeState::ButtonAttachment>  toggleAtt;
         juce::OwnedArray<juce::AudioProcessorValueTreeState::ComboBoxAttachment> comboAtt;

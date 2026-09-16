@@ -1,4 +1,6 @@
 #include "Widgets.h"
+#include "../Parameters.h"
+#include "../AppOptions.h"
 
 namespace mutagen
 {
@@ -16,7 +18,13 @@ namespace mutagen
         slider.getProperties().set ("tint", (int) tint.getARGB());
         slider.setDoubleClickReturnValue (true, 0.0);
         slider.setVelocityBasedMode (false);
-        slider.setPopupDisplayEnabled (true, true, this);
+        // The house rule: the value appears over the knob while you hover or
+        // drag it, and the caption is what you see the rest of the time.
+        slider.setPopupDisplayEnabled (AppOptions::get().showValueOnHover(), true, this);
+
+        // Right-click gets Set Value / Reset / Map to MIDI, which needs the
+        // control to know which parameter it drives.
+        paramMenu::tag (slider, paramID);
         addAndMakeVisible (slider);
 
         label.setText (caption, juce::dontSendNotification);
@@ -27,6 +35,19 @@ namespace mutagen
 
         attach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>
                     (state, paramID, slider);
+
+        // Tooltip: the explanation if there is one, otherwise the host-facing
+        // parameter name, which at least says what it is.
+        auto help = params::describe (paramID);
+        if (help.isEmpty())
+            if (auto* rp = state.getParameter (paramID))
+                help = rp->getName (64);
+
+        if (help.isNotEmpty())
+        {
+            slider.setTooltip (help);
+            setTooltip (help);       // the caption underneath explains too
+        }
     }
 
     void LabeledKnob::resized()

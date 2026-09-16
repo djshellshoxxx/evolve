@@ -19,12 +19,23 @@ namespace mutagen
         accentColour = grain;
 
         sourceBox.addItemList (params::sourceModeChoices(), 1);
+        paramMenu::tag (sourceBox, params::sourceMode);
+        sourceBox.setTooltip (params::describe (params::sourceMode));
         addAndMakeVisible (sourceBox);
         sourceAttach = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
                         (p.apvts, params::sourceMode, sourceBox);
 
         for (auto* b : { &loadSampleBtn, &loadOrgBtn, &captureBtn, &germinateBtn, &randomBtn })
             addAndMakeVisible (b);
+
+        loadSampleBtn.setTooltip ("Read a WAV or AIFF from disk as the colony's food. "
+                                  "You can also drop files straight onto the dish.");
+        loadOrgBtn.setTooltip    ("Load a preserved organism and germinate from it "
+                                  "instead of from audio.");
+        captureBtn.setTooltip    ("Take the plugin's incoming audio as the source.");
+        germinateBtn.setTooltip  ("Kill the current colony and grow a new one from the "
+                                  "source above. This is the destructive one.");
+        randomBtn.setTooltip     ("A new random seed: the same source, a different colony.");
 
         germinateBtn.getProperties().set ("tint", (int) grain.getARGB());
         germinateBtn.onClick = [this] { germinate(); };

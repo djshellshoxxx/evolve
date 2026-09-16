@@ -281,6 +281,10 @@ Each milestone: implement → build → commit → push. Tick when pushed.
 - [x] **M7 — Ingestion.** Drag & drop samples eaten into the colony, multi-sample source pool,
       mic capture with feedback protection, radio-noise entropy tap. Req. 13-15.
 - [x] **M8 — Polish & extras.** Additional fun features, README rewrite, final tuning pass.
+- [x] **M9 — The house kit.** `theme.md` (the visual identity shared by every plugin in
+      the range) and `include.md` (the feature set every plugin must ship) applied in
+      full: look and feel, header, presets, help, options, right-click contract,
+      tooltips, random, reset, export, MIDI learn, and a project-specific icon.
 
 ---
 
@@ -462,3 +466,97 @@ human.
 
 Standalone at the end of M8: builds clean, launches, window created, responsive,
 ~0.81 cores, memory flat.
+
+
+### 2026-09-16 - session 2, M9: theme.md and include.md
+
+Two specification files arrived in the repo: `theme.md`, the visual identity shared by
+every plugin in the range, and `include.md`, the feature set every one of them has to
+ship. Part of the work was already on disk from the end of session 1 but was not in the
+build - `AppOptions.h`, `MidiLearn.h`, `PresetManager.*`, `HelpView.*`, `OptionsView.*`
+and `ParamControl.*` existed as files that nothing compiled or called. This session
+finished them and wired them in.
+
+**theme.md - the visual identity.** `MutagenLookAndFeel` now carries the house palette,
+the Inter / JetBrains Mono type scale with documented fallbacks, the 270-degree value
+arc drawn outside the knob body, the 4px-radius buttons with the 15%-accent on state,
+the teal-to-red meter gradient, the dark tooltip pill, and the two house marks: the 2px
+diagonal accent notch in the top-left and the version number in a 9px mono footer.
+The one licensed deviation is MUTAGEN's species hues, which are *data* colours - they
+encode which organism you are looking at, the way a chart's categorical palette encodes
+a series - so they sit outside the "re-tint one accent" rule rather than breaking it.
+
+**The header.** `TopBar` was rebuilt as two strips. The upper one is the 32px house
+header the spec defines - name on the left; FILE menu, preset selector with step
+arrows, A/B compare, options gear and manual on the right. The lower one is MUTAGEN's
+own: role, CPU budget, colony statistics, EXPLORING/PRESERVED and the run verbs. The
+split is deliberate: the header is a contract shared with the other plugins, and mixing
+this instrument's verbs into it would give each plugin a differently-shaped header.
+
+**include.md, item by item.**
+- *Help* - `HelpView`, fourteen sections, navigation on the left, definition lists on
+  the right, version in the footer. Its descriptions of ENZYME, CATALYST, HEAT, WATER
+  and RADIATE were wrong - inherited from an earlier design - and have been rewritten
+  against what `Colony.cpp` actually does, including RADIATE's 5/10/85.
+- *Icon* - `Resources/icon.png`, a petri dish and colony with the house notch, kept as
+  the script that cut it (`make_icon.py`) so the next plugin can start from the same
+  geometry with its own accent.
+- *Presets* - `PresetManager`, twenty-two factory presets in six categories. A preset
+  carries the parameter surface only: loading one changes the world the colony lives in
+  and lets it react, rather than replacing the thing that has been evolving. Saving the
+  organism as well is what a run file is for. Every preset resets to defaults first, so
+  a preset cannot inherit stray values from whatever was loaded before it.
+- *Reset* - already existed; it now also clears the MIDI map and the randomiser's
+  history.
+- *Save / Save As / Open / Options* - on the FILE menu, alongside the run files and the
+  audio export.
+- *Export audio* - the existing `RenderEngine`, reachable from both the verb strip and
+  the menu.
+- *Right-click* - `paramMenu` gives Set Value, Reset to Default and Map to MIDI on every
+  control. Implemented by subclassing (`ParamSlider`/`ParamButton`/`ParamCombo`/
+  `ParamToggle`) rather than by a mouse listener, because a listener cannot stop
+  `juce::Slider` arming a right-drag first - a listener-based menu leaves every knob
+  jumping around underneath the menu it just opened.
+- *Tooltips* - `ParamHelp.cpp` holds one sentence per control, kept apart from
+  `createLayout()` because the layout is the contract with the host and this is prose
+  that will be reworded far more often. A `TooltipWindow` is created and destroyed
+  rather than hidden when the option is toggled, so "off" costs nothing.
+- *Random* - `PresetManager::randomise()`, first press from where you are, every press
+  after that from defaults. Output level, dry/wet, CPU budget and role are excluded:
+  they are the user's setup, not the sound.
+- *Progress file* - this document.
+
+**A/B compare** holds two whole parameter states and switches them under the same
+living colony. The first switch copies the slot being left into the empty one, so there
+is always something on the other side to compare against.
+
+**One real bug, found by looking at it.** The options page told standalone users they
+were running inside a host. Everything in `target_sources(MUTAGEN ...)` is compiled
+once into the shared code all three formats link, with `JucePlugin_Build_Standalone`
+= 0, so `#if`-ing on it in `OptionsView.cpp` could never be true - the device selector
+was unreachable in every build. Inverted the direction: `GUI/DeviceSetupHook.h` holds
+one factory slot, and `Standalone/DeviceSetup.cpp` - compiled into the standalone
+target only - fills it at static-initialisation time. The plugin builds never compile
+that file, the slot stays empty, and the page says the host owns the soundcard, which
+there is true.
+
+**The visuals have now been looked at.** Screen capture worked this session
+(`PrintWindow` with `PW_RENDERFULLCONTENT`; `SetForegroundWindow` is refused to a
+background process, so synthetic input has to go through `PostMessage` rather than
+`mouse_event`). Three layout faults were visible and are fixed:
+- The action bar was clipping RADIATE and the mic controls off its right-hand end at
+  anything near the minimum window size. It now runs the full width above the timeline
+  instead of sitting in the chamber's column, and its rows scale to the width they
+  have rather than using fixed button widths.
+- The entropy / mic read-out was drawn at a fixed offset from the bar's bottom edge,
+  which the second row of buttons grew over. `resized()` now reserves it a strip.
+- "Push Selection" did not fit its button and read as "USH SELECTIO". Shortened to
+  "Select", with the full meaning in the tooltip.
+
+Standalone and VST3 both build clean. Help, Options (with the device selector), the
+preset selector, A/B, RANDOM, RESET and the tooltips were each exercised in the running
+app and screenshotted.
+
+**Still not verified by eye:** the fractal-ghost reward (it is gated on sustained good
+play and a 30-70 s cooldown, so it did not appear during these sessions) and the
+high-score overlay.

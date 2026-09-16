@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "AppOptions.h"
 
 namespace mutagen
 {
@@ -49,7 +50,8 @@ namespace mutagen
           timeline (p),
           breedingLab (p),
           performance (p),
-          fxRack (p)
+          fxRack (p),
+          optionsView (p)
     {
         setLookAndFeel (&lnf);
 
@@ -63,10 +65,8 @@ namespace mutagen
         addChildComponent (performance);
         addChildComponent (fxRack);
 
-        renderStatus.setColour (juce::Label::textColourId, theme::spectral);
-        renderStatus.setJustificationType (juce::Justification::centredRight);
-        renderStatus.setFont (11.0f);
-        addAndMakeVisible (renderStatus);
+        addChildComponent (helpView);
+        addChildComponent (optionsView);
 
         addAndMakeVisible (gameBar);
         addAndMakeVisible (scoreHud);
@@ -79,6 +79,7 @@ namespace mutagen
         });
 
         wireGameLayer();
+        wireChrome();
 
         // ---- wiring ----
         chamber.onSelectionChanged = [this] (const Selection& s)
@@ -190,20 +191,60 @@ namespace mutagen
                 const auto f = fc.getResult();
                 if (f == juce::File{}) return;
 
-                renderStatus.setText ("rendering 12s ...", juce::dontSendNotification);
+                topBar.setStatus ("rendering 12s ...");
                 RenderEngine::Job job;
                 job.destination = f;
                 job.seconds = 12.0f;
                 renderEngine.onFinished = [this] (bool ok, juce::File out)
                 {
-                    renderStatus.setText (ok ? "saved " + out.getFileName()
-                                             : "render failed",
-                                          juce::dontSendNotification);
+                    topBar.setStatus (ok ? "saved " + out.getFileName()
+                                         : "render failed");
                 };
                 renderEngine.start (processor, job);
             });
     }
 
+
+    // =====================================================================
+    //  The chrome: help, options, tooltips
+    // =====================================================================
+
+    void MutagenEditor::applyTooltipSetting (bool enabled)
+    {
+        // The window is created and destroyed rather than hidden, because a
+        // live TooltipWindow keeps polling the mouse whether or not anything
+        // is shown, and "off" should cost nothing.
+        if (enabled && tooltips == nullptr)
+            tooltips = std::make_unique<juce::TooltipWindow> (this, theme::tooltipDelayMs);
+        else if (! enabled)
+            tooltips.reset();
+    }
+
+    void MutagenEditor::wireChrome()
+    {
+        applyTooltipSetting (AppOptions::get().tooltipsEnabled());
+
+        topBar.onHelp = [this]
+        {
+            const bool show = ! helpView.isVisible();
+            helpView.setVisible (show);
+            if (show) { optionsView.setVisible (false); helpView.toFront (true); }
+        };
+
+        topBar.onOptions = [this]
+        {
+            const bool show = ! optionsView.isVisible();
+            optionsView.setVisible (show);
+            if (show) { helpView.setVisible (false); optionsView.refresh(); optionsView.toFront (true); }
+        };
+
+        helpView.onClose    = [this] { helpView.setVisible (false); };
+        optionsView.onClose = [this] { optionsView.setVisible (false); };
+        optionsView.onTooltipsChanged = [this] (bool on) { applyTooltipSetting (on); };
+
+        topBar.onSaveRun = [this] { saveRun(); };
+        topBar.onLoadRun = [this] { loadRun(); };
+    }
 
     // =====================================================================
     //  The game layer
@@ -366,13 +407,12 @@ namespace mutagen
                     {
                         // Filing the run is also what puts it on the board.
                         scoreSystem.submit (juce::String (snapshot.worldName), snapshot);
-                        renderStatus.setText ("saved " + f.getFileName(),
-                                              juce::dontSendNotification);
+                        topBar.setStatus ("saved " + f.getFileName());
                         scoreHud.setTableVisible (true);
                         return;
                     }
                 }
-                renderStatus.setText ("could not save", juce::dontSendNotification);
+                topBar.setStatus ("could not save");
             });
     }
 
@@ -391,12 +431,12 @@ namespace mutagen
                 if (f == juce::File{} || ! f.existsAsFile()) return;
 
                 auto xml = juce::XmlDocument::parse (f);
-                if (xml == nullptr) { renderStatus.setText ("bad file", juce::dontSendNotification); return; }
+                if (xml == nullptr) { topBar.setStatus ("bad file"); return; }
 
                 auto run = juce::ValueTree::fromXml (*xml);
                 if (! run.hasType ("MUTAGEN_RUN"))
                 {
-                    renderStatus.setText ("not a MUTAGEN run", juce::dontSendNotification);
+                    topBar.setStatus ("not a MUTAGEN run");
                     return;
                 }
 
@@ -408,7 +448,7 @@ namespace mutagen
                 }
 
                 timeline.refresh();
-                renderStatus.setText ("loaded " + f.getFileName(), juce::dontSendNotification);
+                topBar.setStatus ("loaded " + f.getFileName());
             });
     }
 
@@ -478,10 +518,18 @@ namespace mutagen
     void MutagenEditor::layoutMain()
     {
         auto r = getLocalBounds();
-        r.removeFromTop (48);                     // topbar
+        r.removeFromTop (TopBar::totalHeight);
         r.removeFromBottom (134);                 // timeline
 
         auto mid = r.reduced (8);
+
+        // The action bar runs the full width above the timeline rather than
+        // sitting under the chamber alone: eleven verbs and three knobs do not
+        // fit in a column, and at the minimum window size they were clipping
+        // off the right-hand end.
+        gameBar.setBounds (mid.removeFromBottom (94));
+        mid.removeFromBottom (8);
+
         germination.setBounds (mid.removeFromLeft (240));
         mid.removeFromLeft (8);
         environment.setBounds (mid.removeFromRight (306));
@@ -493,10 +541,6 @@ namespace mutagen
             mid.removeFromRight (8);
         }
 
-        // The action strip sits directly under the chamber, where the player's
-        // attention already is.
-        gameBar.setBounds (mid.removeFromBottom (86));
-        mid.removeFromBottom (6);
         chamber.setBounds (mid);
         scoreHud.setBounds (chamber.getBounds());
         scoreHud.toFront (false);
@@ -506,16 +550,30 @@ namespace mutagen
     {
         auto r = getLocalBounds();
 
-        topBar.setBounds (r.removeFromTop (48));
-        renderStatus.setBounds (getWidth() - 260, 2, 250, 14);
+        topBar.setBounds (r.removeFromTop (TopBar::totalHeight));
 
         timeline.setBounds (r.removeFromBottom (134).reduced (8, 6));
 
         layoutMain();
 
-        const auto overlay = juce::Rectangle<int> (0, 48, getWidth(), getHeight() - 48);
+        const auto overlay = juce::Rectangle<int> (0, TopBar::totalHeight, getWidth(),
+                                                   getHeight() - TopBar::totalHeight);
         breedingLab.setBounds (overlay.reduced (24));
         performance.setBounds (overlay.reduced (24));
         fxRack.setBounds (overlay.reduced (16));
+
+        // Help and options are read, not played with, so they are narrower
+        // than the working views and centred rather than filling the window.
+        // Options is given the taller box: in the standalone it carries the
+        // whole audio/MIDI device selector, and cutting the MIDI input list
+        // in half is the one thing that page must not do.
+        auto centred = [overlay] (int wantW, int wantH)
+        {
+            return overlay.reduced (juce::jmax (24, (overlay.getWidth()  - wantW) / 2),
+                                    juce::jmax (12, (overlay.getHeight() - wantH) / 2));
+        };
+
+        helpView.setBounds (centred (980, 720));
+        optionsView.setBounds (centred (980, 860));
     }
 }

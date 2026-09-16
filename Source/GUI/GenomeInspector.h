@@ -34,7 +34,7 @@ namespace mutagen
 
         juce::Label     scopeLabel;
         juce::TextButton mutateBtn { "Mutate" };
-        juce::TextButton selectBtn { "Push Selection" };
+        juce::TextButton selectBtn { "Select" };
         juce::TextButton lockAllBtn { "Lock All" };
         juce::TextButton unlockAllBtn { "Unlock" };
 

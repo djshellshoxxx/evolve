@@ -25,7 +25,7 @@ namespace mutagen
 
         MutagenProcessor& processor;
 
-        juce::ComboBox sourceBox;
+        ParamCombo sourceBox;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> sourceAttach;
 
         juce::TextButton loadSampleBtn { "Load Sample" };
