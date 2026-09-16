@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Engine/OrganismSerialization.h"
+#include "Engine/Entropy.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <cmath>
 
@@ -12,9 +13,20 @@ MutagenProcessor::MutagenProcessor()
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "MUTAGEN", params::createLayout())
 {
-    // a fresh, non-zero seed so a brand-new instance still evolves
-    const auto now = (uint64_t) juce::Time::getHighResolutionTicks();
-    colony.setSeed (0x9E3779B97F4A7C15ULL ^ (now * 0xD1B54A32D192ED03ULL));
+    /*  Seed from harvested entropy rather than from the clock alone.
+
+        A clock-seeded PRNG gives every instance the same statistical
+        character, which is part of why two runs used to feel related. The
+        pool mixes std::random_device, timer jitter and - once audio starts
+        flowing - the noise floor of whatever is plugged into the input.     */
+    auto& entropy = globalEntropy();
+    entropy.addEvent ((uint64_t) (uintptr_t) this);
+    colony.setSeed (entropy.nextSeed());
+
+    // And a fresh world: the tuning, the partial palette, the tempo of life
+    // and the modulation topology are all re-rolled per instance.
+    colony.setWorld (WorldSeed::fromSeed (entropy.nextSeed()));
+
     history.clear();
 }
 
@@ -330,6 +342,14 @@ void MutagenProcessor::resetEverything()
     hostTimeSeconds = 0.0;
 }
 
+void MutagenProcessor::rollNewWorld()
+{
+    EngineCommand c;
+    c.type = CommandType::newWorld;
+    c.u64  = globalEntropy().nextSeed();
+    pushCommand (c);
+}
+
 // ---------------------------------------------------------------------------
 
 bool MutagenProcessor::pushCommand (const EngineCommand& c)
@@ -467,9 +487,37 @@ void MutagenProcessor::applyCommand (const EngineCommand& c)
             colony.allNotesOff();
             colony.clearAll();
             colony.setSeed (c.u64 != 0 ? c.u64 : 0x1234ABCDULL);
+            // A reset is a new run, so it gets new rules too - otherwise every
+            // reset would rediscover the same instrument.
+            colony.setWorld (WorldSeed::fromSeed (c.u64 ^ 0xD1B54A32D192ED03ULL));
             colony.reset();
             colony.germinateFromSource (*p (params::initialPopulation), *p (params::distGrain),
                                         *p (params::distSpectral), *p (params::distResonator));
+            captureRequest.store (true);
+            break;
+
+        // ---- the game layer ---------------------------------------------
+        case CommandType::mutateAt:
+            colony.mutateAt (c.fa, c.fb, c.fc > 0.0f ? c.fc : 0.18f,
+                             c.fd > 0.0f ? c.fd : 0.6f);
+            break;
+
+        case CommandType::subtractAt:
+            colony.subtractAt (c.fa, c.fb, c.fc > 0.0f ? c.fc : 0.18f,
+                               c.fd > 0.0f ? c.fd : 0.6f);
+            break;
+
+        case CommandType::addEnzyme:   colony.addEnzyme(); break;
+        case CommandType::addCatalyst: colony.addCatalyst(); break;
+        case CommandType::addHeat:     colony.addHeat (c.fa >= 0.0f ? 1.0f : -1.0f); break;
+
+        case CommandType::radiate:
+            radiationOutcome.store (colony.radiate());
+            radiationStamp.fetch_add (1);
+            break;
+
+        case CommandType::newWorld:
+            colony.setWorld (WorldSeed::fromSeed (c.u64));
             captureRequest.store (true);
             break;
     }
@@ -563,6 +611,11 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     // feed the live-capture ring (input if present, otherwise the output later)
     if (totalIn > 0)
     {
+        // The radio-noise tap. Whatever is on the input - an untuned radio, an
+        // SDR, a hissing preamp, a mic in a quiet room - its converter noise
+        // floor is a physical entropy source, and feedAudio() is wait-free.
+        globalEntropy().feedAudio (buffer.getReadPointer (0), numSamples);
+
         const float* src0 = buffer.getReadPointer (0);
         const int rn = captureRing.getNumSamples();
         float* rd = captureRing.getWritePointer (0);

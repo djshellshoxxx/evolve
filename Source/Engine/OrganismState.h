@@ -97,6 +97,7 @@ namespace mutagen
     {
         static constexpr int maxCells = 128;
         static constexpr int maxArcs  = 32;
+        static constexpr int spectrumBins = 64;
 
         int      count = 0;
         CellView cells[maxCells] {};
@@ -120,6 +121,46 @@ namespace mutagen
 
         int     arcCount = 0;
         GeneArc arcs[maxArcs] {};
+
+        // ---- measured audio (see Descriptors.h) -------------------------
+        //  These drive the game layer: greyness desaturates the visuals,
+        //  variety sets how fast the score climbs, noiseLocked freezes it.
+        float flatness   = 0.25f;
+        float centroid   = 0.35f;
+        float flux       = 0.0f;
+        float roughness  = 0.15f;
+        float tonalness  = 0.75f;
+        float variety    = 0.5f;
+        float appeal     = 0.5f;
+        float greyness   = 0.0f;
+        bool  noiseLocked = false;
+        bool  stuck       = false;
+
+        // ---- gesture feedback ---------------------------------------------
+        float sparkleField   = 0.0f;   // ENZYME shimmer
+        float catalystField  = 0.0f;   // CATALYST wobble
+        float radiationFlash = 0.0f;   // RADIATE red flash
+        float thermalField   = 0.0f;   // -1 water .. +1 heat
+        int   lastRadiation  = 0;      // -1 fatal, 0 nothing, +1 gift
+
+        // ---- evolution telemetry -----------------------------------------
+        float novelty    = 0.5f;      // mean novelty of the living population
+        float coverage   = 0.0f;      // fraction of the MAP-Elites grid filled
+        float stagnation = 0.0f;      // 0 moving .. 1 flat-lined
+        int   nicheCount = 4;
+
+        // ---- per-run identity ---------------------------------------------
+        char  worldName[32] { "WORLD" };
+        float worldHue = 0.0f;        // the run's signature colour
+
+        // ---- island positions, for the visualiser -------------------------
+        static constexpr int maxNiches = 8;
+        float nicheX[maxNiches] {};
+        float nicheY[maxNiches] {};
+        float nicheHue[maxNiches] {};
+
+        // ---- live spectrum -------------------------------------------------
+        float spectrum[spectrumBins] {};
     };
 
     // =====================================================================
@@ -152,7 +193,16 @@ namespace mutagen
         breedInject,        // payload organism (a bred specimen back into colony)
         captureGeneration,  // push an OrganismState to the history FIFO
         noteBurst,          // ia = midiNote, fa = velocity  (also handled via MIDI)
-        hardReset           // u64 = new seed; wipes colony & regrows from source
+        hardReset,          // u64 = new seed; wipes colony & regrows from source
+
+        // ---- the game layer -------------------------------------------
+        mutateAt,           // fa=x fb=y fc=radius fd=strength - left click / drag wave
+        subtractAt,         // fa=x fb=y fc=radius fd=strength - right click damage
+        addEnzyme,          // sparkles + a usually-beneficial subtraction
+        addCatalyst,        // fast pitch wobble that quietly removes something
+        addHeat,            // fa = +1 heat / -1 water
+        radiate,            // 5% fatal, 10% gift, 85% shrug
+        newWorld            // u64 = world seed; re-rolls the rules of the run
     };
 
     enum class ScopeLevel : int { colony = 0, species, family, cell };
@@ -163,7 +213,7 @@ namespace mutagen
         ScopeLevel  scope = ScopeLevel::colony;
         int      scopeId  = 0;      // species id / family id / cell slot
         int      ia = 0, ib = 0;
-        float    fa = 0.0f, fb = 0.0f;
+        float    fa = 0.0f, fb = 0.0f, fc = 0.0f, fd = 0.0f;
         uint32_t traitMask = 0;
         uint64_t u64 = 0;
         int      payloadIndex = -1; // index into the processor's payload ring

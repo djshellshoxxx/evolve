@@ -176,6 +176,23 @@ namespace mutagen
 
         std::atomic<bool> exploringFlag { true };
 
+        // RADIATE result, published back to the message thread so the score and
+        // the HUD can react to a 5% catastrophe or a 10% gift.
+        std::atomic<int>      radiationOutcome { 0 };
+        std::atomic<uint64_t> radiationStamp   { 0 };
+
+    public:
+        /** Most recent RADIATE outcome (-1 fatal, 0 nothing, +1 gift) and a
+            counter that increments each time one lands, so the editor can tell
+            a new result from a repeat of the last one. */
+        int      lastRadiationOutcome() const { return radiationOutcome.load(); }
+        uint64_t radiationCounter() const { return radiationStamp.load(); }
+
+        /** Re-roll the rules of the run (tuning, palette, tempo, routing). */
+        void rollNewWorld();
+
+    private:
+
         // scratch
         juce::AudioBuffer<float> dryScratch;
 

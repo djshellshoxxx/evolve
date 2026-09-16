@@ -8,6 +8,8 @@
 #include "Genome.h"
 #include "Environment.h"
 #include "WorldSeed.h"
+#include "Novelty.h"
+#include "Descriptors.h"
 #include "SourceAnalyzer.h"
 #include "OrganismState.h"
 #include "Rng.h"
@@ -94,6 +96,43 @@ namespace mutagen
 
         void writeSnapshot (EngineSnapshot& snap) const;
 
+        // ---- measured state -------------------------------------------
+        const AudioDescriptors& descriptors() const { return analyser.current(); }
+        const float* spectrum() const { return analyser.spectrum(); }
+        float archiveCoverage() const { return elites.coverage(); }
+        float stagnationLevel() const { return stagnation.stagnation(); }
+
+        /** Pushes the colony hard in a direction the user asked for. Positive
+            amount = grow/enrich, negative = strip/damage. Used by the click,
+            drag, enzyme, catalyst, heat, water and radiate interactions. */
+        void userPressure (float nx, float ny, float radius, float amount);
+
+        /** Subtractive damage in a radius: removes elements rather than adding
+            them (right-click / right-drag). */
+        void subtractAt (float nx, float ny, float radius, float strength);
+
+        /** Additive mutation burst in a radius (left-click / drag wave). */
+        void mutateAt (float nx, float ny, float radius, float strength);
+
+        // ---- gesture buttons ------------------------------------------
+        /** Sparkles plus a usually-beneficial subtraction. Amount and effect
+            are re-rolled on every call. */
+        void addEnzyme();
+
+        /** A fast decaying pitch wobble that quietly removes something as it
+            fades. Amount, rate and victim are re-rolled on every call. */
+        void addCatalyst();
+
+        /** Speeds up (direction +1) or slows down (direction -1) one randomly
+            chosen thing: the oscillator, a modulation lane, or the loop. */
+        void addHeat (float direction);
+
+        /** Fixed odds: 5% fatal, 10% a gift, 85% a shrug. Returns -1, +1 or 0
+            so the score system can react. */
+        int  radiate();
+
+        int   lastRadiationOutcome() const { return lastRadiation; }
+
         // ---- identity ----------------------------------------------
         uint64_t seed() const { return colonySeed; }
         void     setSeed (uint64_t s) { colonySeed = s; rng.seed (s); }
@@ -105,7 +144,7 @@ namespace mutagen
         struct Isolation { bool active = false; ScopeLevel level = ScopeLevel::colony; int id = 0; };
 
         void ecologyTick (double dt);
-        void evaluateFitness();
+        void evaluateFitness (double dt);
         int  findFreeSlot();
         Cell* spawnChild (const Cell& parent);
         void  killSlot (int slot, bool violent);
@@ -113,6 +152,36 @@ namespace mutagen
         bool  inScope (const Cell& c, ScopeLevel lvl, int id) const;
         Genome selectionTargetGenome() const;
         void  pushArc (float x1, float y1, float x2, float y2, int kind);
+
+        // ---- anti-convergence --------------------------------------------
+        void   initNiches();
+        void   updateNiches (double dt);
+        int    nicheOf (const Cell& c) const;
+        float  genomeAppeal (const Genome& g) const;
+        Behaviour colonyMeanBehaviour() const;
+        void   injectElite (bool preferDistant);
+        void   mutationStorm();
+
+        // ---- homeostasis ---------------------------------------------------
+        void   noiseGuard (double dt);
+        void   boredomDrive (double dt);
+
+        int    livingSlots (int* out, int maxOut) const;
+
+        /*  A niche is an island: its own slowly wandering target genome. Cells
+            are selected toward *their* niche, never toward one colony-wide
+            optimum, which is what stopped the old build from converging on a
+            single timbre no matter what seed it started from.               */
+        struct Niche
+        {
+            Genome target;
+            float  cx = 0.5f, cy = 0.5f;     // where it sits in the chamber
+            float  hue = 0.0f;               // its colour in the visualiser
+            float  vitality = 1.0f;
+        };
+        static constexpr int maxNiches = 8;
+        Niche niches[maxNiches];
+        int   nicheCount = 4;
 
         std::vector<Cell> cells;
         int   maxCellCount = 56;
@@ -157,6 +226,33 @@ namespace mutagen
 
         float lastAvgFitness = 0.5f;
         float lastDiversity  = 0.5f;
+        float lastNovelty    = 0.5f;
+        float lastAppeal     = 0.5f;
+
+        NoveltyArchive    archive;
+        EliteGrid         elites;
+        StagnationDetector stagnation;
+        DescriptorAnalyser analyser;
+
+        // per-cell scratch for fitness sharing (fixed size, no allocation)
+        Behaviour behaviourOf[EngineSnapshot::maxCells];
+        float     noveltyOf[EngineSnapshot::maxCells] {};
+        int       noveltyCursor = 0;        // amortises the k-NN query
+
+        float noiseLockSeconds = 0.0f;      // how long we have been noise-locked
+        float stuckSeconds     = 0.0f;
+
+        // the user's current wish, decaying: >0 wants growth, <0 wants removal
+        float userIntent = 0.0f;
+        float userX = 0.5f, userY = 0.5f, userRadius = 0.3f;
+
+        // gesture feedback fields (decay; read into the snapshot)
+        float sparkleField   = 0.0f;   // enzyme
+        float catalystField  = 0.0f;   // catalyst
+        float radiationFlash = 0.0f;   // radiate - the red flash
+        float thermalField   = 0.0f;   // -1 cold (water) .. +1 hot (heat)
+        int   lastRadiation  = 0;
+        int   lastGesture    = 0;
         int   liveWritePos   = 0;
         float speciesGain[numSpecies] { 1.0f, 1.0f, 1.0f };
         float masterGain = 0.9f;

@@ -71,6 +71,7 @@ target_sources(MUTAGEN PRIVATE
     Source/Parameters.cpp
 
     Source/Engine/Entropy.cpp
+    Source/Engine/Descriptors.cpp
     Source/Engine/Genome.cpp
     Source/Engine/Cells.cpp
     Source/Engine/SourceAnalyzer.cpp

@@ -268,9 +268,9 @@ Each milestone: implement → build → commit → push. Tick when pushed.
 - [x] **M2 — Wobble.** Genome gains modulation traits; `ModBank` gives every cell octave-spaced
       LFOs from ~24 Hz to ~0.004 Hz routed to pitch/amp/formant/brightness/pan/density/resonance.
       Fixes C5, C6, satisfies req. 4/5.
-- [ ] **M3 — Anti-convergence.** Niche attractors (islands), fitness sharing, novelty term,
+- [x] **M3 — Anti-convergence.** Niche attractors (islands), fitness sharing, novelty term,
       MAP-Elites archive, stagnation→hypermutation. Fixes C1, C2, C4.
-- [ ] **M4 — Descriptors & homeostasis.** RT-safe spectral flatness / flux / centroid / roughness.
+- [x] **M4 — Descriptors & homeostasis.** RT-safe spectral flatness / flux / centroid / roughness.
       Anti-noise guard + anti-static "boredom" drive + appeal-seeking fitness. Req. 6/7/8.
 - [ ] **M5 — Score & persistence.** ScoreSystem, combo, events, freeze-on-noise, high-score table,
       save/load runs. Req. 16-21.
@@ -305,3 +305,43 @@ Each milestone: implement → build → commit → push. Tick when pushed.
   Builds clean (Release standalone, exit 0).
 - Next: M3 - replace the single global attractor in `Colony::ecologyTick` with niche attractors,
   novelty + fitness sharing, MAP-Elites re-seeding, stagnation storms. `Novelty.h` is written.
+- **M3 done.** `Novelty.h` wired in and `Colony` rebuilt around it:
+  - **Islands.** `Niche` structs (2-8 per world) each own a target genome that random-walks
+    independently and occasionally jumps. Founders are mutated copies of an island's target, not of
+    one source-derived baseline. Selection drift goes to a cell's *own* island and its coefficient
+    dropped from 0.25 to 0.11 - it nudges, it no longer herds.
+  - **Fitness sharing.** Cells within 0.18 of each other in behaviour space divide their fitness
+    through a triangular kernel, so a crowd is always worth less per head than an empty niche.
+  - **Novelty search.** k-NN (k=8) distance to a 192-entry rolling behaviour archive, amortised a
+    few cells per tick. Only genuinely new behaviours enter the archive, otherwise a static colony
+    fills it with copies of itself and everything reads as novelty zero.
+  - **MAP-Elites.** 6x5x4 grid over brightness/density/noise. Population rescues re-seed from the
+    *most distant* stored elite, replacing the old immigrant that was blended 60/40 back toward the
+    baseline - i.e. the old anti-convergence mechanism was itself converging.
+  - **Dispersal.** An explicit repulsive force: cells that sit within 0.12 of the colony mean get one
+    trait shoved. Selection is attractive; without this the population still slowly balls up.
+  - **Stagnation storms.** Two exponential averages at 3 s and 45 s; when they agree and both sit
+    low for 12 s, hypermutation fires, a third of the colony migrates between islands, and the
+    islands themselves are mutated.
+- **M4 done.** `Descriptors.{h,cpp}` - 1024-point FFT at a 512 hop computing spectral flatness
+  (Wiener entropy), centroid, positive-only flux, Plomp-Levelt/Sethares roughness over the 12
+  strongest peaks, tonalness, crest, long-window variety and stasis, and a combined `appeal`.
+  `noiseLocked` is hysteretic (engages at 2.2 s of sustained flatness, releases at 0.6 s) so a
+  musical burst of noise does not end a run. Colony consumes it:
+  - **noiseGuard** does nothing for the first 8 seconds of a lock - the player is meant to see the
+    colour drain, notice the score stopped and fix it. Only if they ignore it does the guard start
+    pulling survivors tonal and culling the noisiest cell. A backstop, not an autopilot.
+  - **boredomDrive** engages in 3 s, because a drone is boring immediately. It widens modulation
+    rather than changing timbre, so the sound the player built survives - it just starts moving.
+  - **appeal weight slides**: when the measured output is pleasant, novelty dominates and the colony
+    explores; as it drifts toward noise the appeal weight rises and pulls it back. Negative user
+    intent (right-click) inverts it, so damage is a legitimate direction when asked for.
+- **Gestures done** (engine half of M6): `addEnzyme`, `addCatalyst`, `addHeat(+/-1)` and `radiate`,
+  all re-rolling amount *and* effect per press except RADIATE, whose 5/10/85 odds are fixed because
+  it is the only one that can cost the whole run. Cells grew a shimmer band, a decaying pitch
+  excursion and a Poisson Geiger click train.
+- **Processor** now seeds both the colony and its WorldSeed from harvested entropy, taps the audio
+  input into the entropy pool every block, and routes the new commands.
+- Note: `cmake --build build --config Release --target MUTAGEN_Standalone` occasionally dies with
+  `CL.exe exited with code -1` under full parallelism on this machine; `-j 1` always completes.
+- Next: M5 (score + high-score table) and M6 (visuals, wave field, gesture knobs, fractal reward).
