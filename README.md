@@ -1,174 +1,267 @@
 # MUTAGEN
 
-**A hybrid VST3 / AU instrument & effect that treats sound as a living population
-rather than a signal passing through oscillators, filters and envelopes.**
+A sound colony you play like a game.
 
-You do not program a sound in MUTAGEN. You *plant* it, cultivate its environment,
-select what survives, and breed what comes next.
+MUTAGEN is a VST3 / AU / standalone instrument built around a population of small
+synthetic organisms. Each one is a cell with a genome, a lifespan and a voice. They
+breed, compete, infect each other, form symbioses and die, and what you hear is the
+population, not a patch. You do not edit a sound here — you keep an ecosystem
+interesting, and it scores you on how well you do it.
 
 ---
 
-## The idea
+## The problem this version exists to solve
 
-Every sound is a **colony** made of three interacting species of cell:
+The previous build had one fatal flaw: **every colony ended up sounding the same.**
+Changing the seed changed the route and not the destination.
 
-| Species | Colour | Carries |
+There were five reasons, and all five are gone:
+
+| | What was wrong | What replaced it |
 |---|---|---|
-| **Grain cells** | amber | fragments, attacks, textures, temporal detail |
-| **Spectral cells** | cyan / violet | harmonics, formants, noise bands, tonal identity |
-| **Resonator cells** | pale green | cavities, membranes, bodies, feedback structures |
+| 1 | One global attractor genome that every cell was dragged toward, every tick | Islands — 2–8 semi-isolated niches per world, each with a target that wanders independently |
+| 2 | Fitness defined as *closeness to that attractor*, so being average was optimal | Fitness sharing, novelty search and a MAP-Elites archive — crowding is now penalised |
+| 3 | Every founder derived from one seed genome computed from the source audio | Founders drawn from the islands, and the islands are re-rolled per run |
+| 4 | The diversity-rescue immigrant was blended 60/40 **back toward** the thing it was rescuing you from | Re-seeding from the most behaviourally *distant* stored elite |
+| 5 | Cells had no modulation at all — `renderAdd` was a pure function of the genome, so similar genomes were sample-identical | A six-lane LFO bank per cell, spread from ~0.003 Hz to 26 Hz |
 
-Each cell carries a compact **genome** of 20 traits governing its sound, lifespan,
-reproduction, movement, environmental response and relationships with other cells.
-Genes can be **dominant, recessive, dormant, or activated** by changing conditions,
-so one organism can express very different characteristics without losing its
-underlying identity.
+And one more that mattered as much as all of them combined: **the default source
+material was pink noise.** The grain species granulates the seed directly, so a noise
+seed gives noise regardless of how cleverly anything evolves. The default is now a
+tonal, harmonically rich seed.
 
-When audio enters MUTAGEN it is analysed for transients, tonal regions, noise,
-formants, amplitude contour and resonance, then divided among the three species.
-Cells germinate, grow, mature, reproduce, age, go dormant or undergo programmed
-death. Descendants inherit recognisable traits but may mutate. Cells **compete**
-for energy and frequency territory, **cooperate** through symbiosis, **consume**
-weaker populations, **spread infections**, and **exchange genes** across species.
-
-Evolution happens on two levels: individual notes grow and die as temporary
-organisms, while a persistent colony remembers successful traits across the
-performance — so repeated notes sound like *related descendants* rather than
-identical retriggers.
-
-## Guiding evolution
-
-The musician changes the **environment**, never a synthesis graph:
-
-- **Five large controls** — Nutrients, Mutation, Selection, Metabolism, Stability
-- **Deeper ecology** — Fertility, Mutation Depth, Radiation, Temperature,
-  Competition, Symbiosis, Lifespan, Apoptosis, Diversity, Migration
-- **Selection pressure** — favour dark / bright, sparse / dense, harmonic / noisy,
-  calm / aggressive, familiar / divergent
-- **Trait locks** — protect a desirable quality while everything else keeps evolving
-- **Explore vs Preserve** — discover new descendants on every playback, or freeze
-  the genome, population, seed and history for exact recall and rendering
-
-## The interface
-
-A dark biological laboratory viewed through an imaging system.
-
-- **Culture Chamber** (centre) — a *functional* read-out of the live engine. Grain
-  cells appear as amber fragment clusters, spectral cells as glowing orbs,
-  resonator cells as concentric membranes. Divisions, gene transfers, infections,
-  extinctions and selection-pressure fronts are all drawn as they happen.
-  Click a cell / family / species to select it; right-click to isolate, mute,
-  preserve, eliminate, inspect or send to the Breeding Lab; double-click empty
-  space to drop a seed.
-- **Germination** (left) — load a sample, capture live audio, choose a primitive
-  seed, or load a preserved organism; set capture length, transient sensitivity,
-  initial population and species distribution.
-- **Environment** (right) — the ecology controls above.
-- **Genome Inspector** — examine, edit, mutate, re-express or lock the inherited
-  traits of the whole colony, one species, or one family.
-- **Evolution Timeline** (bottom) — a branching record of generations. Audition an
-  ancestor, restore it, preserve it, fork a new branch, or send it to the lab.
-- **Breeding Lab** — drop one or two preserved organisms into the parent slots,
-  decide which parent contributes Body / Voice / Texture / Movement / Lifecycle /
-  Env Behaviour, then breed a family of specimen cards to audition, reject, save
-  or send back into the live colony.
-- **Performance view** — the whole system reduced to eight assignable macros
-  (Growth, Mutation, Stress, Density, Body, Voice, Movement, Decay), an XY field
-  for stability vs reproductive aggression, and a playable keyboard.
-- **Top bar** — organism name, generation, population, seed, CPU quality, role and
-  Explore / Preserve state, with immediate Clone, Freeze, Reanimate, Render and a
-  full **RESET** (everything back to defaults).
-
-## Ten core operations
-
-1. **Germinate** — turn a sample / input / impulse / noise / preserved organism
-   into an initial population, splitting transients → grain, tone → spectral,
-   decay → resonator.
-2. **Mutate** — create altered descendants (pitch, timing, spectrum, formants,
-   direction, movement, resonance, lifespan, behaviour) with rate & depth.
-3. **Apply Selection Pressure** — let cells with the desired character survive and
-   reproduce.
-4. **Lock Trait** — protect a quality while the rest keeps evolving.
-5. **Transfer Genes** — move sonic traits between species (a grain's transient into
-   a resonator, a spectral cell's formants into a grain family…).
-6. **Breed Organisms** — combine preserved organisms into a family of descendants.
-7. **Infect Colony** — introduce a mutation that spreads between compatible cells
-   (metallize, reverse, vocalise, destabilise).
-8. **Trigger Apoptosis** — programmed death of selected cells for thinning,
-   rhythmic gaps, drone collapse or synchronised extinction.
-9. **Remember Evolution** — carry successful traits across MIDI notes; the Memory
-   control sets how strongly new notes inherit the colony's history.
-10. **Preserve & Render** — freeze genome / population / seed / environment /
-    history; clone, reanimate, save as a preset, or render to audio.
+The improvement is measured, not asserted — see [Testing](#testing).
 
 ---
 
-## Building
+## Running it
 
-Requirements: **CMake ≥ 3.22** and a C++20 compiler (MSVC 2022, Xcode 15+, or
-GCC/Clang 12+). JUCE 8 is fetched automatically.
-
-```sh
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
+```bash
+cmake -B build                      # fetches JUCE 8.0.6 on first run
+cmake --build build --config Release --target MUTAGEN_Standalone
 ```
 
-To build against a local JUCE checkout instead of downloading it:
+The VST3 is copied to your system plugin folder automatically. On this machine a
+fully parallel build occasionally dies with `CL.exe exited with code -1`; `-j 1`
+always completes.
 
-```sh
-cmake -B build -DJUCE_SOURCE_DIR=/path/to/JUCE -DCMAKE_BUILD_TYPE=Release
+---
+
+## Playing it
+
+### The chamber
+
+The big panel is the culture chamber, and every gesture in it is real — the ripple you
+see corresponds to a mutation command that was actually sent.
+
+| Input | What happens |
+|---|---|
+| **Left click** | An additive mutation burst at the click, with a ripple that spreads outward. Cells swell as the wave passes through them. |
+| **Left drag** | A continuous wake. The faster you move, the harder it mutates — a slow drag nudges, a fast slash across the chamber causes a mass mutation. |
+| **Right click / drag** | Subtractive damage. Strips partials, density and noise colour, weakens, and eventually kills. This is also **the cure for a noise lock**. |
+| **Ctrl + right click** | The inspect / isolate / preserve / infect menu. |
+| **Double click** | On a cell: send its family to the Breeding Lab. On empty space: seed a burst. |
+| **Drop an audio file** | The colony eats it (see [Feeding it](#feeding-it)). |
+
+### The buttons
+
+Every one of these re-rolls its **amount and its effect** on each press. Pressing the
+same button twice does not do the same thing twice.
+
+- **ADD ENZYME** — sparkles, and a subtraction that is *usually* an improvement. An
+  enzyme digests, so the common case strips the hiss and the clutter. About one press
+  in twelve eats something the sound needed.
+- **ADD CATALYST** — a fast pitch wobble that decays over a couple of seconds. The
+  wobble is the loud part; what it quietly removes on the way out is the actual effect.
+- **ADD HEAT / ADD WATER** — speeds up or slows down one randomly chosen thing: an
+  oscillator, a modulation lane, or the loop. Which one it catches is the roll.
+- **RADIATE** — the only one with fixed, stated odds, because it is the only one that
+  can cost you the whole run. **5%** kills the colony and zeroes your score. **10%** is a
+  beneficial mutation. The other **85%** is a shrug. All three flash the screen red and
+  leave a Geiger-counter click ticking over the loop for several seconds afterwards.
+
+### The knobs
+
+**PITCH**, **LFO** and **OSC** are not parameters. They have no value to read back and
+they spring to centre when released, because there is no setting to return to. What
+they send is a gesture: the direction you turned, how fast, and when. Up tends to add,
+down tends to strip — but roughly one turn in six does the opposite, and a fast turn is
+more likely to misbehave than a slow one.
+
+### Feeding it
+
+Drop as many audio files onto the window as you like. Each one is **stitched** into the
+colony's working material, not mixed into it — summing uncorrelated recordings is the
+definition of noise, so instead each drop replaces crossfaded segments of the digest
+buffer while leaving the rest intact. The share it takes shrinks with every drop
+(0.60 / (1 + 0.55 n)), so the newest sample can never completely displace what the
+colony already is. It takes *some* of the dropped sound's form, which is the point.
+
+**ARM MIC** does the same thing with a live capture, and it is defended in three layers:
+
+1. The output is **muted while capturing**. An open loop cannot howl. This is the default.
+2. A howl detector runs whenever the mic is armed. It requires narrow-band *and*
+   persistent-in-the-same-band *and* growing, all at once, for 0.45 s — music is
+   regularly one or two of those and almost never all three. On a hit it aborts the
+   capture, notches the offending frequency and ducks.
+3. A hard output ceiling underneath both.
+
+---
+
+## The score
+
+The score is meaningless by design — nothing in the engine reads it back — but it is
+what turns the instrument into a game, so the rules are legible from the number alone:
+
+- It climbs **faster the more the sound varies**. The rate is driven by the measured
+  long-window movement of the spectrum, with novelty and archive coverage as bonuses.
+- It **stops dead** when the sound collapses into noise, and tells you why.
+- **Right-clicking to strip elements** is how you clear that, and acting while frozen
+  builds combo at double rate — it is the move the game wants you to learn.
+- The rate starts **sagging before** the freeze actually bites, so there is warning.
+- Beauty is worth a little, but only a little. Weight it heavily and the optimal
+  strategy becomes one consonant drone, which is the opposite of the point.
+
+High scores live in `%APPDATA%/MUTAGEN/scores.json`. **SAVE RUN** writes a `.mutagen`
+file (colony + score + statistics) and files the run on the board.
+
+When the colony sounds genuinely good *and* you are scoring well, held for seven
+continuous seconds, a **fractal ghost** flashes briefly over the chamber. It then sits
+behind a 30–70 second random cooldown. The scarcity is deliberate: a reward that turns
+up whenever things are going fine stops reading as a reward within about a minute.
+
+---
+
+## How it stays interesting
+
+Five mechanisms from the quality-diversity literature, all running at once:
+
+- **Islands.** 2–8 niches per world, each with its own target genome performing its own
+  random walk, plus occasional jumps so they cannot converge by accident.
+- **Fitness sharing.** Cells within 0.18 of each other in behaviour space divide their
+  fitness through a triangular kernel. A crowd is always worth less per head than an
+  empty niche, so converging is actively penalised.
+- **Novelty search.** k-nearest-neighbour distance to a rolling 192-entry archive of
+  behaviours the colony has already produced. Only genuinely new behaviours enter it —
+  otherwise a static colony fills the archive with copies of itself and everything reads
+  as novelty zero.
+- **MAP-Elites.** A 6×5×4 grid over brightness, density and noise, keeping the best
+  individual per bin. Population rescues re-seed from the most *distant* stored elite.
+- **Dispersal.** An explicit repulsive force away from the colony mean. Selection is an
+  attractive force; something has to push back.
+
+Plus a **stagnation detector**: two exponential averages fifteen times apart in time
+constant, and when they agree that nothing has changed for twelve seconds, hypermutation
+fires and a third of the colony migrates between islands.
+
+### Movement
+
+Every cell carries six LFOs spread logarithmically from about **0.003 Hz — one cycle
+every six minutes — up to 26 Hz**, so a colony is never wobbling at one identifiable
+speed. Summing octave-spaced sources is the Voss–McCartney construction, so the combined
+drift is 1/f rather than white or Brownian: the documented perceptual sweet spot between
+too twitchy to follow and too smooth to notice.
+
+The lanes are routed to pitch, amplitude, formant, brightness, pan, density, resonance,
+grain rate and detune **by the world**, so a world has a consistent *kind* of movement
+while every cell in it moves differently. `enforceMovementFloor()` runs after every
+mutation: a lineage may become subtle, but it may not become still, because no selection
+pressure can see a gene that currently does nothing.
+
+### Worlds
+
+Each run re-rolls the *rules*, not just the starting genomes: tuning system and root,
+partial palette (harmonic, odd, stretched, golden, subharmonic, formantic), the register
+the colony occupies, how many voices are audible at once, the tempo of life, modulation
+routing, niche count, what fitness means, and a colony-wide tilt and formant applied
+*after* the sum — which is the one part of a world's identity that averaging cannot
+erase. Worlds get names like `VELVET CHORUS` and `BROKEN FURNACE`.
+
+### Randomness
+
+The RNG is seeded from a 256-bit entropy pool mixing `std::random_device`,
+high-resolution timer jitter (the *delta* between reads, not the reading), your mouse
+gestures, and the audio input's own noise floor. Point an untuned radio, an SDR or a
+hissing preamp at the input and the bottom bit of the converter is a physical noise
+source. Those bits are von Neumann debiased (01→0, 10→1, 00/11 discarded), so a biased
+or silent source contributes nothing rather than contributing zeros.
+
+---
+
+## Testing
+
+```bash
+cmake --build build --config Release --target MutagenDivergenceTest
+./build/MutagenDivergenceTest_artefacts/Release/MutagenDivergenceTest.exe
 ```
 
-Artifacts (under `build/`):
+Six colonies run offline for 45 seconds each with nobody touching anything. The test
+reports how far apart they end up, whether each one keeps moving, and whether any of
+them parks in noise. It also calibrates the analyser against known signals on every run,
+so the constants in `Descriptors.cpp` are measurements rather than guesses.
 
-- `MUTAGEN_artefacts/Release/VST3/MUTAGEN.vst3`
-- `MUTAGEN_artefacts/Release/AU/MUTAGEN.component` *(macOS)*
-- `MUTAGEN_artefacts/Release/Standalone/MUTAGEN`
+Current results:
 
-`COPY_PLUGIN_AFTER_BUILD` is on, so the VST3 is also installed into your user
-plugin folder.
+```
+  sine 220           raw 0.167     harmonic tone   raw 0.130
+  detuned saws       raw 0.126     white noise     raw 0.843
 
-### Quick start
+  SPECTRUM distance  mean 0.34   (0 would mean the runs converged)
+  genome distance    mean 0.24
+  every run keeps moving,  no run parks in noise
+```
 
-1. Open MUTAGEN as an instrument on a MIDI track (or as an effect on an audio
-   track and set **Role → Effect**).
-2. In **Germination**, keep the default noise seed or **Load Sample**, then press
-   **GERMINATE**.
-3. Play notes. Turn **Nutrients** up for a denser colony, **Mutation** up for
-   faster drift, and drag the **Selection** targets toward the character you want.
-4. When you like where it is going, toggle **PRESERVED** in the top bar to freeze
-   it for recall, and **Render** to bounce it.
+### A known limitation
+
+The `flatness` column reads 1.000 for every colony, and that is **not** a bug in the
+engine — it is the metric saturating. Spectral flatness measures how evenly energy is
+spread, and a granular colony genuinely fills the space between its partials: grain
+windows smear, modulation adds sidebands, and a dozen detuned voices overlap. By that
+measure the output sits very close to white noise even when it is obviously a chord to
+the ear.
+
+The density sweep in the test isolates this — a *single* cell already reads 0.70 — so
+capping the population was never going to fix it. Consequently the "has this collapsed"
+verdict is a **composite** of flatness, appeal (Plomp–Levelt/Sethares roughness plus
+tonalness) and spectral centre, not flatness alone. A dense colony that is still working
+has consonant partials and a comfortable centre; a collapsed one has neither.
+
+If you want a stricter tonality target, that is a synthesis change — shorter partial
+counts, longer grains, tighter pitch quantisation — rather than a threshold change.
 
 ---
 
 ## Layout
 
 ```
-Source/
-  Parameters.*            parameter surface (the environment, not a synth graph)
-  PluginProcessor.*       audio <-> GUI marshalling, MIDI, state, offline render
-  PluginEditor.*          top-level editor & view switching
-  Engine/
-    Rng.h                 deterministic PRNG (Preserve mode replays from a seed)
-    Genome.*              20 traits, dominance, locks, mutation, recombination
-    Cells.*               grain / spectral / resonator DSP + lifecycle
-    SourceAnalyzer.*      onset / spectral / formant / decay analysis -> seed
-    Colony.*              the ecological simulation and audio rendering
-    EvolutionHistory.*    branching generation tree
-    BreedingLab.*         descendant families from one or two parents
-    OrganismState.h       POD snapshots, GUI<->audio commands
-    OrganismSerialization.* versioned blob <-> preset / state
-    RenderEngine.*        record the live colony to WAV
-  GUI/
-    MutagenLookAndFeel.*  the laboratory theme
-    CultureChamber.*      the animated, interactive centrepiece
-    GerminationPanel.*  EnvironmentPanel.*  GenomeInspector.*
-    EvolutionTimeline.*  BreedingLabView.*  PerformanceView.*  TopBar.*
-    Widgets.*             shared knob / panel / bar components
+Source/Engine/
+  Entropy.*        entropy pool: random_device, timer jitter, audio LSBs, gestures
+  WorldSeed.h      the per-run rules
+  Genome.*         34 traits, 14 of them modulation
+  ModBank.h        six LFO lanes per cell, 0.003 Hz .. 26 Hz, Voss-McCartney summed
+  Cells.*          the three species and their DSP
+  Novelty.h        behaviour descriptors, novelty archive, MAP-Elites, stagnation
+  Descriptors.*    RT-safe flatness / centroid / flux / roughness / appeal
+  Colony.*         the ecology, the guards, the gestures, the voicing
+  ScoreSystem.*    score, combo, events, high scores
+  Ingest.*         sample stitching and the microphone feedback guard
+  PostChain.*      the post-colony rack (filter, EQ, gator, glitch)
+
+Source/GUI/
+  CultureChamber.* the play surface
+  WaveField.*      the 2-D wave simulation behind it
+  ScoreHud.*       score, meters, event feed, high-score table, fractal ghost
+  GameBar.*        the verbs and the gesture knobs
+
+Tests/
+  DivergenceTest.cpp   the measurement above
 ```
+
+`PROGRESS.md` carries the full working log, the root-cause analysis and the research
+the design is based on.
+
+---
 
 ## Licence
 
-MUTAGEN is released under the **GNU AGPL v3** (see `LICENSE`). It builds against
-the JUCE framework, used here under the AGPLv3 option; a closed-source build
-requires a commercial JUCE licence.
+See [LICENSE](LICENSE).

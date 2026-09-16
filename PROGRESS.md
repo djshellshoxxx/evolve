@@ -280,7 +280,7 @@ Each milestone: implement → build → commit → push. Tick when pushed.
       Req. 9-12, 22-31.
 - [x] **M7 — Ingestion.** Drag & drop samples eaten into the colony, multi-sample source pool,
       mic capture with feedback protection, radio-noise entropy tap. Req. 13-15.
-- [ ] **M8 — Polish & extras.** Additional fun features, README rewrite, final tuning pass.
+- [x] **M8 — Polish & extras.** Additional fun features, README rewrite, final tuning pass.
 
 ---
 
@@ -392,3 +392,73 @@ Each milestone: implement → build → commit → push. Tick when pushed.
   Screen capture is not available in this session, so the visuals have not been verified by eye -
   that needs a human look.
 - Next: M8 - README, a pass over the remaining fun features, and tuning by ear.
+
+### 2026-09-15 - session 1, M8
+
+Built `Tests/DivergenceTest.cpp` (target `MutagenDivergenceTest`) because "they all
+evolve to sound almost the same" is a measurable claim and should not be answered with
+an assertion. Six colonies, 45 s each, nobody touching anything.
+
+**It immediately falsified the first fix.** Genome distance was healthy (0.22) but the
+*spectrum* distance was 0.05 - the runs had diverged genetically and still sounded
+alike. Centroids clustered at 0.646-0.719 across every world. Cause: `initNiches` drew
+each island uniformly across 0..1 on every axis, in *every* world, so islands within a
+colony were nicely spread and every colony averaged to the same spectrum. Diversity
+inside the colony was cancelling diversity between colonies.
+
+Fixes, in the order the test forced them:
+
+1. **Worlds got narrow character.** `brightSpread`, `densitySpread`, `pitchSpreadN`,
+   `noiseBias` - a world is now a *place* in timbre space, not a sampling of all of it.
+   Islands and founders are placed relative to it.
+2. **A colony-wide voice.** `applyWorldVoice` - tilt plus one broad formant applied
+   *after* the sum, which is the only part of a world's identity that averaging cannot
+   erase. Spectrum distance 0.05 -> 0.35.
+3. **The metric was wrong too.** A bright world's tilt inflated global spectral flatness
+   and froze its score while it was still perfectly tonal. Tried band-wise flatness
+   (worse - musical material saturated at 1.0), then settled on **envelope whitening**:
+   divide the spectrum by its own smoothed envelope and measure flatness on the residual.
+   A tilt scales both identically so it cancels exactly. Also raised the FFT 1024 -> 2048,
+   because at 43 Hz per bin the harmonics of anything low-pitched were under three bins
+   apart and the whitening window could not separate them.
+4. **Calibration became a measurement.** The test now runs sine / harmonic tone /
+   detuned saws / pink / white noise through the real analyser on every run and prints
+   the numbers, so the constants in `Descriptors.cpp` are read off data.
+5. **The default source was pink noise.** `makePrimitive` defaulted to noise, and the
+   grain species granulates the seed directly - so a noise seed gives noise no matter
+   how the colony evolves, and the spectral species scaled its own noise mix by the
+   seed's measured noisiness on top. Added `primitiveTone` (plucked harmonic decays at
+   related pitches) and made it the default. Appeal 0.39 -> 0.62, flatness stopped
+   pinning and started varying per world.
+6. **Density.** Noise ceiling 0.30-0.70 -> 0.10-0.42, voice limit 5-16 -> 4-10,
+   quantisation probability 0.72 -> 0.88, spectral noise band no longer boosted 1.4x,
+   partial tilt floor 0.2 -> 0.65. Added `updateVoicing` - a dominance hierarchy so the
+   top few cells are audible and the rest are texture.
+7. **Two real bugs the test surfaced:** colonies going fully extinct on their own (now
+   floored at 4 cells while exploring - the player may still wipe it out, the ecology may
+   not), and the noise guard culling a colony of forty down to two, which technically
+   ends the noise the way unplugging something ends a hum (now floored at 10 cells).
+8. **A per-sample bug I introduced in M2:** `mod.jitter()` was multiplying the grain read
+   rate *per sample*, which is frequency modulation by white noise - it turns any source
+   into hiss. Moved to once per grain.
+
+Final state: all six checks pass. Spectrum distance 0.34 mean, genome distance 0.24,
+every run keeps moving, no run parks in noise.
+
+**Honest limitation, documented in the README.** The `flatness` column still reads 1.000
+for every colony. That is the metric saturating, not the engine failing: the density
+sweep shows a *single* cell already reads 0.70 against white noise's 0.84, because
+granular synthesis genuinely fills the space between partials - grain windows smear,
+modulation adds sidebands, detuned voices overlap. Capping the population was never
+going to fix it. So the "has this collapsed" verdict is a composite of flatness, appeal
+and roughness rather than flatness alone. Getting the raw number down is a synthesis
+change (fewer partials, longer grains, tighter quantisation), not a threshold change,
+and it is the obvious next piece of work.
+
+Also not yet verified: **the visuals have never been seen.** Screen capture is
+unavailable in this session, so the wave field, the colour/grey mapping, the score HUD
+and the fractal ghost have been compiled and exercised but not looked at. That needs a
+human.
+
+Standalone at the end of M8: builds clean, launches, window created, responsive,
+~0.81 cores, memory flat.

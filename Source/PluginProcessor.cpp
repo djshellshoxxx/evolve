@@ -330,7 +330,7 @@ void MutagenProcessor::resetEverything()
     organismName = "MUTAGEN";
 
     // 3) source back to the factory primitive
-    loadPrimitiveSource (params::SourceMode::primitiveNoise, 3.0f);
+    loadPrimitiveSource (params::SourceMode::primitiveTone, 3.0f);
 
     // 4) regrow the colony from a fresh seed on the audio thread
     EngineCommand c;

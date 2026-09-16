@@ -160,7 +160,10 @@ namespace mutagen::params
 
     juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
-    enum class SourceMode  { sample = 0, liveInput, primitiveNoise, primitiveImpulse, preservedOrganism };
+    /*  primitiveTone is appended rather than inserted so that saved states
+        keep referring to the same modes they were written with. */
+    enum class SourceMode  { sample = 0, liveInput, primitiveNoise, primitiveImpulse,
+                             preservedOrganism, primitiveTone };
     enum class CpuQuality   { eco = 0, balanced, pristine };
     enum class PluginRole   { instrument = 0, effect, hybrid };
     enum class OscWave      { sine = 0, triangle, saw, square, pulse, noise };

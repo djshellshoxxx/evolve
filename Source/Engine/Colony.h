@@ -173,7 +173,18 @@ namespace mutagen
         void   noiseGuard (double dt);
         void   boredomDrive (double dt);
 
+        /** Tilt + broad formant applied to the summed colony. Per-cell
+            character averages out across a large population; this does not. */
+        void   applyWorldVoice (juce::AudioBuffer<float>& out);
+        float  voiceLp[2] { 0.0f, 0.0f };
+        float  voiceBp1[2] { 0.0f, 0.0f }, voiceBp2[2] { 0.0f, 0.0f };
+
         int    livingSlots (int* out, int maxOut) const;
+
+        /** Rank the living cells and let only the top few be fully audible.
+            A colony where everything is equally loud is a cloud; a colony with
+            a dominance hierarchy is a chord that keeps re-voicing itself. */
+        void   updateVoicing();
 
         /*  A niche is an island: its own slowly wandering target genome. Cells
             are selected toward *their* niche, never toward one colony-wide

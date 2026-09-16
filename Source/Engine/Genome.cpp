@@ -26,6 +26,11 @@ namespace mutagen
         genes[(int) Trait::metabolism].value = rng.range (0.35f, 0.65f);
         genes[(int) Trait::lifespan].value   = rng.range (0.4f, 0.8f);
 
+        // A fresh genome should be a pitch with some grit, not a hiss with
+        // some pitch. Evolution can still take it anywhere the world allows.
+        genes[(int) Trait::noiseColour].value = rng.range (0.0f, 0.45f);
+        genes[(int) Trait::density].value     = rng.range (0.15f, 0.7f);
+
         // A cell that does not move is the one failure we never want, so the
         // modulation block gets floors rather than a flat 0..1 roll. Depth and
         // rate spread in particular are never allowed near zero: at zero the

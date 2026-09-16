@@ -96,6 +96,7 @@ namespace mutagen
         for (int i = 0; i < maxModes; ++i)   { modeY1[i] = modeY2[i] = 0.0f; }
         for (int i = 0; i < maxPartials; ++i) { partialPhase[i] = rng.nextFloat() * juce::MathConstants<float>::twoPi; }
 
+        dominance = 1.0f;
         catalystAmount = sparkle = geiger = 0.0f;
         catalystPhase = clickEnv = clickPhase = 0.0f;
         sparkleZ1 = sparkleZ2 = 0.0f;
@@ -317,7 +318,7 @@ namespace mutagen
         const float panCoeff  = 1.0f - std::exp (-1.0f / (0.010f * sr));
         const float ampCoeff  = 1.0f - std::exp (-1.0f / (0.005f * sr));
         const bool  destab    = infection == Infection::destabilise;
-        const float targetAmp = stageGain * extGain * ampScale
+        const float targetAmp = stageGain * extGain * dominance * ampScale
                               * (0.85f - (destab ? 0.4f * infectionLoad : 0.0f));
 
         // Brightness modulation moves the one-pole "depth" filter, which is
@@ -335,7 +336,8 @@ namespace mutagen
             float dirSign = dirGene < 0.5f ? -1.0f : 1.0f;
             if (infection == Infection::reverse && infectionLoad > 0.5f) dirSign = -dirSign;
 
-            const float semis    = (g - 0.5f) * 48.0f + pitchSemis;
+            // The world's register, not four octaves of whatever.
+            const float semis    = (W.geneToMidi (g) - 60.0f) + pitchSemis;
             // grainRate modulation is separate from pitch: it slides the
             // playback speed of the loop rather than transposing the grain.
             const float rate     = semisToRatio (semis) * std::pow (2.0f, mRate * 0.8f);
@@ -359,11 +361,20 @@ namespace mutagen
                         sourceCursor += hop;
                         if (sourceCursor >= nSrc) sourceCursor -= nSrc;
                         grainReadPos[gr] = sourceCursor;
+                        // one new random detune per grain: audible as
+                        // shimmer between grains, not as noise inside them
+                        grainRateJitter[gr] = 1.0f + mod.jitter() * 0.03f;
                     }
                     const float win = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * grainPhase[gr]);
                     s += win * src.readInterp (grainReadPos[gr]);
-                    const float rr = rate * (1.0f + jitterAmt * std::sin ((float) grainReadPos[gr] * 0.001f)
-                                                  + mod.jitter() * 0.02f);
+                    // Jitter is applied once per grain, at grain start, not per
+                    // sample. Per-sample random deviation of the read rate is
+                    // frequency modulation by white noise, which turns any
+                    // source - however tonal - into broadband hiss. That one
+                    // multiply was most of why a single cell measured almost
+                    // as flat as white noise.
+                    const float rr = rate * grainRateJitter[gr]
+                                     * (1.0f + jitterAmt * std::sin ((float) grainReadPos[gr] * 0.001f));
                     grainReadPos[gr] += (double) (rr * dirSign);
                     grainPhase[gr]   += phaseInc;
                 }
@@ -387,7 +398,7 @@ namespace mutagen
             // The world decides the tuning. Quantise the *unmodulated* pitch so
             // the cell sits in the world's scale, then apply modulation on top
             // as a continuous ratio - otherwise vibrato would stair-step.
-            float baseHz = juce::jlimit (25.0f, 6000.0f, midiToHz (24.0f + g * 90.0f));
+            float baseHz = juce::jlimit (25.0f, 6000.0f, midiToHz (W.geneToMidi (g)));
             baseHz = juce::jlimit (25.0f, 6000.0f, W.quantise (baseHz));
             baseHz *= semisToRatio (pitchSemis);
             baseHz = juce::jlimit (20.0f, 7000.0f, baseHz);
@@ -398,13 +409,27 @@ namespace mutagen
                                      2 + (int) (densMod * (maxPartials - 2)));
             const float bright  = juce::jlimit (0.0f, 1.0f,
                                     genome.expressed (Trait::brightness, envStress) + mBright * 0.25f);
-            const float tilt    = 1.7f - bright * 1.5f;
+            /*  Partial roll-off.
+
+                This used to reach 0.2 at full brightness, which is almost no
+                roll-off at all: twelve partials of nearly equal amplitude, and
+                eight such cells sounding together put ninety-odd equal-weight
+                sinusoids across the spectrum. That is a noise generator with
+                extra steps, and it measured like one. A floor of 0.65 keeps a
+                bright cell bright while still giving it a recognisable
+                spectral slope, which is what makes it read as a note rather
+                than as a band of energy.                                     */
+            const float tilt    = 1.85f - bright * 1.2f;   // 0.65 .. 1.85
 
             // The world's noise ceiling is a hard cap. A cell may be grainy or
             // breathy; it may not become a noise generator, because a colony of
             // noise generators is the one outcome that is never interesting.
+            // Scaling by the seed's own noisiness means a noisy seed pushed
+            // every spectral cell toward hiss; the square root softens that so
+            // the material colours the cell without deciding it.
             const float noiseMix = juce::jlimit (0.0f, W.noiseCeiling,
-                                     genome.get (Trait::noiseColour) * (0.35f + 0.65f * src.noisiness));
+                                     genome.get (Trait::noiseColour)
+                                     * (0.35f + 0.65f * std::sqrt (src.noisiness)));
 
             float formantHz = juce::jlimit (150.0f, 5000.0f,
                                 150.0f + genome.expressed (Trait::formant, envStress) * 4000.0f);
@@ -459,7 +484,9 @@ namespace mutagen
                 noiseBpZ2 += wc * noiseBpZ1;
                 const float band = noiseBpZ1;
 
-                float s = harm * (1.0f - noiseMix) + band * noiseMix * 1.4f;
+                // The noise band used to be boosted 1.4x against the harmonic
+                // part, so even a modest noiseColour gene dominated the cell.
+                float s = harm * (1.0f - noiseMix * 0.75f) + band * noiseMix * 0.8f;
 
                 toneZ = s + depthA * (toneZ - s);
                 s = toneZ;
@@ -476,7 +503,7 @@ namespace mutagen
         }
         else // resonator
         {
-            float baseHz = juce::jlimit (20.0f, 2500.0f, midiToHz (12.0f + g * 84.0f));
+            float baseHz = juce::jlimit (20.0f, 2500.0f, midiToHz (W.geneToMidi (g) - 12.0f));
             baseHz = juce::jlimit (20.0f, 2500.0f, W.quantise (baseHz));
             baseHz *= semisToRatio (pitchSemis);
             baseHz = juce::jlimit (18.0f, 3000.0f, baseHz);

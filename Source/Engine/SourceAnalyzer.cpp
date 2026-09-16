@@ -179,6 +179,63 @@ namespace mutagen
             m.transients.clear();
             for (int i = 0; i < n; i += period) m.transients.push_back (i);
         }
+        else if (mode == params::SourceMode::primitiveTone)
+        {
+            /*  The default seed.
+
+                It used to be pink noise, and that single choice undid most of
+                the engine: grain cells granulate the seed directly, so a noise
+                seed gives noise no matter how the colony evolves, and the
+                spectral species scales its own noise mix by the seed's
+                measured noisiness, so a noise seed also pushed every spectral
+                cell toward hiss. Every run converged on the same grey cloud
+                because every run was chewing the same grey material.
+
+                This is a short sequence of plucked, harmonically rich decays
+                at related pitches - something with partials to inherit, clear
+                transients for the onset detector, and a low noise floor. It is
+                deliberately not a single sustained tone: the colony needs
+                internal variety in its material, just not *random* variety. */
+            m.mono.clear();
+
+            const double baseHz = 110.0;
+            const double ratios[6] = { 1.0, 1.5, 2.0, 1.25, 3.0, 1.6667 };
+            const int    events = 6;
+            const int    span = n / events;
+
+            for (int e = 0; e < events; ++e)
+            {
+                const int start = e * span;
+                const double f0 = baseHz * ratios[e % 6];
+                const double decay = 2.2 + 2.6 * (double) ((e * 7) % 5) / 4.0;
+
+                for (int i = 0; i < span && start + i < n; ++i)
+                {
+                    const double t = (double) i / sampleRate;
+                    const double env = std::exp (-t * decay);
+                    if (env < 1.0e-4) break;
+
+                    double v = 0.0;
+                    // odd-weighted harmonic series: bright at the attack,
+                    // mellowing as the partials decay at different rates
+                    for (int h = 1; h <= 12; ++h)
+                    {
+                        const double hf = f0 * (double) h;
+                        if (hf > sampleRate * 0.45) break;
+                        const double hEnv = std::exp (-t * decay * (1.0 + 0.22 * (double) h));
+                        v += std::sin (juce::MathConstants<double>::twoPi * hf * t)
+                             * hEnv / (double) h;
+                    }
+                    d[start + i] += (float) (v * env * 0.5);
+                }
+            }
+
+            m.mono.applyGain (0.9f / juce::jmax (1.0e-4f, m.mono.getMagnitude (0, 0, n)));
+            m.noisiness = 0.10f; m.brightness = 0.45f; m.fundamentalHz = (float) baseHz;
+            m.formantHz = 700.0f; m.decayRate = 0.55f;
+            m.transients.clear();
+            for (int e = 0; e < events; ++e) m.transients.push_back (e * span);
+        }
         else // noise
         {
             float z = 0.0f;

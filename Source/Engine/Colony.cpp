@@ -1,6 +1,7 @@
 #include "Colony.h"
 #include <cmath>
 #include <cstring>
+#include <algorithm>
 
 namespace mutagen
 {
@@ -37,7 +38,8 @@ namespace mutagen
         {
             src = std::make_unique<SourceMaterial>();
             SourceAnalyzer an;
-            *src = an.makePrimitive (params::SourceMode::primitiveNoise, sr, 3.0f);
+            // Tonal, not noise - see the note in makePrimitive.
+            *src = an.makePrimitive (params::SourceMode::primitiveTone, sr, 3.0f);
         }
         reset();
     }
@@ -167,15 +169,27 @@ namespace mutagen
             Genome g = niches[niche].target;
             g.mutate (rng, 0.75f, 0.45f, 0.05f);   // spread the founders out
 
+            // Mutation has just scattered the founder off its island; pull the
+            // identity axes back toward the world so the scatter widens the
+            // colony without dissolving its character.
+            g.set (Trait::brightness,
+                   clamp01 (0.45f * g.get (Trait::brightness)
+                            + 0.55f * WorldSeed::place (rng, world.brightBias, world.brightSpread)));
+            g.set (Trait::pitch,
+                   clamp01 (0.45f * g.get (Trait::pitch)
+                            + 0.55f * WorldSeed::place (rng, world.pitchCentre, world.pitchSpreadN)));
+            g.set (Trait::noiseColour,
+                   clamp01 (juce::jmin (world.noiseCeiling, g.get (Trait::noiseColour))));
+
             // the source still colours the founders, it just no longer defines
             // the single point they all start from
-            if (src != nullptr && src->valid && rng.chance (0.5f))
+            if (src != nullptr && src->valid && rng.chance (0.4f))
             {
                 g.set (Trait::brightness,
-                       clamp01 (0.5f * g.get (Trait::brightness) + 0.5f * src->brightness));
+                       clamp01 (0.65f * g.get (Trait::brightness) + 0.35f * src->brightness));
                 g.set (Trait::noiseColour,
                        clamp01 (juce::jmin (world.noiseCeiling,
-                                            0.6f * g.get (Trait::noiseColour) + 0.4f * src->noisiness)));
+                                            0.7f * g.get (Trait::noiseColour) + 0.3f * src->noisiness)));
             }
 
             // give each species a characteristic bias
@@ -272,13 +286,36 @@ namespace mutagen
             // why two runs no longer converge on the same timbre.
             n.target.randomise (rng);
 
-            // Give each island a distinct character along the axes the ear
-            // actually separates, so they cannot all be the same sound.
+            /*  Islands are distinct from each other, but all of them sit
+                inside *this world's* character.
+
+                The first version drew each island uniformly across 0..1 on
+                every axis, in every world. Islands within a colony were then
+                nicely spread - and every colony averaged to the same spectrum,
+                because they were all sampling the same range. Diversity inside
+                the colony was cancelling diversity between colonies, which is
+                exactly the complaint the whole rebuild is about.
+
+                Now the island is placed relative to the world: spread across
+                the world's own narrow band, not across the parameter range. */
             const float t = (float) i / (float) juce::jmax (1, nicheCount - 1);
-            n.target.set (Trait::pitch,       clamp01 (0.2f + 0.6f * t + rng.bipolar() * 0.12f));
-            n.target.set (Trait::brightness,  clamp01 (rng.range (0.1f, 0.9f)));
-            n.target.set (Trait::density,     clamp01 (rng.range (0.1f, 0.9f)));
-            n.target.set (Trait::noiseColour, clamp01 (rng.range (0.0f, world.noiseCeiling)));
+            const float lean = (t - 0.5f) * 2.0f;          // -1 .. +1 across the islands
+
+            n.target.set (Trait::pitch,
+                          clamp01 (world.pitchCentre + lean * world.pitchSpreadN
+                                   + rng.bipolar() * world.pitchSpreadN * 0.4f));
+            n.target.set (Trait::brightness,
+                          clamp01 (world.brightBias + lean * world.brightSpread
+                                   + rng.bipolar() * world.brightSpread * 0.4f));
+            n.target.set (Trait::density,
+                          clamp01 (world.densityBias + lean * world.densitySpread
+                                   + rng.bipolar() * world.densitySpread * 0.4f));
+            n.target.set (Trait::noiseColour,
+                          clamp01 (juce::jmin (world.noiseCeiling,
+                                               world.noiseBias * rng.range (0.4f, 1.5f))));
+
+            // Movement stays broadly spread - a world should not be able to
+            // decide that nothing in it wobbles.
             n.target.set (Trait::lfoRateCentre, clamp01 (rng.nextFloat()));
             n.target.set (Trait::lfoDepth,    clamp01 (rng.range (0.3f, 1.0f)));
 
@@ -629,7 +666,10 @@ namespace mutagen
             colony that can never recover, not an autopilot.                 */
         if (noiseLockSeconds < 8.0f) return;
 
-        const float strength = clamp01 ((noiseLockSeconds - 8.0f) / 10.0f);
+        // Ramps in over four seconds rather than ten. The eight-second grace
+        // period is the part that matters for the game; once it has expired
+        // there is no reason to be gentle as well as late.
+        const float strength = clamp01 ((noiseLockSeconds - 8.0f) / 4.0f);
 
         // 1. Pull the survivors toward tone, hardest on the worst offenders.
         for (auto& c : cells)
@@ -638,17 +678,33 @@ namespace mutagen
             auto& noiseGene = c.genome.raw()[(int) Trait::noiseColour];
             if (! noiseGene.locked)
                 noiseGene.value = clamp01 (noiseGene.value
-                                           - (float) dt * strength * 0.25f * (0.3f + noiseGene.value));
+                                           - (float) dt * strength * 0.7f * (0.3f + noiseGene.value));
 
             auto& densGene = c.genome.raw()[(int) Trait::density];
             if (! densGene.locked && densGene.value > 0.65f)
                 densGene.value = clamp01 (densGene.value - (float) dt * strength * 0.12f);
         }
 
-        // 2. Cull the noisiest cell now and then. Removing an element is
-        //    exactly what we are asking the player to do, so the automatic
-        //    version does the same thing rather than something cleverer.
-        if (rng.chance ((float) dt * strength * 1.2f))
+        // 2. Pull the islands down too. Without this the niche targets keep
+        //    re-seeding noisy children as fast as the guard cleans them up,
+        //    and the colony oscillates in and out of the lock forever.
+        for (int i = 0; i < nicheCount; ++i)
+        {
+            auto& g = niches[i].target.raw()[(int) Trait::noiseColour];
+            if (! g.locked)
+                g.value = clamp01 (g.value - (float) dt * strength * 0.5f);
+        }
+
+        /*  3. Cull the noisiest cell now and then. Removing an element is
+               exactly what we are asking the player to do, so the automatic
+               version does the same thing rather than something cleverer.
+
+               With a floor, though. An earlier version culled for as long as
+               the lock lasted and regularly reduced a colony of forty cells to
+               two - which technically ends the noise, in the way that
+               unplugging something ends a hum. Below this population the guard
+               has to fix the problem by pulling cells tonal instead.         */
+        if (population() > 10 && rng.chance ((float) dt * strength * 1.2f))
         {
             int worst = -1;
             float worstScore = -1.0f;
@@ -1180,6 +1236,28 @@ namespace mutagen
         noiseGuard (dt);
         boredomDrive (dt);
 
+        /*  9d) extinction floor.
+
+            Left alone, a run of bad luck - a crowded tick, an apoptosis
+            spike, the noise guard culling - could take a colony all the way to
+            zero, and a dead colony cannot evolve its way back. The player's
+            own actions are still allowed to wipe it out (RADIATE says so on
+            the tin); what is not allowed is the ecology quietly killing itself
+            while nobody is touching it.                                      */
+        if (env.explore)
+        {
+            const int pop = population();
+            if (pop < 4)
+            {
+                const int want = 4 - pop;
+                for (int k = 0; k < want; ++k) injectElite (k == 0);
+                extinctionFlash = 1.0f;
+            }
+        }
+
+        // 9e) decide who is audible
+        updateVoicing();
+
         // the user's intent fades, so a click is a push and not a new regime
         userIntent *= std::exp (-(float) dt * 0.6f);
 
@@ -1272,6 +1350,9 @@ namespace mutagen
             done += chunk;
         }
 
+        // ---- the world's own voice -------------------------------------
+        applyWorldVoice (out);
+
         // Measure what we just produced. Everything downstream - the noise
         // guard, the boredom drive, the score rate, the colour of the
         // visualiser - reads these numbers rather than guessing.
@@ -1296,6 +1377,147 @@ namespace mutagen
         }
         rms = std::sqrt (rms / (float) juce::jmax (1, nS * juce::jmax (1, out.getNumChannels())));
         outRmsSmoothed = 0.9f * outRmsSmoothed + 0.1f * rms;
+    }
+
+
+
+    void Colony::updateVoicing()
+    {
+        /*  Who is actually audible right now.
+
+            Every cell stays alive, keeps evolving and keeps competing. What
+            changes is how loud it is allowed to be: the strongest few are
+            voiced at full gain and the rest fall away steeply.
+
+            Without this the colony sums thirty-odd voices of roughly equal
+            weight, spread across the spectrum, and the result measures - and
+            sounds - like noise, no matter how distinct the individual cells
+            are. Averaging destroys detail; a hierarchy preserves it. The rank
+            is re-computed continuously, so the chord keeps re-voicing itself
+            as cells gain and lose energy, which is where a lot of the colony's
+            movement now comes from.                                          */
+
+        struct Ranked { int slot; float weight; };
+        Ranked ranked[EngineSnapshot::maxCells];
+        int n = 0;
+
+        for (int i = 0; i < (int) cells.size() && n < EngineSnapshot::maxCells; ++i)
+        {
+            auto& c = cells[(size_t) i];
+            if (! c.alive) continue;
+            // Energy dominates: the loud ones should be the ones actually
+            // thriving, not the ones that merely score well on paper.
+            float w = 0.62f * c.energy + 0.38f * c.fitness;
+            if (c.preserved) w += 0.5f;              // the player asked to hear this
+            if (c.voiceGroup >= 0) w += 0.35f;       // a note the player just played
+            ranked[n++] = { i, w };
+        }
+
+        if (n == 0) return;
+
+        // Partial selection of the top `limit` - a full sort is wasted work
+        // when we only need the boundary.
+        const int limit = juce::jlimit (3, n, world.voiceLimit);
+        for (int k = 0; k < limit; ++k)
+        {
+            int best = k;
+            for (int j = k + 1; j < n; ++j)
+                if (ranked[j].weight > ranked[best].weight) best = j;
+            std::swap (ranked[k], ranked[best]);
+        }
+
+        for (int k = 0; k < n; ++k)
+        {
+            auto& c = cells[(size_t) ranked[k].slot];
+
+            float target;
+            if (k < limit)
+            {
+                // Inside the chord: a gentle taper so the top voice still
+                // leads rather than everything sitting at exactly 1.0.
+                target = 1.0f - 0.35f * ((float) k / (float) juce::jmax (1, limit));
+            }
+            else
+            {
+                // Outside it: steep, but never silent. These cells are the
+                // colony's texture and its gene pool, and they need to be
+                // audible enough that promotion into the chord is a change you
+                // can hear rather than a cell fading in from nothing.
+                const float over = (float) (k - limit) / (float) juce::jmax (1, n - limit);
+                target = 0.30f * std::exp (-over * 2.6f);
+            }
+
+            // Smoothed, so re-voicing is a swell rather than a click.
+            c.dominance += (target - c.dominance) * 0.08f;
+        }
+    }
+
+    void Colony::applyWorldVoice (juce::AudioBuffer<float>& out)
+    {
+        /*  A tilt and one broad resonance, applied to the summed colony.
+
+            Everything else that gives a world its character is applied per
+            cell, and per-cell character is exactly what averaging destroys:
+            sum thirty cells and their individual spectra converge on the mean
+            of whatever range they were drawn from. This runs *after* the sum,
+            so it cannot be averaged away. It is the reason two worlds are
+            recognisably different instruments rather than two shuffles of the
+            same one.
+
+            Kept gentle on purpose - roughly +/-7 dB of tilt and up to +5 dB of
+            peak. Enough to be unmistakable, not enough to sound like an effect
+            bolted onto the front. */
+
+        const int nS = out.getNumSamples();
+        const int chans = juce::jmin (2, out.getNumChannels());
+        if (nS <= 0 || chans <= 0) return;
+
+        const float tilt = juce::jlimit (-1.0f, 1.0f, world.outputTilt);
+        const float fGain = juce::jlimit (0.0f, 1.0f, world.formantGain);
+        if (std::abs (tilt) < 0.02f && fGain < 0.02f) return;
+
+        // One-pole split at 800 Hz; recombining the halves with different
+        // gains is a tilt filter.
+        const float splitHz = 800.0f;
+        const float a = std::exp (-2.0f * juce::MathConstants<float>::pi * splitHz / (float) sr);
+
+        const float lowGain  = std::pow (10.0f, (-tilt * 7.0f) / 20.0f);
+        const float highGain = std::pow (10.0f, ( tilt * 7.0f) / 20.0f);
+
+        // Broad resonant peak at the world's formant.
+        const float fw = juce::jlimit (0.002f, 0.45f,
+                                       2.0f * world.formantHz / (float) sr);
+        const float fq = juce::jlimit (0.3f, 3.0f, world.formantQ);
+        const float peak = fGain * 0.55f;
+
+        for (int ch = 0; ch < chans; ++ch)
+        {
+            float* d = out.getWritePointer (ch);
+            float lp = voiceLp[ch];
+            float b1 = voiceBp1[ch], b2 = voiceBp2[ch];
+
+            for (int n = 0; n < nS; ++n)
+            {
+                const float x = d[n];
+
+                lp = x + a * (lp - x);
+                const float high = x - lp;
+                float y = lp * lowGain + high * highGain;
+
+                if (peak > 0.0f)
+                {
+                    b1 += fw * (y - b1 - b2 / fq);
+                    b2 += fw * b1;
+                    y += b1 * peak;
+                }
+
+                d[n] = std::isfinite (y) ? y : 0.0f;
+            }
+
+            voiceLp[ch]  = std::isfinite (lp) ? lp : 0.0f;
+            voiceBp1[ch] = std::isfinite (b1) ? b1 : 0.0f;
+            voiceBp2[ch] = std::isfinite (b2) ? b2 : 0.0f;
+        }
     }
 
     // ---------------------------------------------------------------------

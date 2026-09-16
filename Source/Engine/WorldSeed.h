@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cmath>
 #include "Rng.h"
+#include <juce_core/juce_core.h>
 
 namespace mutagen
 {
@@ -63,6 +64,53 @@ namespace mutagen
         float      brightBias = 0.5f;     // where this world's spectra sit
         float      noiseCeiling = 0.55f;  // hard cap on how noisy a cell may get
 
+        /*  Character *spreads*.
+
+            The first version of this randomised each cell across the full 0..1
+            range of every trait, in every world. That made the cells inside a
+            colony diverse - and made the colonies identical, because thirty
+            cells spread uniformly over the same range always average to the
+            same spectrum. Diversity within a colony was erasing diversity
+            between colonies.
+
+            So a world now picks a *centre* and a *narrow spread* per axis.
+            Cells still vary, but they vary around this world's character
+            instead of around the middle of the parameter range.             */
+        float brightSpread  = 0.22f;      // 0.08 (very consistent) .. 0.42 (wide)
+        float densityBias   = 0.5f;
+        float densitySpread = 0.22f;
+        float noiseBias     = 0.25f;
+        float pitchCentre   = 0.5f;
+        float pitchSpreadN  = 0.22f;
+
+        // ---- colony-wide voice ---------------------------------------------
+        /*  A tilt and a broad formant applied to the whole colony output.
+            This is the one part of a world's identity that averaging cannot
+            erase, because it is applied after the sum rather than before it. */
+        /*  How wide a register the colony occupies, in semitones.
+
+            The first version let a cell's pitch gene range over ninety
+            semitones - seven and a half octaves. Thirty voices spread that
+            far, each with a dozen partials, is not a chord, it is a noise
+            cloud, and every noise cloud sounds like every other noise cloud
+            no matter how different the genomes behind it are. A world now
+            occupies a register the way an instrument does.                  */
+        float pitchSpanSemis = 26.0f;     // 14 .. 42
+
+        /*  How many cells are audible at full volume at once.
+
+            Ecologically this is a dominance hierarchy; musically it is the
+            difference between a chord and a cloud. Everything below the top
+            `voiceLimit` is still alive, still evolving and still competing -
+            it is just quiet, the way a real population has a few individuals
+            doing most of the shouting.                                       */
+        int   voiceLimit = 10;            // 5 .. 16
+
+        float outputTilt    = 0.0f;       // -1 dark .. +1 bright, about +/-7 dB
+        float formantHz     = 900.0f;     // centre of the world's broad peak
+        float formantGain   = 0.0f;       // 0 .. 1, up to about +5 dB
+        float formantQ      = 0.7f;
+
         // ---- tempo of life -----------------------------------------------
         float lifeTempo    = 1.0f;        // 0.25 .. 3.0, scales the whole ecology
         float churn        = 0.5f;        // birth/death turnover
@@ -102,15 +150,51 @@ namespace mutagen
             w.scale         = (ScaleKind) r.intRange (0, (int) ScaleKind::count);
             w.rootHz        = 40.0f * std::pow (8.0f, r.nextFloat());          // 40 .. 320 Hz
             w.pitchSpread   = r.range (0.25f, 1.0f);
-            w.quantisePitch = r.chance (0.72f);
+            // Most worlds are in tune with themselves. An unquantised world is
+            // a deliberate exception, not the common case - without this the
+            // partials of a dozen voices never line up and the sum smears.
+            w.quantisePitch = r.chance (0.88f);
             w.detuneAmount  = r.range (0.0f, 0.12f) * r.range (0.2f, 1.0f);
 
             w.partials    = (PartialSet) r.intRange (0, (int) PartialSet::count);
             w.stretch     = r.range (0.93f, 1.09f);
-            w.brightBias  = r.range (0.2f, 0.85f);
+
+            // Centres are drawn wide; spreads are drawn narrow. A world is a
+            // *place* in timbre space, not a sampling of the whole space.
+            w.brightBias    = r.range (0.12f, 0.88f);
+            w.brightSpread  = r.range (0.07f, 0.26f);
+            w.densityBias   = r.range (0.15f, 0.85f);
+            w.densitySpread = r.range (0.07f, 0.26f);
+            w.pitchCentre   = r.range (0.18f, 0.82f);
+            w.pitchSpreadN  = r.range (0.06f, 0.24f);
+
             // Never let a world be *born* able to reach full noise. The guard
             // in Colony can still tighten this, but not loosen it.
-            w.noiseCeiling = r.range (0.30f, 0.70f);
+            /*  Lowered hard from 0.30-0.70.
+
+                At the old range a third of the colony could sit at up to 70%
+                band-noise, and with a dozen such cells sounding at once the
+                sum measured - and sounded - like hiss regardless of what the
+                genomes were doing. Noise colour is a texture on top of a
+                pitch, not a substitute for one.                              */
+            w.noiseCeiling = r.range (0.10f, 0.42f);
+            // A world may be grainy, but its *typical* cell should not start
+            // out near its own noise ceiling - that leaves the colony no room
+            // to drift upward before the guard has to intervene.
+            w.noiseBias    = r.range (0.02f, 1.0f) * w.noiseCeiling * 0.35f;
+
+            // The colony-wide voice. Tilt correlates with brightBias so a
+            // world's filter and its cells agree rather than fight.
+            w.outputTilt  = juce::jlimit (-0.85f, 0.85f,
+                                          (w.brightBias - 0.5f) * 1.6f + r.bipolar() * 0.3f);
+            w.formantHz   = 180.0f * std::pow (22.0f, r.nextFloat());   // 180 Hz .. ~4 kHz
+            w.formantGain = r.range (0.15f, 1.0f);
+            w.formantQ    = r.range (0.5f, 2.2f);
+
+            w.pitchSpanSemis = r.range (14.0f, 42.0f);
+            // Fewer, louder voices. Sixteen simultaneous granular voices is a
+            // texture; six is a chord you can actually hear the parts of.
+            w.voiceLimit     = r.intRange (4, 11);
 
             w.lifeTempo = std::pow (2.0f, r.range (-2.0f, 1.6f));              // 0.25 .. ~3
             w.churn     = r.range (0.2f, 0.9f);
@@ -153,6 +237,27 @@ namespace mutagen
 
             makeName (w, r);
             return w;
+        }
+
+        /** This world's root, as a MIDI note number. */
+        float rootMidi() const
+        {
+            return 69.0f + 12.0f * std::log2 (juce::jmax (20.0f, rootHz) / 440.0f);
+        }
+
+        /** Map a 0..1 pitch gene into this world's register. */
+        float geneToMidi (float gene) const
+        {
+            return rootMidi() + (gene - 0.5f) * pitchSpanSemis;
+        }
+
+        /** Draw a trait value for this world: centred on `centre`, scattered by
+            `spread`, clamped. Used everywhere a cell or a niche is created, so
+            a world's character survives into every generation. */
+        static float place (Rng& r, float centre, float spread)
+        {
+            const float v = centre + r.gaussian() * spread * 0.5f;
+            return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
         }
 
         /** Scale degrees as a 12-bit pitch-class mask (bit 0 = root). */

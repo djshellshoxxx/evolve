@@ -127,3 +127,49 @@ if(MSVC)
 else()
     target_compile_options(MUTAGEN PRIVATE -ffast-math)
 endif()
+
+# ---------------------------------------------------------------------------
+# Headless divergence test
+#
+# The overhaul exists to answer "they all evolve to sound almost the same".
+# That is measurable, so this target measures it: several colonies run offline
+# with no user input, and the report says how far apart they end up, whether
+# each one keeps moving, and whether any of them parks in noise.
+# ---------------------------------------------------------------------------
+option(MUTAGEN_BUILD_TESTS "Build the headless divergence test" ON)
+
+if(MUTAGEN_BUILD_TESTS)
+    juce_add_console_app(MutagenDivergenceTest PRODUCT_NAME "MutagenDivergenceTest")
+
+    target_sources(MutagenDivergenceTest PRIVATE
+        Tests/DivergenceTest.cpp
+        Source/Parameters.cpp
+        Source/Engine/Entropy.cpp
+        Source/Engine/Genome.cpp
+        Source/Engine/Cells.cpp
+        Source/Engine/SourceAnalyzer.cpp
+        Source/Engine/Colony.cpp
+        Source/Engine/Descriptors.cpp)
+
+    target_include_directories(MutagenDivergenceTest PRIVATE Source)
+
+    target_compile_definitions(MutagenDivergenceTest PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_REPORT_APP_USAGE=0
+        _CRT_SECURE_NO_WARNINGS=1)
+
+    target_link_libraries(MutagenDivergenceTest PRIVATE
+        juce::juce_audio_formats
+        juce::juce_audio_processors
+        juce::juce_dsp
+        PUBLIC
+        juce::juce_recommended_config_flags)
+
+    if(MSVC)
+        target_compile_options(MutagenDivergenceTest PRIVATE /fp:fast)
+    else()
+        target_compile_options(MutagenDivergenceTest PRIVATE -ffast-math)
+    endif()
+endif()

@@ -12,7 +12,7 @@ namespace mutagen::params
 
     juce::StringArray sourceModeChoices()
     {
-        return { "Sample", "Live Input", "Primitive: Noise", "Primitive: Impulse", "Preserved Organism" };
+        return { "Sample", "Live Input", "Primitive: Noise", "Primitive: Impulse", "Preserved Organism", "Tone" };
     }
     juce::StringArray cpuQualityChoices() { return { "Eco", "Balanced", "Pristine" }; }
     juce::StringArray pluginRoleChoices() { return { "Instrument", "Effect", "Hybrid" }; }
@@ -112,7 +112,10 @@ namespace mutagen::params
         addF (distGrain,         "Grain Share",     unit(), 0.34f);
         addF (distSpectral,      "Spectral Share",  unit(), 0.33f);
         addF (distResonator,     "Resonator Share", unit(), 0.33f);
-        layout.add (std::make_unique<APC> (pid (sourceMode), "Source", sourceModeChoices(), 2));
+        // Default to the tonal seed, not the noise one. Granulating noise
+        // produces noise however cleverly the colony evolves, which made
+        // every run sound like every other run.
+        layout.add (std::make_unique<APC> (pid (sourceMode), "Source", sourceModeChoices(), 5));
 
         // ---- lifecycle / identity ----
         layout.add (std::make_unique<APB> (pid (exploreMode), "Explore Mode", true));

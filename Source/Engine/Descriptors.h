@@ -59,6 +59,10 @@ namespace mutagen
 
         /** 0..1 how deep into the noise state we are, for the grey ramp. */
         float greyness = 0.0f;
+
+        /** Uncalibrated whitened flatness, exposed so the test can re-derive
+            the calibration constants rather than trusting them. */
+        float rawFlatness = 0.0f;
     };
 
     class DescriptorAnalyser
@@ -84,7 +88,20 @@ namespace mutagen
         void analyseFrame() noexcept;
         float computeRoughness() noexcept;
 
-        static constexpr int fftOrder = 10;          // 1024
+        /*  Where the whitened flatness sits for material at either extreme.
+            Measured, not assumed - see the calibration pass in the test. */
+        static constexpr float flatCalLow  = 0.10f;   // clearly tonal
+        static constexpr float flatCalHigh = 0.62f;   // clearly noise
+
+        /*  2048, not 1024.
+
+            At 1024 and 44.1 kHz a bin is 43 Hz, so the harmonics of anything
+            with a low fundamental are less than three bins apart and the
+            whitening window cannot separate a partial from its neighbours -
+            every dense sound whitened to flat and read as noise. 2048 halves
+            the bin width and makes the measurement work on real material; at
+            a 1024 hop it still only runs about 43 times a second. */
+        static constexpr int fftOrder = 11;          // 2048
         static constexpr int fftSize  = 1 << fftOrder;
         static constexpr int hopSize  = fftSize / 2;
         static constexpr int numBins  = fftSize / 2;
@@ -95,6 +112,7 @@ namespace mutagen
         std::array<float, fftSize> ring {};
         std::array<float, numBins> mag {};
         std::array<float, numBins> prevMag {};
+        std::array<float, numBins + 1> prefix {};   // running sum, for the whitening window
         std::array<float, spectrumBins> magNorm {};
 
         // peak list for the roughness calculation

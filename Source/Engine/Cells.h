@@ -58,6 +58,7 @@ namespace mutagen
         float     health  = 1.0f;
         float     stageGain = 0.0f;   // target amplitude for the current life stage
         float     extGain = 1.0f;     // external per-species emphasis (macros)
+        float     dominance = 1.0f;   // voicing rank: 1 for the audible few, less for the rest
         float     ampSmoothed = 0.0f; // per-sample-smoothed output gain
         float     panSmoothed = 0.0f; // per-sample-smoothed pan
         float     fitness = 0.5f;     // last evaluated selection fitness
@@ -93,6 +94,7 @@ namespace mutagen
         float grainPhase[2] { 0.0f, 0.0f };
         float grainInc[2]   { 0.0f, 0.0f };
         double grainReadPos[2] { 0.0, 0.0 };
+        float  grainRateJitter[2] { 1.0f, 1.0f };   // re-rolled per grain, never per sample
         double grainRate = 1.0;
         int   grainActive = 0;
         double sourceCursor = 0.0;
