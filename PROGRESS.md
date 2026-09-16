@@ -272,13 +272,13 @@ Each milestone: implement → build → commit → push. Tick when pushed.
       MAP-Elites archive, stagnation→hypermutation. Fixes C1, C2, C4.
 - [x] **M4 — Descriptors & homeostasis.** RT-safe spectral flatness / flux / centroid / roughness.
       Anti-noise guard + anti-static "boredom" drive + appeal-seeking fitness. Req. 6/7/8.
-- [ ] **M5 — Score & persistence.** ScoreSystem, combo, events, freeze-on-noise, high-score table,
+- [x] **M5 — Score & persistence.** ScoreSystem, combo, events, freeze-on-noise, high-score table,
       save/load runs. Req. 16-21.
-- [ ] **M6 — Interactive visuals + gesture knobs.** WaveField, left-click mutate, drag waves ⇒ mass mutation,
+- [x] **M6 — Interactive visuals + gesture knobs.** WaveField, left-click mutate, drag waves ⇒ mass mutation,
       right-click subtractive damage, colour⇄grey mapping, score HUD, rare fractal-ghost reward
       flash gated on appeal + rising score, and the PITCH / LFO / OSC gesture knobs.
       Req. 9-12, 22-31.
-- [ ] **M7 — Ingestion.** Drag & drop samples eaten into the colony, multi-sample source pool,
+- [x] **M7 — Ingestion.** Drag & drop samples eaten into the colony, multi-sample source pool,
       mic capture with feedback protection, radio-noise entropy tap. Req. 13-15.
 - [ ] **M8 — Polish & extras.** Additional fun features, README rewrite, final tuning pass.
 
@@ -345,3 +345,50 @@ Each milestone: implement → build → commit → push. Tick when pushed.
 - Note: `cmake --build build --config Release --target MUTAGEN_Standalone` occasionally dies with
   `CL.exe exited with code -1` under full parallelism on this machine; `-j 1` always completes.
 - Next: M5 (score + high-score table) and M6 (visuals, wave field, gesture knobs, fractal reward).
+- **M5 done.** `ScoreSystem.{h,cpp}` on the message thread, driven entirely by the published
+  snapshot - nothing on the audio thread knows the score exists.
+  - Rate is `variety^1.25` scaled by novelty, archive coverage and a small appeal term, times the
+    combo multiplier. Appeal is deliberately a *small* term: weight it heavily and the optimal
+    strategy becomes one consonant drone, which is the opposite of the point.
+  - Approaching a noise lock sags the rate before it bites (`greyness` costs up to 70%), so the
+    number starts falling while there is still time to act.
+  - Freezes on `noiseLocked` or an empty colony, with the reason shown. Clearing a lock pays 1200
+    and acting *while* frozen builds combo at double rate - the move the game wants you to learn.
+  - Events: NEW TIMBRE (archive coverage grew), BLOOM, GENERATION, COLONY RESCUED, MOVING AGAIN,
+    DIGESTED, FATAL DOSE, BENEFICIAL MUTATION.
+  - High-score table in `%APPDATA%/MUTAGEN/scores.json`, top 20, with live projected rank.
+  - Runs save to `.mutagen` (plugin state + score + stats); saving also files the run on the board.
+- **M6 done.**
+  - `WaveField.{h,cpp}` - 112x72 damped wave equation at fixed 120 Hz substeps, absorbing edges,
+    a separate damage channel, rendered through an Image so cost is independent of window size.
+    Saturation = variety, desaturation = greyness, exactly as specified.
+  - `CultureChamber` rewritten as the play surface. Left click mutates, left drag leaves a wake
+    whose strength comes from cursor speed, right click/drag strips, ctrl+right opens the old menu.
+    Cells physically swell where the wave passes, so the ripple and the mutation are one event.
+  - `ScoreHud.{h,cpp}` - score, multiplier, combo, VARIETY and NOISE meters (the whole scoring rule,
+    legible from two bars), event toasts, frozen banner, high-score overlay.
+  - `FractalGhost` - recursive branching structure, re-rolled per appearance, gated on
+    appealing + varied + scoring well held for 7 s, then a 30-70 s random cooldown.
+  - `GameBar.{h,cpp}` - ENZYME, CATALYST, HEAT, WATER, RADIATE, NEW WORLD, SAVE/LOAD RUN, SCORES,
+    mic controls, and the three `GestureKnob`s. The knobs spring back to centre because there is no
+    setting to return to - they send a gesture, not a value.
+- **M7 done.** `Ingest.{h,cpp}`:
+  - `SourcePool` stitches rather than mixes. Summing N uncorrelated recordings *is* noise, so each
+    drop replaces crossfaded segments of the digest buffer instead of being added to it, and the
+    replaced share shrinks with each drop (0.60 / (1 + 0.55n)) so the newest sample can never
+    completely displace what the colony already is.
+  - `MicInput` guards feedback in three layers: output muted while capturing (an open loop cannot
+    howl - this is the default), a howl detector requiring narrow-band *and* same-band-persistent
+    *and* growing simultaneously for 0.45 s (music is regularly one or two of those, almost never
+    all three) which aborts and notches, and a hard output ceiling underneath both.
+- **Performance.** Measured on the standalone: 0.85 -> 0.57 cores total.
+  - `evaluateFitness` (O(n^2) crowding + k-NN) moved off the audio-block rate onto its own 22 Hz
+    accumulator; nothing it measures changes faster than that.
+  - `WaveField::render` uses an inline HSV->RGB and resolves nearest-island hue on a quarter-
+    resolution grid (64k distance tests per frame -> 4k). GUI cost 0.21 -> 0.07 cores.
+  - `fastSin` (Bhaskara + correction, ~0.1% error) for the spectral partial bank, which was the
+    hottest loop in the engine at up to 12 sines per sample per cell. Audio 0.71 -> 0.50 cores.
+- Smoke test: standalone launches, creates its window at 1322x888, stays responsive, memory flat.
+  Screen capture is not available in this session, so the visuals have not been verified by eye -
+  that needs a human look.
+- Next: M8 - README, a pass over the remaining fun features, and tuning by ear.

@@ -53,6 +53,7 @@ namespace mutagen
         for (auto& n : noteGroup) n = -1;
         noteActiveCount = 0;
         rng.seed (colonySeed);
+        fitnessAccum = 0.0;
         archive.clear();
         elites.clear();
         stagnation.reset();
@@ -945,7 +946,13 @@ namespace mutagen
 
         // 2) islands wander, then fitness is scored against them
         updateNiches (dt);
-        evaluateFitness (dt);
+
+        fitnessAccum += dt;
+        if (fitnessAccum >= fitnessInterval)
+        {
+            evaluateFitness (fitnessAccum);
+            fitnessAccum = 0.0;
+        }
 
         if (! env.explore)  // Preserve mode: freeze everything below
         {
@@ -1881,6 +1888,97 @@ namespace mutagen
         lastRadiation = 0;
         lastGesture = 0;
         return 0;
+    }
+
+
+    void Colony::knobGesture (int which, float amount, float speed)
+    {
+        /*  These are not parameters. Turning one does not set a value; it
+            applies a gesture whose result depends on the direction, on how
+            hard it was turned, and on a roll. Up tends to add and enrich,
+            down tends to thin and strip, but neither is guaranteed - the
+            brief asks for knobs that can help or hurt, so about one turn in
+            six does the opposite of what the direction suggests.          */
+
+        int live[EngineSnapshot::maxCells];
+        const int n = livingSlots (live, EngineSnapshot::maxCells);
+        if (n == 0) return;
+
+        speed = juce::jlimit (0.0f, 1.0f, speed);
+        const float dir = amount >= 0.0f ? 1.0f : -1.0f;
+        float mag = juce::jlimit (0.0f, 1.0f, std::fabs (amount)) * (0.35f + 0.65f * speed);
+
+        // The contrary roll. A fast turn is more likely to misbehave, which
+        // makes hurrying genuinely risky rather than merely less precise.
+        const bool contrary = rng.chance (0.10f + 0.14f * speed);
+        const float sign = contrary ? -dir : dir;
+
+        // How much of the colony the gesture catches is also rolled, and a
+        // faster turn reaches further.
+        const int reach = juce::jlimit (1, n,
+                            (int) (n * rng.range (0.2f, 0.45f + 0.5f * speed)) + 1);
+
+        for (int k = 0; k < reach; ++k)
+        {
+            Cell& c = cells[(size_t) live[rng.intRange (0, n)]];
+            if (! c.alive || c.preserved) continue;
+
+            auto nudge = [&] (Trait t, float by)
+            {
+                auto& g = c.genome.raw()[(int) t];
+                if (! g.locked) g.value = clamp01 (g.value + by);
+            };
+
+            // Per-cell jitter, so a gesture spreads the colony out rather than
+            // moving every caught cell by the same amount.
+            const float per = mag * rng.range (0.4f, 1.0f);
+
+            switch (which)
+            {
+                case 0:   // PITCH
+                    nudge (Trait::pitch, sign * per * 0.28f);
+                    // a turn also loosens or tightens how tightly the cell tracks
+                    nudge (Trait::jitter, sign * per * 0.08f);
+                    if (rng.chance (0.25f))
+                        nudge (Trait::formant, sign * per * 0.2f);
+                    break;
+
+                case 1:   // LFO
+                    nudge (Trait::lfoRateCentre, sign * per * 0.3f);
+                    nudge (Trait::lfoDepth,      sign * per * 0.22f);
+                    if (rng.chance (0.4f))
+                        nudge (Trait::lfoRateSpread, sign * per * 0.25f);
+                    if (rng.chance (0.3f))
+                        nudge (Trait::vibrato, sign * per * 0.2f);
+                    break;
+
+                default:  // OSC
+                    nudge (Trait::density,    sign * per * 0.3f);
+                    nudge (Trait::brightness, sign * per * 0.24f);
+                    if (rng.chance (0.35f))
+                        nudge (Trait::resonance, sign * per * 0.2f);
+                    // turning down also thins the noise, which is why the OSC
+                    // knob doubles as a crude clean-up tool
+                    if (sign < 0.0f)
+                        nudge (Trait::noiseColour, -per * 0.25f);
+                    break;
+            }
+
+            c.genome.enforceMovementFloor();
+            c.mod.configure (c.genome, world, rng);
+            c.visualPulse = juce::jmax (c.visualPulse, 0.5f + 0.5f * per);
+        }
+
+        // A hard turn leaves a mark on the ecology itself, not just the cells.
+        if (speed > 0.6f && rng.chance (0.3f))
+        {
+            const int ni = rng.intRange (0, nicheCount);
+            niches[ni].target.mutate (rng, 0.4f, 0.5f * mag, 0.1f);
+            niches[ni].hue = std::fmod (niches[ni].hue + 0.12f * dir + 1.0f, 1.0f);
+        }
+
+        pressureFront = juce::jmax (pressureFront, 0.6f);
+        lastGesture = contrary ? -1 : 1;
     }
 
     void Colony::writeSnapshot (EngineSnapshot& s) const

@@ -57,6 +57,8 @@ void MutagenProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     colony.prepare (sampleRate, samplesPerBlock, params::maxCellsFor (cpuQuality()));
     postChain.prepare (sampleRate, samplesPerBlock, 2);
+    sourcePool.prepare (sampleRate);
+    mic.prepare (sampleRate, samplesPerBlock);
 
     dryScratch.setSize (2, samplesPerBlock);
     captureRing.setSize (1, juce::jmax (1, (int) (sampleRate * 12.0)));
@@ -342,6 +344,15 @@ void MutagenProcessor::resetEverything()
     hostTimeSeconds = 0.0;
 }
 
+void MutagenProcessor::noteUserGesture (float nx, float ny, juce::uint64 extra)
+{
+    auto& e = globalEntropy();
+    const auto qx = (uint64_t) (juce::jlimit (0.0f, 1.0f, nx) * 65535.0f);
+    const auto qy = (uint64_t) (juce::jlimit (0.0f, 1.0f, ny) * 65535.0f);
+    e.addEvent ((qx << 32) ^ (qy << 8) ^ (uint64_t) extra);
+    e.addTimingJitter();
+}
+
 void MutagenProcessor::rollNewWorld()
 {
     EngineCommand c;
@@ -520,6 +531,10 @@ void MutagenProcessor::applyCommand (const EngineCommand& c)
             colony.setWorld (WorldSeed::fromSeed (c.u64));
             captureRequest.store (true);
             break;
+
+        case CommandType::knobGesture:
+            colony.knobGesture (c.ia, c.fa, c.fb);
+            break;
     }
 }
 
@@ -616,6 +631,9 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         // floor is a physical entropy source, and feedAudio() is wait-free.
         globalEntropy().feedAudio (buffer.getReadPointer (0), numSamples);
 
+        // Microphone capture and the feedback guard both see the raw input.
+        mic.process (buffer.getReadPointer (0), numSamples);
+
         const float* src0 = buffer.getReadPointer (0);
         const int rn = captureRing.getNumSamples();
         float* rd = captureRing.getWritePointer (0);
@@ -663,6 +681,12 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
             if (++captureWritePos >= rn) { captureWritePos = 0; captureRingFilled = true; }
         }
     }
+
+    // ---- microphone feedback guard, last thing before the output leaves ----
+    // Muting while capturing is the primary protection: an open loop cannot
+    // howl. The notch and duck below are for live-monitoring mode and for the
+    // case where the room is already ringing before capture starts.
+    mic.protectOutput (buffer);
 
     // ---- publish visual snapshot ----
     colony.writeSnapshot (snapshots[(size_t) snapWrite]);
@@ -862,6 +886,74 @@ void MutagenProcessor::setStateInformation (const void* data, int sizeInBytes)
         pushCommand (c);
     }
 }
+
+// ---------------------------------------------------------------------------
+//  Ingestion (message thread)
+// ---------------------------------------------------------------------------
+
+bool MutagenProcessor::digestFile (const juce::File& file)
+{
+    juce::AudioFormatManager fm;
+    fm.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader (fm.createReaderFor (file));
+    if (reader == nullptr) return false;
+
+    const int len = (int) juce::jmin ((juce::int64) (reader->sampleRate * 30.0),
+                                      reader->lengthInSamples);
+    if (len < 64) return false;
+
+    juce::AudioBuffer<float> tmp ((int) reader->numChannels, len);
+    reader->read (&tmp, 0, len, 0, true, true);
+
+    digestBuffer (tmp, reader->sampleRate, file.getFileNameWithoutExtension());
+    return true;
+}
+
+void MutagenProcessor::digestBuffer (const juce::AudioBuffer<float>& buf, double rate,
+                                     const juce::String& name)
+{
+    // The file's own bytes are an entropy observation too - the player chose
+    // this sample, at this moment, out of everything on their disk.
+    globalEntropy().addEvent ((uint64_t) buf.getNumSamples()
+                              ^ ((uint64_t) name.hashCode64()));
+
+    sourcePool.digest (buf, rate, name);
+
+    // Re-analyse the whole digest, not just the new sample, so the colony's
+    // features describe the chimera it now has to work with.
+    loadSourceFromBuffer (sourcePool.buffer(), sourcePool.rate(),
+                          *p (params::transientSens));
+}
+
+// ---------------------------------------------------------------------------
+//  Microphone
+// ---------------------------------------------------------------------------
+
+void MutagenProcessor::armMic (bool shouldArm)
+{
+    mic.arm (shouldArm);
+}
+
+void MutagenProcessor::startMicCapture (float seconds)
+{
+    mic.startCapture (seconds);
+}
+
+bool MutagenProcessor::pollMicCapture()
+{
+    if (! mic.consumeReady()) return false;
+
+    const int n = mic.capturedLength();
+    if (n < 512) return false;
+
+    juce::AudioBuffer<float> tmp (1, n);
+    tmp.copyFrom (0, 0, mic.captured(), 0, 0, n);
+    digestBuffer (tmp, sampleRateHz, "mic");
+    return true;
+}
+
+float MutagenProcessor::entropyTapLevel() const { return globalEntropy().audioTapLevel(); }
+bool  MutagenProcessor::entropyTapLive() const  { return globalEntropy().hasLiveTap(); }
 
 // ---------------------------------------------------------------------------
 

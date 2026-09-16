@@ -15,6 +15,26 @@ namespace mutagen
         return x * (27.0f + x2) / (27.0f + 9.0f * x2);
     }
 
+    /*  A fast sine for the per-sample partial bank.
+
+        The spectral species evaluates up to twelve sines per sample per cell,
+        which is far and away the hottest loop in the engine. This is the
+        Bhaskara-style parabolic approximation with one correction term: about
+        0.1% peak error, which is roughly -60 dB of harmonic junk on a partial
+        that is already being summed with eleven others and then filtered. It
+        is not good enough for an oscillator you would tune by ear; it is more
+        than good enough for a partial in a bank.
+
+        Input must be in [-pi, pi].                                          */
+    static inline float fastSin (float x) noexcept
+    {
+        constexpr float B = 4.0f / juce::MathConstants<float>::pi;
+        constexpr float C = -4.0f / (juce::MathConstants<float>::pi * juce::MathConstants<float>::pi);
+
+        const float y = B * x + C * x * std::fabs (x);
+        return 0.225f * (y * std::fabs (y) - y) + y;
+    }
+
     static float semisToRatio (float semis) { return std::pow (2.0f, semis / 12.0f); }
     static float midiToHz (float m) { return 440.0f * std::pow (2.0f, (m - 69.0f) / 12.0f); }
 
@@ -427,7 +447,10 @@ namespace mutagen
                     partialPhase[k] += partialInc[k];
                     if (partialPhase[k] > juce::MathConstants<float>::twoPi)
                         partialPhase[k] -= juce::MathConstants<float>::twoPi;
-                    harm += std::sin (partialPhase[k]) * partialAmp[k];
+
+                    // shift [0, 2pi) into [-pi, pi) for fastSin; sin(x+pi) = -sin(x)
+                    const float xx = partialPhase[k] - juce::MathConstants<float>::pi;
+                    harm -= fastSin (xx) * partialAmp[k];
                 }
                 harm *= ampNorm;
 

@@ -12,6 +12,9 @@
 #include "GUI/PerformanceView.h"
 #include "GUI/FxRackView.h"
 #include "GUI/TopBar.h"
+#include "GUI/ScoreHud.h"
+#include "GUI/GameBar.h"
+#include "Engine/ScoreSystem.h"
 #include "Engine/RenderEngine.h"
 
 namespace mutagen
@@ -32,6 +35,12 @@ namespace mutagen
         void doRender();
         void layoutMain();
 
+        void wireGameLayer();
+        void sendSimple (CommandType t);
+        void saveRun();
+        void loadRun();
+        void handleDroppedFiles (const juce::StringArray& files);
+
         MutagenProcessor& processor;
         MutagenLookAndFeel lnf;
 
@@ -44,6 +53,12 @@ namespace mutagen
         BreedingLabView   breedingLab;
         PerformanceView   performance;
         FxRackView        fxRack;
+
+        // ---- the game layer ----
+        ScoreSystem       scoreSystem;
+        ScoreHud          scoreHud;
+        GameBar           gameBar;
+        uint64_t          lastRadiationCounter = 0;
 
         juce::Label       renderStatus;
         RenderEngine      renderEngine;

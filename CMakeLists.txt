@@ -81,10 +81,15 @@ target_sources(MUTAGEN PRIVATE
     Source/Engine/OrganismSerialization.cpp
     Source/Engine/PostChain.cpp
     Source/Engine/RenderEngine.cpp
+    Source/Engine/ScoreSystem.cpp
+    Source/Engine/Ingest.cpp
 
     Source/GUI/MutagenLookAndFeel.cpp
     Source/GUI/Widgets.cpp
     Source/GUI/CultureChamber.cpp
+    Source/GUI/WaveField.cpp
+    Source/GUI/ScoreHud.cpp
+    Source/GUI/GameBar.cpp
     Source/GUI/GerminationPanel.cpp
     Source/GUI/EnvironmentPanel.cpp
     Source/GUI/GenomeInspector.cpp

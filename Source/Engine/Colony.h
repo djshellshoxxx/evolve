@@ -131,6 +131,13 @@ namespace mutagen
             so the score system can react. */
         int  radiate();
 
+        /** The PITCH / LFO / OSC knobs. Unlike a parameter, what these do
+            depends on which way they are turned, how fast, and what the colony
+            happens to be doing at that moment - and part of it is a roll. They
+            can improve the sound or wreck it. `which` 0=pitch 1=lfo 2=osc,
+            `amount` is signed (turn direction), `speed` 0..1. */
+        void knobGesture (int which, float amount, float speed);
+
         int   lastRadiationOutcome() const { return lastRadiation; }
 
         // ---- identity ----------------------------------------------
@@ -238,6 +245,14 @@ namespace mutagen
         Behaviour behaviourOf[EngineSnapshot::maxCells];
         float     noveltyOf[EngineSnapshot::maxCells] {};
         int       noveltyCursor = 0;        // amortises the k-NN query
+
+        /*  Fitness is an O(n^2) crowding pass plus a k-NN query, and it was
+            running once per audio block (~86 Hz at 512 samples). Nothing it
+            measures changes meaningfully that fast, so it runs on its own
+            accumulator at ~22 Hz instead and the cells keep their last score
+            in between. */
+        double fitnessAccum = 0.0;
+        static constexpr double fitnessInterval = 0.045;
 
         float noiseLockSeconds = 0.0f;      // how long we have been noise-locked
         float stuckSeconds     = 0.0f;

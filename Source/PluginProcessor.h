@@ -10,6 +10,7 @@
 #include "Engine/BreedingLab.h"
 #include "Engine/OrganismState.h"
 #include "Engine/PostChain.h"
+#include "Engine/Ingest.h"
 
 namespace mutagen
 {
@@ -120,6 +121,8 @@ namespace mutagen
         Colony         colony;
         SourceAnalyzer analyzer;
         PostChain      postChain;
+        SourcePool     sourcePool;
+        MicInput       mic;
         double sampleRateHz = 44100.0;
         int    blockSize = 512;
 
@@ -190,6 +193,42 @@ namespace mutagen
 
         /** Re-roll the rules of the run (tuning, palette, tempo, routing). */
         void rollNewWorld();
+
+        /** Fold a user gesture into the entropy pool. Where the player clicked
+            and - more usefully - the exact moment they did it are both things
+            no algorithm could have predicted, so they are genuine entropy. */
+        void noteUserGesture (float nx, float ny, juce::uint64 extra = 0);
+
+        // ---- ingestion -------------------------------------------------
+        /** Feed a dropped audio file to the colony. The sample is stitched
+            into the digest buffer rather than replacing it, so the colony
+            takes some of its form without becoming it. Returns false if the
+            file could not be read. Message thread. */
+        bool digestFile (const juce::File& file);
+
+        /** Feed an arbitrary buffer (used for microphone captures). */
+        void digestBuffer (const juce::AudioBuffer<float>& buf, double rate,
+                           const juce::String& name);
+
+        int digestedCount() const { return sourcePool.digestCount(); }
+        juce::StringArray digestedNames() const { return sourcePool.eatenNames(); }
+
+        // ---- microphone ------------------------------------------------
+        void armMic (bool shouldArm);
+        void startMicCapture (float seconds);
+        bool micArmed() const { return mic.isArmed(); }
+        bool micCapturing() const { return mic.currentState() == MicInput::State::capturing; }
+        float micLevel() const { return mic.level(); }
+        float micHowlFrequency() const { return mic.howlFrequency(); }
+        void  setMicLiveMonitoring (bool m) { mic.setLiveMonitoring (m); }
+
+        /** Poll from the editor: a capture finished, or the guard aborted one. */
+        bool pollMicCapture();
+        bool pollMicAbort() { return mic.consumeAbortFlag(); }
+
+        // ---- entropy read-out ------------------------------------------
+        float entropyTapLevel() const;
+        bool  entropyTapLive() const;
 
     private:
 

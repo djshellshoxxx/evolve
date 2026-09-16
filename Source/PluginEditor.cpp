@@ -68,6 +68,18 @@ namespace mutagen
         renderStatus.setFont (11.0f);
         addAndMakeVisible (renderStatus);
 
+        addAndMakeVisible (gameBar);
+        addAndMakeVisible (scoreHud);
+        scoreHud.setInterceptsMouseClicks (true, false);
+        chamber.setHudProbe ([this] (juce::Point<int> p)
+        {
+            // The HUD floats over the chamber, so the chamber has to know not
+            // to treat a click on the score panel as a mutation.
+            return scoreHud.hitsInteractive (scoreHud.getLocalPoint (this, p));
+        });
+
+        wireGameLayer();
+
         // ---- wiring ----
         chamber.onSelectionChanged = [this] (const Selection& s)
         {
@@ -192,6 +204,214 @@ namespace mutagen
             });
     }
 
+
+    // =====================================================================
+    //  The game layer
+    // =====================================================================
+
+    void MutagenEditor::sendSimple (CommandType t)
+    {
+        EngineCommand c;
+        c.type = t;
+        processor.pushCommand (c);
+    }
+
+    void MutagenEditor::wireGameLayer()
+    {
+        // ---- the chamber is the play surface ---------------------------
+        chamber.onInteraction = [this] (float weight, juce::String label)
+        {
+            scoreSystem.registerInteraction (weight, label);
+        };
+
+        chamber.onFilesDropped = [this] (const juce::StringArray& files)
+        {
+            handleDroppedFiles (files);
+        };
+
+        // ---- the one-shot gestures --------------------------------------
+        gameBar.onEnzyme = [this]
+        {
+            sendSimple (CommandType::addEnzyme);
+            scoreSystem.registerInteraction (0.6f, "ENZYME");
+        };
+
+        gameBar.onCatalyst = [this]
+        {
+            sendSimple (CommandType::addCatalyst);
+            scoreSystem.registerInteraction (0.6f, "CATALYST");
+        };
+
+        gameBar.onHeat = [this]
+        {
+            EngineCommand c;
+            c.type = CommandType::addHeat;
+            c.fa = 1.0f;
+            processor.pushCommand (c);
+            scoreSystem.registerInteraction (0.4f, "HEAT");
+        };
+
+        gameBar.onWater = [this]
+        {
+            EngineCommand c;
+            c.type = CommandType::addHeat;
+            c.fa = -1.0f;
+            processor.pushCommand (c);
+            scoreSystem.registerInteraction (0.4f, "WATER");
+        };
+
+        gameBar.onRadiate = [this]
+        {
+            // The score reacts when the outcome comes back from the audio
+            // thread, not here - we do not know yet which way it fell.
+            sendSimple (CommandType::radiate);
+        };
+
+        // ---- the three gesture knobs ------------------------------------
+        gameBar.onKnob = [this] (int which, float amount, float speed)
+        {
+            EngineCommand c;
+            c.type = CommandType::knobGesture;
+            c.ia = which;
+            c.fa = amount;
+            c.fb = speed;
+            processor.pushCommand (c);
+
+            // Turning a knob is an entropy observation with unusually good
+            // timing resolution, so feed it in.
+            processor.noteUserGesture (0.5f + amount * 0.5f, speed);
+            scoreSystem.registerInteraction (0.25f * std::abs (amount));
+        };
+
+        // ---- run controls -------------------------------------------------
+        gameBar.onNewWorld = [this]
+        {
+            processor.rollNewWorld();
+            scoreSystem.registerInteraction (1.0f, "NEW WORLD");
+        };
+
+        gameBar.onSaveRun  = [this] { saveRun(); };
+        gameBar.onLoadRun  = [this] { loadRun(); };
+        gameBar.onScores   = [this] { scoreHud.setTableVisible (! scoreHud.isTableVisible()); };
+
+        // ---- microphone ---------------------------------------------------
+        gameBar.onMicArm = [this]
+        {
+            const bool wasArmed = processor.micArmed();
+            processor.armMic (! wasArmed);
+        };
+
+        gameBar.onMicCapture = [this]
+        {
+            processor.startMicCapture (4.0f);
+            scoreSystem.registerInteraction (0.5f, "LISTENING");
+        };
+    }
+
+    void MutagenEditor::handleDroppedFiles (const juce::StringArray& files)
+    {
+        int eaten = 0;
+        for (const auto& f : files)
+        {
+            const juce::File file (f);
+            if (! file.existsAsFile()) continue;
+            if (processor.digestFile (file))
+            {
+                scoreSystem.onSampleDigested (file.getFileNameWithoutExtension());
+                ++eaten;
+            }
+        }
+
+        if (eaten == 0)
+            scoreSystem.registerInteraction (0.0f, "COULD NOT READ THAT FILE");
+    }
+
+    // =====================================================================
+    //  Saving and loading a run
+    // =====================================================================
+
+    void MutagenEditor::saveRun()
+    {
+        chooser = std::make_unique<juce::FileChooser> (
+            "Save this run",
+            juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                .getChildFile (juce::String (snapshot.worldName).replace (" ", "_") + ".mutagen"),
+            "*.mutagen");
+
+        chooser->launchAsync (juce::FileBrowserComponent::saveMode
+                              | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& fc)
+            {
+                const auto f = fc.getResult();
+                if (f == juce::File{}) return;
+
+                // The plugin's own state carries the colony; the score and the
+                // run statistics ride alongside it.
+                juce::MemoryBlock state;
+                processor.getStateInformation (state);
+
+                juce::ValueTree run ("MUTAGEN_RUN");
+                run.setProperty ("version", 1, nullptr);
+                run.setProperty ("world", juce::String (snapshot.worldName), nullptr);
+                run.setProperty ("score", (double) scoreSystem.score(), nullptr);
+                run.setProperty ("seconds", scoreSystem.elapsed(), nullptr);
+                run.setProperty ("peakVariety", (double) scoreSystem.peakVariety(), nullptr);
+                run.setProperty ("discoveries", scoreSystem.discoveries(), nullptr);
+                run.setProperty ("generation", snapshot.generation, nullptr);
+                run.setProperty ("state", state.toBase64Encoding(), nullptr);
+
+                if (auto xml = run.createXml())
+                {
+                    if (xml->writeTo (f))
+                    {
+                        // Filing the run is also what puts it on the board.
+                        scoreSystem.submit (juce::String (snapshot.worldName), snapshot);
+                        renderStatus.setText ("saved " + f.getFileName(),
+                                              juce::dontSendNotification);
+                        scoreHud.setTableVisible (true);
+                        return;
+                    }
+                }
+                renderStatus.setText ("could not save", juce::dontSendNotification);
+            });
+    }
+
+    void MutagenEditor::loadRun()
+    {
+        chooser = std::make_unique<juce::FileChooser> (
+            "Load a run",
+            juce::File::getSpecialLocation (juce::File::userDocumentsDirectory),
+            "*.mutagen");
+
+        chooser->launchAsync (juce::FileBrowserComponent::openMode
+                              | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& fc)
+            {
+                const auto f = fc.getResult();
+                if (f == juce::File{} || ! f.existsAsFile()) return;
+
+                auto xml = juce::XmlDocument::parse (f);
+                if (xml == nullptr) { renderStatus.setText ("bad file", juce::dontSendNotification); return; }
+
+                auto run = juce::ValueTree::fromXml (*xml);
+                if (! run.hasType ("MUTAGEN_RUN"))
+                {
+                    renderStatus.setText ("not a MUTAGEN run", juce::dontSendNotification);
+                    return;
+                }
+
+                juce::MemoryBlock state;
+                if (state.fromBase64Encoding (run.getProperty ("state").toString())
+                    && state.getSize() > 0)
+                {
+                    processor.setStateInformation (state.getData(), (int) state.getSize());
+                }
+
+                timeline.refresh();
+                renderStatus.setText ("loaded " + f.getFileName(), juce::dontSendNotification);
+            });
+    }
+
     // =====================================================================
 
     void MutagenEditor::timerCallback()
@@ -202,6 +422,33 @@ namespace mutagen
         dt = juce::jlimit (0.0, 0.1, dt);
 
         processor.copyLatestSnapshot (snapshot);
+
+        // ---- the game layer -------------------------------------------
+        scoreSystem.update (snapshot, dt);
+        scoreHud.setState (scoreSystem, snapshot);
+        gameBar.tick ((float) dt);
+        gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
+                           processor.micLevel(), processor.entropyTapLevel(),
+                           processor.entropyTapLive());
+
+        // A RADIATE landed on the audio thread; react exactly once per result.
+        if (const auto counter = processor.radiationCounter(); counter != lastRadiationCounter)
+        {
+            lastRadiationCounter = counter;
+            const int outcome = processor.lastRadiationOutcome();
+            scoreSystem.onRadiation (outcome);
+            gameBar.flashRadiation (outcome);
+        }
+
+        // A microphone capture finished, or the guard killed one.
+        if (processor.pollMicCapture())
+            scoreSystem.onSampleDigested ("mic");
+        if (processor.pollMicAbort())
+            scoreSystem.registerInteraction (0.0f, "FEEDBACK - CAPTURE ABORTED");
+
+        // The reward. ScoreSystem decides when; the chamber draws it.
+        if (scoreSystem.consumeRewardFlash())
+            chamber.triggerReward (snapshot.worldHue);
 
         chamber.update (snapshot, dt);
         topBar.setStats (snapshot);
@@ -245,7 +492,14 @@ namespace mutagen
             inspector.setBounds (mid.removeFromRight (298));
             mid.removeFromRight (8);
         }
+
+        // The action strip sits directly under the chamber, where the player's
+        // attention already is.
+        gameBar.setBounds (mid.removeFromBottom (86));
+        mid.removeFromBottom (6);
         chamber.setBounds (mid);
+        scoreHud.setBounds (chamber.getBounds());
+        scoreHud.toFront (false);
     }
 
     void MutagenEditor::resized()

@@ -4,16 +4,37 @@
 #include <vector>
 #include "../Engine/OrganismState.h"
 #include "Selection.h"
+#include "WaveField.h"
+#include "ScoreHud.h"
 
 namespace mutagen
 {
     class MutagenProcessor;
 
-    /*  The Culture Chamber: a functional read-out of the live engine. Every
-        blob, ring, arc and haze corresponds to something the colony is doing
-        right now. Click to select a cell / family / species; right-click for
-        the isolate / mute / preserve / eliminate / inspect / breed menu.      */
-    class CultureChamber : public juce::Component
+    /*  ------------------------------------------------------------------
+        The Culture Chamber - the game surface.
+
+        Mouse contract:
+
+          left click        additive mutation burst at the click, plus a
+                            ripple in the wave field
+          left drag         a continuous wake; every ripple it leaves behind
+                            mass-mutates the cells it washes over, scaled by
+                            how fast the cursor is moving
+          right click/drag  subtractive damage - strips partials, density and
+                            noise colour, and kills what it has already
+                            weakened. Also the cure for a noise lock.
+          ctrl + right      the old inspect / isolate / preserve menu
+          double click      send a family to the breeding lab, or seed a burst
+                            on empty ground
+          drop a file       the colony eats the sample
+
+        Colour follows the sound: varied is saturated, noisy is grey. Nothing
+        here is decorative - every ripple the player sees corresponds to a
+        mutation command that was actually sent.
+        ------------------------------------------------------------------ */
+    class CultureChamber : public juce::Component,
+                           public juce::FileDragAndDropTarget
     {
     public:
         explicit CultureChamber (MutagenProcessor&);
@@ -29,32 +50,77 @@ namespace mutagen
         void mouseDoubleClick (const juce::MouseEvent&) override;
         void mouseExit (const juce::MouseEvent&) override;
 
+        // ---- file drops -------------------------------------------------
+        bool isInterestedInFileDrag (const juce::StringArray& files) override;
+        void fileDragEnter (const juce::StringArray&, int, int) override;
+        void fileDragExit (const juce::StringArray&) override;
+        void filesDropped (const juce::StringArray& files, int x, int y) override;
+
+        // ---- callbacks ---------------------------------------------------
         std::function<void (const Selection&)> onSelectionChanged;
         std::function<void (const Selection&)> onInspect;
         std::function<void (const Selection&)> onSendToBreedingLab;
 
+        /** The player interacted; weight 0..1, label for the score feed. */
+        std::function<void (float weight, juce::String label)> onInteraction;
+
+        /** Audio files were dropped on the chamber. */
+        std::function<void (const juce::StringArray&)> onFilesDropped;
+
         void setSelection (const Selection& s) { selection = s; repaint(); }
         const Selection& getSelection() const { return selection; }
 
+        /** Fire the fractal reward. The ScoreSystem decides when. */
+        void triggerReward (float hue);
+
+        /** Where the HUD sits, so clicks there are not treated as mutations. */
+        void setHudProbe (std::function<bool (juce::Point<int>)> fn) { hudProbe = std::move (fn); }
+
     private:
-        struct Ripple { float x, y, r, life, maxLife; juce::Colour c; };
+        struct Ripple { float x, y, r, life, maxLife; juce::Colour c; bool destructive; };
 
         juce::Point<float> toPixels (float nx, float ny) const;
+        juce::Point<float> toNormalised (juce::Point<float> p) const;
         int   hitTestCell (juce::Point<float> p) const;
         void  showContextMenu (int cellIndex);
         void  emitSelection();
 
+        void  strike (juce::Point<float> pos, bool destructive, float strength, bool fromDrag);
+        void  paintCells (juce::Graphics&);
+        void  paintSpectrum (juce::Graphics&, juce::Rectangle<float>);
+        void  paintNiches (juce::Graphics&);
+        juce::Colour cellColour (const CellView& c) const;
+
         MutagenProcessor& processor;
         EngineSnapshot snap;
         double phase = 0.0;
-        double lastWidth = 0.0, lastHeight = 0.0;
+
+        WaveField    waves;
+        FractalGhost ghost;
+        juce::Random rnd;
 
         Selection selection;
         int hoverCell = -1;
         juce::Point<float> mousePos;
         std::vector<Ripple> ripples;
 
-        juce::Rectangle<float> field; // drawable inner area
+        // drag tracking
+        bool  dragging = false;
+        bool  dragDestructive = false;
+        juce::Point<float> lastEmit;
+        double lastEmitTime = 0.0;
+        float  dragSpeed = 0.0f;
+
+        bool  fileHover = false;
+
+        // smoothed visual state
+        float colourSat = 0.6f;
+        float greyLevel = 0.0f;
+        float redFlash = 0.0f;
+
+        std::function<bool (juce::Point<int>)> hudProbe;
+
+        juce::Rectangle<float> field;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CultureChamber)
     };
