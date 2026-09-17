@@ -133,8 +133,27 @@ namespace mutagen
         // ---- the fractal reward --------------------------------------------
         if (rewardCooldown > 0.0f) rewardCooldown -= fdt;
 
+        /*  The gate has to mean "better than this colony's normal", and what
+            normal *is* moved when the noisiness measurement was fixed.
+            Appeal carries a tonalness term, and tonalness was pinned near zero
+            for every colony while flatness was saturating at 1.000 - so the
+            measured appeal of six healthy runs was 0.52-0.59 and this gate,
+            set at 0.62, was one the instrument could essentially never pass.
+            That is why the fractal reward had never been seen.
+
+            The same six runs now measure 0.762-0.826, median about 0.78, so
+            the gate sits at 0.76: inside the range the instrument actually
+            occupies, and low enough that a colony having a good few seconds
+            can clear it. 0.80 was tried first and is too high - it is above
+            the mean of four of the six worlds, and a two-minute capture of
+            the running app caught no reward at all.
+
+            Scarcity is the cooldown's job, not this gate's. Seven seconds of
+            *sustained* good play (the counter falls at twice the rate it
+            rises, so a wobble resets it) and then 30-70 s before another one
+            is possible, which puts it at a handful per long session. */
         const bool doingWell = ! isFrozen
-                            && snap.appeal > 0.62f
+                            && snap.appeal > 0.76f
                             && snap.variety > 0.42f
                             && lastRate > baseRate * 0.55f;
 

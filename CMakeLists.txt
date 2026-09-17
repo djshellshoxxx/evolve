@@ -169,7 +169,11 @@ if(MUTAGEN_BUILD_TESTS)
         Source/Engine/Cells.cpp
         Source/Engine/SourceAnalyzer.cpp
         Source/Engine/Colony.cpp
-        Source/Engine/Descriptors.cpp)
+        Source/Engine/Descriptors.cpp
+        # The reward check drives a real ScoreSystem off a real snapshot, so
+        # "rare" is a number this test prints rather than something a human
+        # has to sit and wait for.
+        Source/Engine/ScoreSystem.cpp)
 
     target_include_directories(MutagenDivergenceTest PRIVATE Source)
 
@@ -184,6 +188,7 @@ if(MUTAGEN_BUILD_TESTS)
         juce::juce_audio_formats
         juce::juce_audio_processors
         juce::juce_dsp
+        juce::juce_gui_basics
         PUBLIC
         juce::juce_recommended_config_flags)
 

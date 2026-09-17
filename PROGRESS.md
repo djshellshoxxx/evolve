@@ -281,6 +281,10 @@ Each milestone: implement → build → commit → push. Tick when pushed.
 - [x] **M7 — Ingestion.** Drag & drop samples eaten into the colony, multi-sample source pool,
       mic capture with feedback protection, radio-noise entropy tap. Req. 13-15.
 - [x] **M8 — Polish & extras.** Additional fun features, README rewrite, final tuning pass.
+- [x] **M10 — The measurement was wrong.** The noisiness metric rebuilt around
+      periodicity so a modulated note stops reading as noise; the noise verdict,
+      the grey ramp and the fractal-reward gate re-derived from it. Closes the
+      open item M8 left behind.
 - [x] **M9 — The house kit.** `theme.md` (the visual identity shared by every plugin in
       the range) and `include.md` (the feature set every plugin must ship) applied in
       full: look and feel, header, presets, help, options, right-click contract,
@@ -560,3 +564,114 @@ app and screenshotted.
 **Still not verified by eye:** the fractal-ghost reward (it is gated on sustained good
 play and a 30-70 s cooldown, so it did not appear during these sessions) and the
 high-score overlay.
+
+
+### 2026-09-16 - session 3, M10: the flatness saturation, and what it actually was
+
+M8 left one open item and named it wrongly. The `flatness` column read 1.000 for
+every colony, and the conclusion recorded at the time was that the metric was
+saturating against genuinely dense granular material, so "getting the raw number
+down is a synthesis change (fewer partials, longer grains, tighter quantisation),
+not a threshold change". That was wrong, and the way to find out was to measure it
+rather than to act on it.
+
+**First, the sweep was lying.** `setActiveCap` clamped its argument to a minimum of
+8, so the "x1", "x2" and "x4" rows of the density sweep had all silently been
+measuring eight cells - the tool built specifically to tell us whether the density
+came from the cells or from the crowd could not distinguish the two, and printed
+three identical numbers to say so. Lower bound relaxed to 1. Nothing in the live
+plugin asks for a cap below the CPU-budget minimum.
+
+With that fixed the sweep immediately contradicted the crowd theory: a single
+*spectral* cell read 0.735 against white noise's 0.843, while a single grain cell
+read 0.559. So it was one species, not the population.
+
+Two hypotheses, both tested by muting one thing at a time:
+
+1. **The noise oscillator.** The band is white noise through a resonant SVF whose
+   gain at centre is about q, and q reaches 8.5, so `noiseColour` arguably did not
+   mean the fraction it says. Level-matched both sides and re-measured: it got
+   *worse*, 0.735 to 0.775. The band had been quieter than the harmonics all along,
+   and the "fix" was amplifying it. Reverted - the gene's effect was already
+   monotonic and the honest reason to change it had evaporated.
+
+2. **The modulation bank.** Muted it, changed nothing else: one spectral cell 0.613
+   to 0.432, a two-cell colony 0.591 to 0.305, spectral x8 0.689 to 0.302. That is
+   the answer, and it is not a synthesis problem, because the modulation is the
+   entire point of the instrument. Six LFO lanes per cell from 0.003 Hz to 26 Hz,
+   and a partial carrying a few hundred cents of vibrato sweeps across a dozen bins
+   inside one 46 ms analysis frame. Spread over the frame it deposits its energy
+   evenly across that span, which to any single-frame spectral statistic is exactly
+   what broadband noise looks like. It is not what a *listener* hears: a wobbling
+   note is obviously a note.
+
+So the measurement was wrong, not the engine.
+
+**A peak hold was tried first and rejected.** Holding a decaying per-bin maximum
+does restore the ridge a wandering partial leaves, but it flattens noise too -
+white noise went 0.843 to 0.957 - because the max over several frames converges to
+a stable value either way. It moved both ends of the scale and separated nothing.
+The tension is fundamental: resolving close partials needs a long window, not
+smearing vibrato needs a short one, and no window length is good at both.
+
+**What works is asking a different question.** Periodicity. A vibrato'd note is
+still locally periodic and noise repeats at no lag, and frequency modulation barely
+disturbs that. The autocorrelation is the inverse transform of the power spectrum,
+which the analyser already computes, so it costs one extra transform of a buffer we
+already have - measured at no CPU regression (0.759 cores against the 0.81 recorded
+at the end of M8). Each lag is divided by the analysis window's own self-overlap,
+precomputed once, or a low note scores as less periodic than a high one purely for
+having a longer period and the metric becomes a pitch detector.
+
+Noisiness is now `0.32 * whitened-flatness + 0.68 * (1 - periodicity)`. Periodicity
+carries the weight because flatness's failure here is a false *positive* - it calls
+healthy material noise - and that is the error that breaks the game.
+
+**Three consequences, all of which were live bugs:**
+
+- *The flatness calibration constants had drifted and nobody had looked.* The test
+  prints them on every run precisely so drift is visible; `flatCalHigh` claimed
+  noise began at 0.62 while the test was measuring white noise at 0.843, so
+  everything above 0.62 mapped to exactly 1.000 and the top half of the scale was
+  unreachable. Re-read off the measurements: 0.13 and 0.85.
+- *The noise verdict was a composite propping up a broken number.* Flatness had
+  been deliberately held to half the weight, with appeal and roughness carrying the
+  decision, because flatness alone read 0.80-1.00 for healthy colonies and for dead
+  ones alike. It can answer the question now, so it does: 0.80 flatness, 0.14
+  appeal, 0.06 roughness, threshold 0.66. Healthy colonies measure 0.29-0.32 and
+  pink and white noise both lock.
+- *The visuals were permanently two-thirds grey.* `greyness` ramped from 0.52 on a
+  scale that never went below 0.67. Requirement 23 asks for grey to mean something.
+  Ramp moved to 0.42-0.66, which is above where a working colony lives and below
+  the lock, so the drain is a warning again. Confirmed by eye in the running app:
+  the chamber renders in colour.
+
+**And the fractal ghost, which M8 recorded as "never verified by eye".** It had
+never been seen because it could not happen. It gates on `appeal > 0.62`, appeal
+carries a tonalness term, tonalness is `1 - flatness`, and flatness was pinned at
+1.000 - so measured appeal across six healthy runs was 0.52-0.59 and the gate was
+above the maximum the instrument could produce. "Rare" and "impossible" look
+identical from outside, which is why it is now measured instead of watched for:
+`runRewardCheck` drives four colonies through a real `ScoreSystem` and counts.
+
+The gate moved to 0.76, just under the median of the six measured worlds. 0.80 was
+tried first and is too high - above the mean of four of the six, and a two-minute
+capture of the running app caught nothing. Measured result: **12 rewards in 10
+minutes of active play, 0 with nobody touching it.** The reward is also gated on
+the score *rate*, which carries the combo multiplier, so an untouched colony sits
+at 0.44 of base against a 0.55 gate and can never earn it however good it sounds.
+That is the intended shape - it is a "you are playing well" signal, not a "this
+sounds nice" signal - but it does mean an idle window will never show one, and that
+is worth stating rather than leaving as a surprise for whoever looks next.
+
+**Still not seen by eye:** the ghost itself. It lasts 1.2 s on a 30-70 s cooldown;
+three capture runs totalling about seven minutes, one of them driving synthetic
+clicks into the window, did not land on one. The trigger path is short and was read
+end to end (`consumeRewardFlash` -> `triggerReward` -> `ghost.trigger/update/render`)
+and the flag is now confirmed to be raised at a measured rate, but the drawing has
+not been photographed. So has the high-score overlay not been.
+
+Test grew from six checks to ten. The three new ones are controls on the detector
+itself, because a metric that returns zero for everything passes "no run parks in
+noise" perfectly and is useless: white noise must still lock, a wobbling note must
+not, and the gap between musical and noise must be worth having.

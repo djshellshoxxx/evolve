@@ -30,6 +30,7 @@
 #include "../Source/Engine/Colony.h"
 #include "../Source/Engine/Descriptors.h"
 #include "../Source/Engine/Entropy.h"
+#include "../Source/Engine/ScoreSystem.h"
 
 #include <cstdio>
 #include <functional>
@@ -233,7 +234,9 @@ namespace
         This is how the flatness calibration in Descriptors.cpp was chosen -
         the constants there are measurements, not guesses, and this pass
         re-checks them every time the test runs. */
-    void calibrate (const char* label, const std::function<float (int, juce::Random&)>& gen)
+    struct CalResult { float rawFlat = 0, rawPeri = 0, noisiness = 0, greyness = 0; bool locked = false; };
+
+    CalResult calibrate (const char* label, const std::function<float (int, juce::Random&)>& gen)
     {
         DescriptorAnalyser an;
         an.prepare (sr);
@@ -255,8 +258,11 @@ namespace
 
         const auto& d = an.current();
         juce::ignoreUnused (idx);
-        std::printf ("  %-18s raw %.3f -> flatness %.3f   centroid %.3f   roughness %.3f\n",
-                     label, d.rawFlatness, d.flatness, d.centroid, d.roughness);
+        std::printf ("  %-18s rawFlat %.3f  rawPeri %.3f  -> noisiness %.3f  grey %.2f  %s\n",
+                     label, d.rawFlatness, d.periodicity, d.flatness, d.greyness,
+                     d.noiseLocked ? "NOISE-LOCKED" : "-");
+
+        return { d.rawFlatness, d.periodicity, d.flatness, d.greyness, d.noiseLocked };
     }
 
     /*  How much of the flatness is the cells and how much is the crowd?
@@ -270,15 +276,25 @@ namespace
     void runDensitySweep()
     {
         std::printf ("--- 0b. DENSITY SWEEP: one engine, different population caps ---\n");
-        std::printf ("  %-14s %8s %10s %10s %9s\n", "case", "raw", "flatness", "roughness", "appeal");
+        std::printf ("  %-14s %8s %8s %10s %10s %9s\n",
+                     "case", "rawFlat", "rawPeri", "noisiness", "roughness", "appeal");
 
         // Per species as well as per size: if one species is generating all
         // the broadband energy, capping the population will never fix it.
         struct Case { const char* label; int cap; float g, sp, rs; };
         const Case cases[] = {
+            { "grain x1",      1,  1.0f, 0.0f, 0.0f },
+            { "grain x4",      4,  1.0f, 0.0f, 0.0f },
             { "grain x8",      8,  1.0f, 0.0f, 0.0f },
+            { "spectral x1",   1,  0.0f, 1.0f, 0.0f },
+            { "spectral x4",   4,  0.0f, 1.0f, 0.0f },
             { "spectral x8",   8,  0.0f, 1.0f, 0.0f },
-            { "resonator x8",  8,  0.0f, 0.0f, 1.0f },
+            // The resonator is excited by the other species, so it is silent
+            // on its own - measuring it alone measures nothing. Pair it with a
+            // little grain so there is something for it to ring on.
+            { "reson+grain x8",8,  0.25f, 0.0f, 0.75f },
+            { "mixed x2",      2,  0.34f, 0.33f, 0.33f },
+            { "mixed x4",      4,  0.34f, 0.33f, 0.33f },
             { "mixed x8",      8,  0.34f, 0.33f, 0.33f },
             { "mixed x16",    16,  0.34f, 0.33f, 0.33f },
             { "mixed x32",    32,  0.34f, 0.33f, 0.33f },
@@ -300,7 +316,7 @@ namespace
             juce::AudioBuffer<float> buf (2, blockSize);
             const int blocks = (int) (12.0 * sr / blockSize);
 
-            double aRaw = 0, aFlat = 0, aRough = 0, aAppeal = 0;
+            double aRaw = 0, aPeri = 0, aFlat = 0, aRough = 0, aAppeal = 0;
             int count = 0;
 
             for (int b = 0; b < blocks; ++b)
@@ -312,15 +328,117 @@ namespace
                 if (b > blocks / 2)
                 {
                     const auto& d = colony.descriptors();
-                    aRaw += d.rawFlatness; aFlat += d.flatness;
+                    aRaw += d.rawFlatness; aPeri += d.periodicity; aFlat += d.flatness;
                     aRough += d.roughness; aAppeal += d.appeal;
                     ++count;
                 }
             }
 
             if (count > 0)
-                std::printf ("  %-14s %8.3f %10.3f %10.3f %9.3f\n", kase.label,
-                             aRaw / count, aFlat / count, aRough / count, aAppeal / count);
+                std::printf ("  %-14s %8.3f %8.3f %10.3f %10.3f %9.3f\n", kase.label,
+                             aRaw / count, aPeri / count, aFlat / count,
+                             aRough / count, aAppeal / count);
+        }
+        std::printf ("\n");
+    }
+
+    /*  The two ends of the scale, kept so the verdicts can be asserted on
+        rather than eyeballed: a sound a listener would call musical must not
+        be reported as noise, and one that genuinely is noise must be. */
+    CalResult calVibrato, calWhite, calHarmonic;
+
+    /*  ---- the fractal reward -------------------------------------------
+
+        Requirement 24 asks for a reward that is brief, rare and earned. Two of
+        those three are easy to get wrong in the same direction, and this one
+        was: it gates on measured appeal, and appeal carries a tonalness term
+        that was pinned near zero for every colony while the noisiness
+        measurement saturated. The gate asked for 0.62 from an instrument that
+        was reporting 0.52-0.59, so in practice it could never fire, and across
+        two sessions nobody had ever seen it.
+
+        "Rare" and "impossible" look the same from the outside, which is why
+        this is measured rather than watched for. Four colonies run with a real
+        ScoreSystem consuming their real snapshots, and the rewards are counted.
+        Zero means the gate is unreachable again; one every few seconds means it
+        has stopped being a reward.
+
+        The simulated player clicks about every two seconds, because the reward
+        is deliberately gated on the score *rate* as well as on the sound, and
+        the rate carries the combo multiplier. A colony nobody is touching sits
+        at roughly 0.44 of the base rate against a gate of 0.55, so it cannot
+        earn the reward however good it sounds - which is the intended shape of
+        the thing ("you are doing well" is about playing, not about watching),
+        but it does mean the passive runs above will always report zero and an
+        idle window will never show one. That is worth stating rather than
+        leaving as a surprise.                                                 */
+    void runRewardCheck (int& outCount, double& outMinutes)
+    {
+        std::printf ("--- 0c. THE FRACTAL REWARD: reachable, and still rare? ---\n");
+        std::printf ("  %-16s %8s %8s %8s %9s %8s\n",
+                     "world", "rewards", "appeal", "variety", "rate/base", "minutes");
+
+        outCount = 0;
+        outMinutes = 0.0;
+
+        const double rewardRun = 150.0;         // long enough for the 30-70 s cooldown
+
+        for (int i = 0; i < 4; ++i)
+        {
+            const uint64_t seed = 0xA24BAED4963EE407ULL * (uint64_t) (i + 1) + 0x5150ULL;
+
+            Colony colony;
+            colony.setSeed (seed);
+            colony.prepare (sr, blockSize, 56);
+            colony.setWorld (WorldSeed::fromSeed (seed ^ 0x9E3779B97F4A7C15ULL));
+            Environment env;
+            colony.setEnvironment (env);
+            colony.germinateFromSource (0.55f, 0.34f, 0.33f, 0.33f);
+
+            ScoreSystem score;
+            EngineSnapshot snap;
+            juce::AudioBuffer<float> buf (2, blockSize);
+
+            const int blocks = (int) (rewardRun * sr / blockSize);
+            const double dt = (double) blockSize / sr;
+
+            int rewards = 0;
+            double appealSum = 0, varietySum = 0, rateSum = 0;
+            int n = 0;
+            double sinceClick = 0.0;
+
+            for (int b = 0; b < blocks; ++b)
+            {
+                buf.clear();
+                colony.process (buf, nullptr);
+                colony.writeSnapshot (snap);
+                score.update (snap, dt);
+                if (score.consumeRewardFlash()) ++rewards;
+
+                // A player mutating the colony every couple of seconds: enough
+                // to hold a combo, not enough to be thrashing it.
+                sinceClick += dt;
+                if (sinceClick >= 2.0)
+                {
+                    sinceClick = 0.0;
+                    score.registerInteraction (0.6f);
+                }
+
+                appealSum += snap.appeal;
+                varietySum += snap.variety;
+                rateSum += score.rate();
+                ++n;
+            }
+
+            outCount += rewards;
+            outMinutes += rewardRun / 60.0;
+
+            std::printf ("  %-16s %8d %8.3f %8.3f %9.3f %8.1f\n",
+                         colony.getWorld().name, rewards,
+                         n > 0 ? appealSum / n : 0.0,
+                         n > 0 ? varietySum / n : 0.0,
+                         n > 0 ? rateSum / n / 140.0 : 0.0,
+                         rewardRun / 60.0);
         }
         std::printf ("\n");
     }
@@ -336,7 +454,7 @@ namespace
             return 0.5f * (float) std::sin (twoPi * 220.0 * (double) i / sr);
         });
 
-        calibrate ("harmonic tone", [twoPi] (int i, juce::Random&)
+        calHarmonic = calibrate ("harmonic tone", [twoPi] (int i, juce::Random&)
         {
             double v = 0.0;
             for (int h = 1; h <= 8; ++h)
@@ -355,6 +473,26 @@ namespace
             return 0.18f * (float) v;
         });
 
+        /*  The case that broke the old measurement, and the reason the
+            periodicity term exists: the same harmonic tone with a 5 Hz,
+            +/-300 cent vibrato on it. Musically this is an ordinary sound - a
+            singer, a theremin, any string player's left hand - and it is
+            roughly what every cell in this synth is doing all the time.
+            Whitened flatness alone scores it as indistinguishable from noise.
+            It has to land near the harmonic tone, not near the pink. */
+        calVibrato = calibrate ("vibrato tone", [twoPi] (int i, juce::Random&)
+        {
+            static double phase = 0.0;
+            if (i == 0) phase = 0.0;
+            const double t  = (double) i / sr;
+            const double f0 = 220.0 * std::pow (2.0, 0.25 * std::sin (twoPi * 5.0 * t));
+            phase += twoPi * f0 / sr;           // integrate, so the phase stays continuous
+            double v = 0.0;
+            for (int h = 1; h <= 8; ++h)
+                v += std::sin (phase * (double) h) / (double) h;
+            return 0.35f * (float) v;
+        });
+
         calibrate ("pink noise", [] (int, juce::Random& r)
         {
             // Voss-McCartney style: octave-spaced sources summed
@@ -369,7 +507,7 @@ namespace
             return v * 0.12f;
         });
 
-        calibrate ("white noise", [] (int, juce::Random& r)
+        calWhite = calibrate ("white noise", [] (int, juce::Random& r)
         {
             return (r.nextFloat() * 2.0f - 1.0f) * 0.5f;
         });
@@ -386,6 +524,10 @@ int main()
 
     runCalibration();
     runDensitySweep();
+
+    int rewardCount = 0;
+    double rewardMinutes = 0.0;
+    runRewardCheck (rewardCount, rewardMinutes);
 
     std::vector<RunResult> results;
     results.reserve (numRuns);
@@ -496,6 +638,38 @@ int main()
 
     std::snprintf (buf, sizeof (buf), "worst run locked %.1fs of %.0fs", worstLocked, runLength);
     check (worstLocked < runLength * 0.25, "no run parks in noise", buf);
+
+    /*  Positive and negative controls on the noise detector itself.
+
+        "No run parks in noise" is only worth anything if the detector can
+        still recognise noise when it hears it. A metric that returns zero for
+        everything passes that check perfectly and is useless, which is very
+        nearly what the previous one did in reverse - it returned 1.000 for
+        everything, and the noise verdict had to be propped up with appeal and
+        roughness terms to stop it locking every run permanently.
+
+        So both ends are asserted. White noise must lock. A vibrato'd harmonic
+        tone - an ordinary musical sound, and close to what every cell in this
+        synth does continuously - must not, and must not go grey either. */
+    std::snprintf (buf, sizeof (buf), "white noise noisiness %.3f, %s",
+                   calWhite.noisiness, calWhite.locked ? "locked" : "NOT locked");
+    check (calWhite.locked && calWhite.noisiness > 0.7f,
+           "noise is still detected as noise", buf);
+
+    std::snprintf (buf, sizeof (buf), "vibrato tone noisiness %.3f, grey %.2f",
+                   calVibrato.noisiness, calVibrato.greyness);
+    check (! calVibrato.locked && calVibrato.noisiness < 0.35f && calVibrato.greyness < 0.2f,
+           "a wobbling note is not called noise", buf);
+
+    std::snprintf (buf, sizeof (buf), "harmonic %.3f vs white %.3f (want a gap > 0.5)",
+                   calHarmonic.noisiness, calWhite.noisiness);
+    check (calWhite.noisiness - calHarmonic.noisiness > 0.5f,
+           "the scale has usable range", buf);
+
+    const double perMin = rewardMinutes > 0.0 ? rewardCount / rewardMinutes : 0.0;
+    std::snprintf (buf, sizeof (buf), "%d in %.0f min = %.2f/min (want 0.1 .. 2.0)",
+                   rewardCount, rewardMinutes, perMin);
+    check (perMin >= 0.1 && perMin <= 2.0, "fractal reward is earnable but rare", buf);
 
     std::printf ("\n%s\n", ok ? "ALL CHECKS PASSED" : "SOME CHECKS FAILED");
     return ok ? 0 : 1;

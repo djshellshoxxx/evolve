@@ -245,23 +245,50 @@ Current results:
   every run keeps moving,  no run parks in noise
 ```
 
-### A known limitation
+### How "is this noise?" is measured
 
-The `flatness` column reads 1.000 for every colony, and that is **not** a bug in the
-engine — it is the metric saturating. Spectral flatness measures how evenly energy is
-spread, and a granular colony genuinely fills the space between its partials: grain
-windows smear, modulation adds sidebands, and a dozen detuned voices overlap. By that
-measure the output sits very close to white noise even when it is obviously a chord to
-the ear.
+Two measurements, because one is not enough.
 
-The density sweep in the test isolates this — a *single* cell already reads 0.70 — so
-capping the population was never going to fix it. Consequently the "has this collapsed"
-verdict is a **composite** of flatness, appeal (Plomp–Levelt/Sethares roughness plus
-tonalness) and spectral centre, not flatness alone. A dense colony that is still working
-has consonant partials and a comfortable centre; a collapsed one has neither.
+The first is **spectral flatness on a whitened spectrum**: divide the spectrum by its own
+smoothed envelope and ask how far what is left departs from flat. Energy concentrated in
+partials is tonal; energy smeared between them is noise. Whitening is what makes a world's
+tilt cancel, so a bright world is not reported as a noisy one.
 
-If you want a stricter tonality target, that is a synthesis change — shorter partial
-counts, longer grains, tighter pitch quantisation — rather than a threshold change.
+On its own that measurement is **wrong for this instrument**, and for a long time it was
+reporting every colony as pure noise — all six runs pinned at 1.000, which left the visuals
+permanently two-thirds grey and the score one frame from freezing on colonies that were
+perfectly musical. The cause was not density and not the crowd. Every cell here is
+deliberately frequency-modulated — six LFO lanes from 0.003 Hz to 26 Hz, which is the point
+of the whole instrument — and a partial carrying a few hundred cents of vibrato sweeps
+across a dozen analysis bins inside one 46 ms frame. Integrated over the frame it deposits
+its energy evenly across that span, which to any single-frame spectral statistic is exactly
+what broadband noise looks like. The density sweep pins the blame precisely: with the
+modulation bank muted and nothing else changed, one spectral cell drops from 0.613 to 0.432
+and a two-cell colony from 0.591 to 0.305.
+
+No choice of window fixes that — a longer window resolves partials better but smears
+modulation worse, and a shorter one does the reverse. So the second measurement asks a
+question modulation does not disturb: **does the waveform repeat?** A vibrato'd note is
+still locally periodic; noise repeats at no lag at all. It is the autocorrelation, taken as
+the inverse transform of the power spectrum we already have, divided by the analysis
+window's own self-overlap so that a low note is not scored as less periodic than a high one
+merely for having a longer period.
+
+Periodicity carries the larger weight, because flatness's failure mode here is a false
+*positive* — calling healthy material noise — and that is the error that breaks the game.
+The scale that results has real range, and the test asserts both ends of it:
+
+```
+  vibrato tone    rawFlat 0.151   rawPeri 0.969   ->  noisiness 0.012   (musical)
+  harmonic tone   rawFlat 0.130   rawPeri 1.000   ->  noisiness 0.003   (musical)
+  pink noise      rawFlat 0.846   rawPeri 0.238   ->  noisiness 0.746   (fully grey)
+  white noise     rawFlat 0.843   rawPeri 0.119   ->  noisiness 0.916   NOISE-LOCKED
+  live colonies                                       noisiness 0.29 - 0.32
+```
+
+A metric that returns zero for everything passes "no run parks in noise" perfectly and is
+useless, so the test checks the converse too: white noise must still lock, and a wobbling
+note must not.
 
 ---
 

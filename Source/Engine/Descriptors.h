@@ -63,6 +63,12 @@ namespace mutagen
         /** Uncalibrated whitened flatness, exposed so the test can re-derive
             the calibration constants rather than trusting them. */
         float rawFlatness = 0.0f;
+
+        /** How periodic the waveform is, from the autocorrelation: 1 = a
+            perfectly repeating waveform, 0 = no repetition at any musical lag.
+            This is the measurement that survives vibrato, which whitened
+            flatness does not - see the long note in analyseFrame(). */
+        float periodicity = 0.0f;
     };
 
     class DescriptorAnalyser
@@ -88,10 +94,20 @@ namespace mutagen
         void analyseFrame() noexcept;
         float computeRoughness() noexcept;
 
-        /*  Where the whitened flatness sits for material at either extreme.
-            Measured, not assumed - see the calibration pass in the test. */
-        static constexpr float flatCalLow  = 0.10f;   // clearly tonal
-        static constexpr float flatCalHigh = 0.62f;   // clearly noise
+        /*  Where each raw measurement sits for material at either extreme.
+            Measured, not assumed - see the calibration pass in the test, which
+            re-prints all of these on every run so drift is visible.
+
+            The flatness anchors had drifted badly: `flatCalHigh` said noise
+            began at 0.62 while the test was measuring white noise at 0.843, so
+            every colony above 0.62 - which was all of them - mapped to exactly
+            1.000 and the whole top half of the scale was unreachable. */
+        static constexpr float flatCalLow  = 0.13f;   // clearly tonal
+        static constexpr float flatCalHigh = 0.85f;   // clearly noise
+
+        /*  ... and for periodicity, which runs the other way round. */
+        static constexpr float periCalLow  = 0.06f;   // clearly noise
+        static constexpr float periCalHigh = 0.55f;   // clearly periodic
 
         /*  2048, not 1024.
 
@@ -113,6 +129,21 @@ namespace mutagen
         std::array<float, numBins> mag {};
         std::array<float, numBins> prevMag {};
         std::array<float, numBins + 1> prefix {};   // running sum, for the whitening window
+
+        /*  Autocorrelation, computed as the inverse transform of the power
+            spectrum. `acfBuffer` needs the full complex layout JUCE's
+            real-only transforms use; `winAcf` is the analysis window's own
+            autocorrelation, which every lag has to be divided by or long lags
+            are penalised simply for having fewer overlapping samples. */
+        std::array<float, fftSize * 2> acfBuffer {};
+        std::array<float, fftSize> winAcf {};
+
+        /*  The musical lag range the periodicity search covers: about 1.4 kHz
+            down to 40 Hz. Below the bottom of this the window does not hold a
+            whole cycle; above the top, a lag that short is still inside the
+            correlation any filtered noise has with itself. */
+        static constexpr int minLag = 32;
+        static constexpr int maxLag = fftSize / 2;
         std::array<float, spectrumBins> magNorm {};
 
         // peak list for the roughness calculation

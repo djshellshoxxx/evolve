@@ -342,11 +342,16 @@ namespace mutagen
                 { "Two instances differ",
                   "Same preset, different worlds, different entropy. That is the "
                   "point, and it is why a preset cannot promise you an exact sound." },
-                { "Known limitation",
-                  "The internal 'flatness' measure saturates against granular material "
-                  "- grain windows smear, modulation adds sidebands, detuned voices "
-                  "overlap - so the noise-lock verdict is a composite of flatness, "
-                  "appeal and roughness rather than flatness alone." } } },
+                { "How noise is detected",
+                  "Two measurements. One asks how far the spectrum departs from its "
+                  "own smoothed envelope - energy in partials, or smeared between "
+                  "them. On its own that one is fooled by this instrument, because "
+                  "every cell wobbles and a partial carrying vibrato sweeps across "
+                  "many analysis bins, which looks exactly like broadband noise. So "
+                  "the second measurement asks whether the waveform repeats at all, "
+                  "which vibrato does not disturb: a wobbling note is still a note, "
+                  "and noise repeats at no period. The verdict weights the second "
+                  "more heavily." } } },
         };
         return sections;
     }

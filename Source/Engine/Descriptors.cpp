@@ -10,6 +10,26 @@ namespace mutagen
         for (int i = 0; i < fftSize; ++i)
             window[(size_t) i] = 0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi
                                                          * (float) i / (float) (fftSize - 1));
+
+        /*  The analysis window's own autocorrelation.
+
+            Every lag in the autocorrelation of a windowed frame is scaled by
+            how much the window overlaps itself at that lag, which falls away
+            steadily with lag. Without dividing it out, a low note is reported
+            as less periodic than a high one purely because its period is
+            longer, and the periodicity floor would be a pitch detector.
+
+            O(n^2) once, at construction. */
+        double w0 = 0.0;
+        for (int i = 0; i < fftSize; ++i) w0 += (double) window[(size_t) i] * window[(size_t) i];
+
+        for (int lag = 0; lag < fftSize; ++lag)
+        {
+            double acc = 0.0;
+            for (int i = 0; i + lag < fftSize; ++i)
+                acc += (double) window[(size_t) i] * window[(size_t) (i + lag)];
+            winAcf[(size_t) lag] = w0 > 0.0 ? (float) (acc / w0) : 1.0f;
+        }
     }
 
     void DescriptorAnalyser::prepare (double sampleRate)
@@ -24,6 +44,7 @@ namespace mutagen
         ring.fill (0.0f);
         mag.fill (0.0f);
         prevMag.fill (0.0f);
+        acfBuffer.fill (0.0f);
         magNorm.fill (0.0f);
         ringPos = 0;
         sinceHop = 0;
@@ -161,14 +182,86 @@ namespace mutagen
             rawFlat = clamp01 (geo / (arith + 1.0e-12f));
         }
 
+        /*  ---- periodicity, the measurement that survives vibrato ----------
+
+            Whitened flatness answers "is the energy in partials or smeared
+            between them", and on this instrument that turned out to be the
+            wrong question. Every cell is deliberately frequency-modulated -
+            six LFO lanes per cell, from about 0.003 Hz to 26 Hz, which is the
+            point of the whole thing - and a partial carrying a few hundred
+            cents of vibrato sweeps across a dozen bins inside one 46 ms frame.
+            Integrated over the frame it deposits its energy evenly across that
+            span, which to any single-frame spectral statistic is exactly what
+            broadband noise looks like.
+
+            That is not a small effect and it is not the crowd. The offline
+            density sweep was extended down to a single cell to find out; with
+            the modulation bank muted and nothing else changed, one spectral
+            cell moved from 0.613 to 0.432 and a two-cell colony from 0.591 to
+            0.305. Six untouched runs were all pinning the flatness at 1.000,
+            which left the visuals permanently 63% grey and the score one bad
+            frame away from freezing, on colonies that were perfectly musical.
+
+            A longer window resolves partials better but smears modulation
+            worse, and a shorter one does the reverse, so no choice of window
+            fixes it. What does fix it is asking a question modulation does not
+            disturb: is the waveform *repeating*. A vibrato'd note is still
+            locally periodic; noise is not periodic at any lag. The
+            autocorrelation is the inverse transform of the power spectrum, so
+            it costs one more transform of a buffer we already have.          */
+        float rawPeri = 0.0f;
+        {
+            // Power spectrum, mirrored into the full complex layout the
+            // real-only inverse transform expects. mag[0..2] are never written
+            // (see firstBin), so DC and the lowest bins contribute nothing -
+            // which is what we want: a DC offset is not a period.
+            for (int k = 0; k < fftSize; ++k)
+            {
+                const int kk = k < numBins ? k : fftSize - k;
+                const float m = kk < numBins ? mag[(size_t) kk] : 0.0f;
+                acfBuffer[(size_t) (2 * k)]     = m * m;
+                acfBuffer[(size_t) (2 * k + 1)] = 0.0f;
+            }
+
+            fft.performRealOnlyInverseTransform (acfBuffer.data());
+
+            const float zero = acfBuffer[0];
+            if (zero > 1.0e-12f)
+            {
+                float best = 0.0f;
+                for (int lag = minLag; lag < maxLag; ++lag)
+                {
+                    // Divide out the window's self-overlap, with a floor so
+                    // the longest lags - where the overlap is small and the
+                    // estimate is noisy - cannot be amplified without limit.
+                    const float taper = juce::jmax (0.08f, winAcf[(size_t) lag]);
+                    const float v = acfBuffer[(size_t) lag] / (zero * taper);
+                    if (v > best) best = v;
+                }
+                rawPeri = clamp01 (best);
+            }
+        }
+
         /*  Calibration.
 
             Measured by the calibration pass in Tests/DivergenceTest, which
             runs known signals through this exact code path. The constants
             below are read off those measurements rather than guessed, and the
-            test re-prints them on every run so drift is visible.             */
-        const float flat = clamp01 ((rawFlat - flatCalLow) / (flatCalHigh - flatCalLow));
-        desc.rawFlatness = desc.rawFlatness * 0.8f + rawFlat * 0.2f;
+            test re-prints them on every run so drift is visible.
+
+            Both views are kept. Flatness is the sensitive one and catches a
+            sound that has genuinely smeared; periodicity is the robust one and
+            is the only one of the two that can tell a wobbling note from hiss.
+            They are combined by weighting periodicity the more heavily,
+            because flatness's failure here is a false *positive* - it calls
+            healthy material noise - and that is the error that breaks the
+            game.                                                             */
+        const float flatNoise = clamp01 ((rawFlat - flatCalLow) / (flatCalHigh - flatCalLow));
+        const float periNoise = clamp01 (1.0f - (rawPeri - periCalLow) / (periCalHigh - periCalLow));
+        const float flat = clamp01 (0.32f * flatNoise + 0.68f * periNoise);
+
+        desc.rawFlatness  = desc.rawFlatness * 0.8f + rawFlat * 0.2f;
+        desc.periodicity  = desc.periodicity * 0.8f + rawPeri * 0.2f;
 
         // ---- centroid ------------------------------------------------------
         const float centroidBin = weighted / sumMag;
@@ -232,36 +325,45 @@ namespace mutagen
 
         /*  ---- verdicts ---------------------------------------------------
 
-            "Has this collapsed into noise" turned out not to be a question
-            flatness can answer on its own. A MUTAGEN colony is twenty or
-            thirty organisms sounding together, so its spectrum is legitimately
-            dense - measured over six untouched runs, healthy colonies sit at
-            0.80-1.00 on the flatness scale, which is also where a genuinely
-            dead one sits. Thresholding that number alone either locks every
-            run permanently or never locks at all.
+            This used to be a composite in which flatness was deliberately only
+            half the weight, propped up by appeal and roughness. That was not a
+            design choice, it was a workaround: flatness alone read 0.80-1.00
+            for healthy colonies *and* for dead ones, so thresholding it either
+            locked every run permanently or never locked at all, and the other
+            two terms were carrying the decision.
 
-            What separates the two is not density but *structure*. A dense
-            colony that is still working has consonant partials and a
-            comfortable spectral centre, so its appeal stays up and its
-            roughness stays down. A collapsed one has neither. So the verdict
-            is a composite, and flatness is only half of it.                 */
-        const float noiseScore = 0.50f * desc.flatness
-                               + 0.32f * (1.0f - desc.appeal)
-                               + 0.18f * desc.roughness;
+            With the periodicity term in the noisiness measurement that is no
+            longer true. Measured over the same six untouched runs, healthy
+            colonies now sit at 0.29-0.32 and their worst frame reaches 0.43,
+            while pink noise reads 0.75 and white noise 0.92. The measurement
+            can answer the question on its own, so it does, and appeal and
+            roughness are demoted to the small corrective role they should
+            always have had - a sound can be tonal and still unbearable.
 
-        if (noiseScore > 0.72f && desc.rms > 1.0e-4f) noiseSeconds += frameSeconds;
+            The threshold sits at 0.66, which locks both pink and white noise
+            and leaves better than a factor of two of headroom above where a
+            working colony lives.                                             */
+        const float noiseScore = 0.80f * desc.flatness
+                               + 0.14f * (1.0f - desc.appeal)
+                               + 0.06f * desc.roughness;
+
+        if (noiseScore > 0.66f && desc.rms > 1.0e-4f) noiseSeconds += frameSeconds;
         else                                          noiseSeconds -= frameSeconds * 1.6f;
         noiseSeconds = juce::jlimit (0.0f, 6.0f, noiseSeconds);
 
         // Hysteretic on purpose: a momentary burst of noise is musical. It is
         // sustained noise that stops the score, and the colour starts draining
         // well before that so there is warning.
-        if (desc.noiseLocked) desc.noiseLocked = noiseScore > 0.66f && noiseSeconds > 0.3f;
+        if (desc.noiseLocked) desc.noiseLocked = noiseScore > 0.60f && noiseSeconds > 0.3f;
         else                  desc.noiseLocked = noiseSeconds > 2.2f;
 
-        // Colour drains across the range the colony actually occupies.
+        // Colour drains across the range the colony actually occupies. The
+        // ramp starts at 0.42 - above where a working colony sits, below the
+        // lock - so the drain is a warning rather than a permanent state. It
+        // used to start at 0.52 on a scale that never went below 0.67, which
+        // meant the visuals were about two thirds grey at all times.
         desc.greyness = clamp01 (juce::jmax (noiseSeconds / 2.2f,
-                                             (noiseScore - 0.52f) / 0.24f));
+                                             (noiseScore - 0.42f) / 0.24f));
 
         if (desc.flux < 0.02f && desc.rms > 1.0e-4f) quietSeconds += frameSeconds;
         else                                          quietSeconds = 0.0f;

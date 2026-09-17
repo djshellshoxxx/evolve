@@ -59,8 +59,17 @@ namespace mutagen
         }
         void setMasterGain (float g) { masterGain = g; }
 
-        /** Soft population ceiling (CPU quality). Never reallocates. */
-        void setActiveCap (int n) { maxCellCount = juce::jlimit (8, (int) cells.size(), n); }
+        /** Soft population ceiling (CPU quality). Never reallocates.
+
+            The lower bound is 1 rather than 8 so the offline density sweep can
+            actually isolate a single cell. It used to clamp at 8, which meant
+            the "x1", "x2" and "x4" rows of that sweep silently measured eight
+            cells and printed three identical numbers - the measurement that was
+            supposed to tell us whether spectral density came from the cells or
+            from the crowd could not distinguish the two. Nothing in the live
+            plugin asks for a cap below the CPU-budget minimum, so this only
+            widens what the test can ask for. */
+        void setActiveCap (int n) { maxCellCount = juce::jlimit (1, (int) cells.size(), n); }
 
         /** Adds the colony's output into `out` (already sized, may contain dry
             signal for effect mode). `liveIn` is the current input block or null. */
