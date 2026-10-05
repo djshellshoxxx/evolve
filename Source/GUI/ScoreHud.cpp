@@ -131,6 +131,15 @@ namespace mutagen
             || (showTable && getLocalBounds().toFloat().reduced (60.0f).contains (fp));
     }
 
+    bool ScoreHud::hitTest (int x, int y)
+    {
+        // This component spans the whole CultureChamber so it can draw the
+        // score and high-score overlay. It must not therefore claim the whole
+        // chamber as mouse input: clicks outside the HUD's own controls belong
+        // to CultureChamber's mutation/damage gestures underneath.
+        return hitsInteractive ({ x, y });
+    }
+
     void ScoreHud::mouseDown (const juce::MouseEvent& e)
     {
         if (tableButton.contains (e.position) || (showTable && ! scoreArea.contains (e.position)))
