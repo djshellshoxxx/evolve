@@ -236,6 +236,15 @@ so the constants in `Descriptors.cpp` are measurements rather than guesses.
 
 Current results:
 
+There is also a fast offscreen GUI smoke test for the floating score HUD:
+
+```bash
+ctest --test-dir build -C Release -R MutagenGuiSmokeTest --output-on-failure
+```
+
+It guards the chamber's input routing: ordinary chamber clicks must pass through the
+full-size HUD overlay, while the score card and open high-score sheet remain clickable.
+
 ```
   sine 220           raw 0.167     harmonic tone   raw 0.130
   detuned saws       raw 0.126     white noise     raw 0.843
