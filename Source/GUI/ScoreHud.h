@@ -56,6 +56,7 @@ namespace mutagen
 
         void paint (juce::Graphics&) override;
         void mouseDown (const juce::MouseEvent&) override;
+        bool hitTest (int x, int y) override;
 
         /** Show or hide the high-score table overlay. */
         void setTableVisible (bool shouldShow) { showTable = shouldShow; repaint(); }
