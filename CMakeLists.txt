@@ -197,4 +197,28 @@ if(MUTAGEN_BUILD_TESTS)
     else()
         target_compile_options(MutagenDivergenceTest PRIVATE -ffast-math)
     endif()
+
+    # Small GUI regression target. This stays offscreen and checks that the
+    # floating score HUD only captures clicks in its own interactive regions;
+    # the rest of the culture chamber must remain playable underneath it.
+    juce_add_console_app(MutagenGuiSmokeTest PRODUCT_NAME "MutagenGuiSmokeTest")
+
+    target_sources(MutagenGuiSmokeTest PRIVATE
+        Tests/GuiSmokeTest.cpp
+        Source/GUI/ScoreHud.cpp
+        Source/Engine/ScoreSystem.cpp)
+
+    target_include_directories(MutagenGuiSmokeTest PRIVATE Source)
+
+    target_compile_definitions(MutagenGuiSmokeTest PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_REPORT_APP_USAGE=0
+        _CRT_SECURE_NO_WARNINGS=1)
+
+    target_link_libraries(MutagenGuiSmokeTest PRIVATE
+        juce::juce_gui_extra
+        PUBLIC
+        juce::juce_recommended_config_flags)
 endif()
