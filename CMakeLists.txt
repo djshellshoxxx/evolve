@@ -159,6 +159,7 @@ endif()
 option(MUTAGEN_BUILD_TESTS "Build the headless divergence test" ON)
 
 if(MUTAGEN_BUILD_TESTS)
+    enable_testing()
     juce_add_console_app(MutagenDivergenceTest PRODUCT_NAME "MutagenDivergenceTest")
 
     target_sources(MutagenDivergenceTest PRIVATE
@@ -221,4 +222,6 @@ if(MUTAGEN_BUILD_TESTS)
         juce::juce_gui_extra
         PUBLIC
         juce::juce_recommended_config_flags)
+
+    add_test(NAME MutagenGuiSmokeTest COMMAND MutagenGuiSmokeTest)
 endif()
