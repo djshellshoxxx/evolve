@@ -675,3 +675,24 @@ Test grew from six checks to ten. The three new ones are controls on the detecto
 itself, because a metric that returns zero for everything passes "no run parks in
 noise" perfectly and is useless: white noise must still lock, a wobbling note must
 not, and the gap between musical and noise must be worth having.
+
+
+### 2026-10-05 - session 4, M11: HUD input-routing regression
+
+The remaining M10 visual gap led to an input audit of the floating score HUD. The HUD
+is sized to the entire CultureChamber and is brought to the front. PluginEditor then
+re-enables mouse interception so the score/table controls can be clicked. Without a
+custom hit-test that makes the *entire* HUD rectangle interactive, so ordinary chamber
+clicks can be swallowed before CultureChamber gets a chance to turn them into mutation
+or damage gestures.
+
+Fix:
+- `ScoreHud::hitTest()` now returns true only for the score card, SCORES button, or
+  the open high-score sheet. The rest of the overlay is transparent to mouse input.
+- Added `MutagenGuiSmokeTest`, an offscreen regression test that checks all three
+  states: chamber background passes through, score card captures, open table captures.
+- Registered the GUI smoke test with CTest and added it to the three-platform GitHub
+  Actions build.
+
+The fix is on main. The newest Actions run was queued when this continuation entry was
+written, so the CI result still needs to be read before calling M11 fully verified.
