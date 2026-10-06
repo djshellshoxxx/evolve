@@ -448,6 +448,12 @@ namespace mutagen::labgames
             && consecutiveMonteWins % 3 == 0;
     }
 
+    inline bool reverseSkillUnlockDue (int consecutiveMonteLosses, bool latestWasLoss)
+    {
+        return latestWasLoss && consecutiveMonteLosses > 0
+            && consecutiveMonteLosses % 2 == 0;
+    }
+
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
     {
         // Large separated bases plus co-prime offsets prevent result families
