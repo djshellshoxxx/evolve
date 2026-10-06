@@ -554,6 +554,12 @@ namespace mutagen::labgames
         return s;
     }
 
+    inline bool fourthMiniGameCelebrationDue (int gamesCompleted, bool latestWasWin,
+                                               std::int64_t score)
+    {
+        return gamesCompleted == 4 && latestWasWin && score > 10000;
+    }
+
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
     {
         // Large separated bases plus co-prime offsets prevent result families
