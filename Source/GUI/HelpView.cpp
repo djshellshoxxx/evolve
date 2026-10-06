@@ -144,6 +144,28 @@ namespace mutagen
                                        "The highlighted directive reflects your play history; "
                                        "all three remain available." } } },
 
+            { "Hidden Laboratory", {
+                { "Discovery", "MUTAGEN contains accidental discoveries tied to exploratory GUI "
+                               "click patterns. The manual does not list the sequences. Repeatedly "
+                               "using different areas of the interface will eventually reveal them." },
+                { "Creatures", "One hundred hidden specimens can be discovered. New specimens are "
+                               "recorded in the Field Journal and may later escape the plugin window "
+                               "as short-lived desktop animations." },
+                { "Milestones", "Each whole-million score crossing unlocks a numbered artifact with "
+                                "its own procedural sound, animation recipe and replayable skill. "
+                                "Replay unlocked skills from the Field Journal." },
+                { "Outside the window", "Desktop-spill animations are best-effort because a DAW owns "
+                                        "the plugin window. Hosts or operating systems may constrain "
+                                        "them; MUTAGEN continues normally if they do." },
+                { "Microphone event", "A rare hidden score event may attempt a five-second microphone "
+                                      "capture when an input bus is available. Output is muted while "
+                                      "capturing, the existing howl detector can abort it, and playback "
+                                      "waits before returning as reversed granular time-stretched audio." },
+                { "Physical oddities", "Rare Windows-only events may request the system notification "
+                                       "speaker or pulse an available optical-drive tray. Modern systems "
+                                       "often route system beeps through normal audio, and machines with "
+                                       "no optical drive simply ignore the tray request." } } },
+
             { "Environment", {
                 { {}, "The five large controls do most of the work. Everything under "
                       "them is refinement." },
