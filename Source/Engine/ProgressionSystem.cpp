@@ -106,6 +106,19 @@ namespace mutagen
         padSoundCount = readInt (root, "padSounds");
         upSweepSoundCount = readInt (root, "upSweepSounds");
 
+        sideMutationUnlockedFlag = readInt (root, "sideMutationUnlocked") != 0;
+        petChoiceValue = juce::jlimit (0, 2, readInt (root, "petChoice"));
+        gatorUnlockedFlag = readInt (root, "gatorUnlocked") != 0;
+        gateShapesUnlockedFlag = readInt (root, "gateShapesUnlocked") != 0;
+        tripDelayUnlockedFlag = readInt (root, "tripDelayUnlocked") != 0;
+        reverseSkillUnlockedFlag = readInt (root, "reverseSkillUnlocked") != 0;
+        gamesCompletedCount = juce::jmax (0, readInt (root, "gamesCompleted"));
+        for (int i = 0; i < (int) exchangeEffects.size(); ++i)
+        {
+            const auto key = "exchangeEffect" + juce::String (i);
+            exchangeEffects[(size_t) i] = readInt (root, key.toRawUTF8()) != 0;
+        }
+
         // Sets are authoritative where available. Keep the legacy world count
         // so an older journal does not lose progression during migration.
         lifetime.anomaliesFound = (int) anomalyIds.size();
@@ -467,6 +480,64 @@ namespace mutagen
         markDirty();
     }
 
+    void ProgressionSystem::unlockSideMutation()
+    {
+        if (sideMutationUnlockedFlag) return;
+        sideMutationUnlockedFlag = true;
+        markDirty ("SIDE MUTATION SLOTS UNLOCKED");
+    }
+
+    void ProgressionSystem::setPetChoice (int pet)
+    {
+        petChoiceValue = juce::jlimit (0, 2, pet);
+        markDirty (petChoiceValue == 1 ? "LAB CAT ADOPTED"
+                                      : petChoiceValue == 2 ? "LAB DOG ADOPTED" : juce::String());
+    }
+
+    void ProgressionSystem::unlockGator()
+    {
+        if (gatorUnlockedFlag) return;
+        gatorUnlockedFlag = true;
+        markDirty ("GATOR UNLOCKED");
+    }
+
+    void ProgressionSystem::unlockGateShapes()
+    {
+        if (gateShapesUnlockedFlag) return;
+        gateShapesUnlockedFlag = true;
+        markDirty ("GATOR SHAPES UNLOCKED");
+    }
+
+    void ProgressionSystem::unlockTripDelay()
+    {
+        if (tripDelayUnlockedFlag) return;
+        tripDelayUnlockedFlag = true;
+        markDirty ("TRIP DELAY UNLOCKED");
+    }
+
+    void ProgressionSystem::unlockReverseSkill()
+    {
+        if (reverseSkillUnlockedFlag) return;
+        reverseSkillUnlockedFlag = true;
+        markDirty ("REVERSE SKILL SOUND UNLOCKED");
+    }
+
+    void ProgressionSystem::recordGameCompleted()
+    {
+        ++gamesCompletedCount;
+        if (gamesCompletedCount == 10)
+            markDirty ("LAB EXCHANGE UNLOCKED");
+        else
+            markDirty();
+    }
+
+    void ProgressionSystem::unlockExchangeEffect (int index)
+    {
+        if (index < 0 || index >= (int) exchangeEffects.size()) return;
+        exchangeEffects[(size_t) index] = true;
+        markDirty();
+    }
+
     juce::String ProgressionSystem::consumeNotice()
     {
         auto result = pendingNotice;
@@ -535,6 +606,16 @@ namespace mutagen
         root->setProperty ("clapSounds", clapSoundCount);
         root->setProperty ("padSounds", padSoundCount);
         root->setProperty ("upSweepSounds", upSweepSoundCount);
+
+        root->setProperty ("sideMutationUnlocked", sideMutationUnlockedFlag ? 1 : 0);
+        root->setProperty ("petChoice", petChoiceValue);
+        root->setProperty ("gatorUnlocked", gatorUnlockedFlag ? 1 : 0);
+        root->setProperty ("gateShapesUnlocked", gateShapesUnlockedFlag ? 1 : 0);
+        root->setProperty ("tripDelayUnlocked", tripDelayUnlockedFlag ? 1 : 0);
+        root->setProperty ("reverseSkillUnlocked", reverseSkillUnlockedFlag ? 1 : 0);
+        root->setProperty ("gamesCompleted", gamesCompletedCount);
+        for (int i = 0; i < (int) exchangeEffects.size(); ++i)
+            root->setProperty ("exchangeEffect" + juce::String (i), exchangeEffects[(size_t) i] ? 1 : 0);
 
         const auto file = progressFile();
         file.getParentDirectory().createDirectory();
