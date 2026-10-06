@@ -104,6 +104,7 @@ namespace mutagen::params
         addF (selHarmonicity, "Select: Harmonic", bipolar(), 0.0f);
         addF (selAggression,  "Select: Aggressive", bipolar(), 0.0f);
         addF (selDivergence,  "Select: Diverge",  unit(), 0.0f);
+        addF (steerStrength,   "Push Strength",    unit(), 0.72f);
 
         // ---- germination ----
         addF (captureLength,     "Capture Length", Range { 0.1f, 12.0f, 0.01f, 0.5f }, 3.0f, "s");
