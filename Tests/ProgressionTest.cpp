@@ -219,6 +219,20 @@ int main()
     assert (trade.bassDrumsSpent == 5);
     assert (trade.pianoKeySounds == 1);
 
+    assert (skillRouletteOfferDue (4, 5, 1));
+    assert (! skillRouletteOfferDue (4, 5, 2));
+    assert (! skillRouletteOfferDue (5, 9, 1));
+    assert (skillRouletteOfferDue (9, 10, 1));
+
+    const auto alt0 = skillRouletteOutcome (1);
+    assert (alt0.pianoKeys == 2);
+    const auto alt5 = skillRouletteOutcome (6);
+    assert (alt5.upSweeps == 3);
+    const auto alt6 = skillRouletteOutcome (7);
+    assert (alt6.points == -1000);
+    const auto alt7 = skillRouletteOutcome (8);
+    assert (alt7.skillDelta == -1);
+
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
     assert (safeRoulette.kind != RoulettePrize::loseSkill);
