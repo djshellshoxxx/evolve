@@ -715,16 +715,33 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         const int recipe = hauntedSoundRecipe.load (std::memory_order_relaxed);
         const float intensity = juce::jlimit (0.15f, 1.25f,
             hauntedSoundIntensity.load (std::memory_order_relaxed));
-        const double fA = 43.0 + (double) ((recipe * 71) % 620);
-        const double fB = 67.0 + (double) ((recipe * 113) % 980);
+        double fA = 43.0 + (double) ((recipe * 71) % 620);
+        double fB = 67.0 + (double) ((recipe * 113) % 980);
+        if (recipe == 49999)
+        {
+            const float lifeForPitch = hauntedSoundTotal > 0
+                ? 1.0f - (float) hauntedSoundRemaining / (float) hauntedSoundTotal : 0.0f;
+            const float local = std::fmod (lifeForPitch * 4.0f, 1.0f);
+            fA = 420.0 + std::sin (local * juce::MathConstants<float>::pi) * 520.0;
+            fB = 760.0 + local * 240.0;
+        }
         const int chans = juce::jmin (2, totalOut);
 
         for (int n = 0; n < numSamples && hauntedSoundRemaining > 0; ++n)
         {
             const float life = 1.0f - (float) hauntedSoundRemaining
                                       / (float) juce::jmax (1, hauntedSoundTotal);
-            const float env = std::sin (juce::MathConstants<float>::pi
-                                        * juce::jlimit (0.0f, 1.0f, life));
+            float env = std::sin (juce::MathConstants<float>::pi
+                                      * juce::jlimit (0.0f, 1.0f, life));
+
+            // Recipe 49999 is the corner-sprinkle cat event: four separated
+            // rising/falling formant-like cries inside one allocation-free voice.
+            if (recipe == 49999)
+            {
+                const float four = life * 4.0f;
+                const float local = four - std::floor (four);
+                env = std::pow (std::sin (juce::MathConstants<float>::pi * local), 1.7f);
+            }
             hauntedNoise ^= hauntedNoise << 13;
             hauntedNoise ^= hauntedNoise >> 17;
             hauntedNoise ^= hauntedNoise << 5;
