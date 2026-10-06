@@ -154,7 +154,20 @@ namespace mutagen
                                 "rather than clustering." },
                 { "Migration",  "How readily traits cross between islands. High "
                                 "migration spreads a good mutation through the whole "
-                                "colony; low keeps sub-populations distinct." } } },
+                                "colony; low keeps sub-populations distinct." },
+                { "PUSH THE SOUND",
+                  "The eight direction buttons are shortcuts for decisive selection. "
+                  "DARK/BRIGHT, SPARSE/DENSE, NOISE/TONE and CALM/FIERCE clear the "
+                  "other selection axes, set one strong target, and apply a selection "
+                  "burst immediately." },
+                { "COUNTER-EVOLVE",
+                  "Measures the current brightness, tonalness and roughness, then "
+                  "selects in the opposite direction and forces a mutation pass. Use "
+                  "it when a colony has become too settled in one character." },
+                { "MUTATION DICE",
+                  "Throws a new target across all four sound axes, raises mutation to "
+                  "a bounded amount, adds divergence pressure and mutates once. It is "
+                  "the deliberate surprise button." } } },
 
             { "Selection Targets", {
                 { {}, "These define what 'fit' means right now. They are the steering "

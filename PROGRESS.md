@@ -696,3 +696,14 @@ Fix:
 
 The fix is on main. The newest Actions run was queued when this continuation entry was
 written, so the CI result still needs to be read before calling M11 fully verified.
+
+
+## 2026-10-06 — Evolution steering and play pass
+
+- Added **PUSH THE SOUND** controls to the Environment panel: DARK, BRIGHT, SPARSE, DENSE, NOISE, TONE, CALM and FIERCE. Each button writes a clean selection profile and applies an immediate selection burst.
+- Added **COUNTER-EVOLVE**, which reads the live centroid, tonalness and roughness descriptors and intentionally selects away from the current character before forcing a mutation pass.
+- Added **MUTATION DICE**, a bounded random four-axis steering throw with divergence plus a forced mutation. The random input is transformed deterministically so its mapping can be regression-tested.
+- Added `Engine/EvolutionSteering.h` to keep direction, counter and dice profile logic independent of the GUI.
+- Extended `MutagenGuiSmokeTest` with steering-profile, counter-evolution and dice-range assertions.
+- Fixed one-shot selection bursts so parameter changes made immediately before the command are loaded into the Colony before selection is applied.
+- Added tooltips and Help content for all three new interactions.

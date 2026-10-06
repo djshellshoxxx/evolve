@@ -444,6 +444,11 @@ void MutagenProcessor::applyCommand (const EngineCommand& c)
             break;
 
         case CommandType::applySelection:
+            // Selection targets are host parameters. A GUI steering gesture can
+            // update those parameters and queue this command in the same audio
+            // block, so refresh the colony's environment before applying the
+            // one-shot burst rather than steering with last block's targets.
+            colony.setEnvironment (buildEnvironment());
             colony.applySelectionBurst (scope, id, c.fa > 0.0f ? c.fa : 0.4f);
             break;
 
