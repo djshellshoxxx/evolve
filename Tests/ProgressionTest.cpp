@@ -273,6 +273,19 @@ int main()
     assert (reverseSkillUnlockDue (2, true));
     assert (! reverseSkillUnlockDue (2, false));
 
+    assert (! labExchangeUnlocked (9));
+    assert (labExchangeUnlocked (10));
+    assert (labExchangeUnlocked (25));
+
+    const auto fxBuy = exchangePurchase (ExchangeItem::tripEcho, 5000);
+    assert (fxBuy.allowed);
+    assert (fxBuy.cost == 2500);
+    const auto stretchBuy = exchangePurchase (ExchangeItem::timeStretch, 1500);
+    assert (! stretchBuy.allowed);
+    const auto orbBuy = exchangePurchase (ExchangeItem::rainbowOrbPack, 5000);
+    assert (orbBuy.allowed);
+    assert (orbBuy.rainbowOrbs == 25);
+
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
     assert (safeRoulette.kind != RoulettePrize::loseSkill);
