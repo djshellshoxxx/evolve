@@ -41,6 +41,12 @@ Skills reuse existing safe engine commands in unusual combinations. Replaying a 
 
 The first crossing of 1,000,035 points in an app session rolls a freshly seeded 1..20 RNG exactly once. Roll 17 triggers three non-blocking optical-drive open/close pulses on Windows. Other platforms silently skip the hardware action. The RNG seed is randomized when the app/editor starts.
 
+## 100,385 reverse-microphone event
+
+The first crossing of 100,385 points in an app session rolls the session RNG from 1..10 exactly once. Roll 4 requests a five-second microphone capture if an input bus is available. The capture temporarily forces live monitoring off and mutes plugin output through the existing MicInput guard. The previous mic arm/monitor state is restored afterward.
+
+A successful capture is not digested into the colony. It is reversed and granularly stretched to roughly 1.65x duration, normalized, queued into a preallocated replay buffer, and held behind one second of silence before playback. A howl detection abort cancels the event.
+
 ## System beeps
 
 Selected hidden discoveries, milestone events and rare story events may request a short asynchronous system beep. Frequency and duration are bounded. Failure or unsupported platforms are silent.
