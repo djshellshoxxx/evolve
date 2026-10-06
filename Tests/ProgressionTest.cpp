@@ -162,6 +162,8 @@ int main()
     assert (! shouldOfferSlots (3, 2));
     assert (shouldOfferDice (1, 1));
     assert (! shouldOfferDice (1, 2));
+    assert (shouldOfferTwentyOne (4, 1));
+    assert (! shouldOfferTwentyOne (4, 2));
 
     const auto diceWin = diceOutcome (6, 2);
     assert (diceWin.won);
@@ -172,6 +174,24 @@ int main()
     const auto diceLoss = diceOutcome (2, 6);
     assert (! diceLoss.won);
     assert (diceLoss.orbInversionPenalty);
+
+    const auto twentyOneWin = twentyOneOutcome (20, 18);
+    assert (twentyOneWin.result == TwentyOneResult::win);
+    assert (twentyOneWin.skillLoss == 0);
+
+    const auto twentyOneLoss = twentyOneOutcome (17, 20);
+    assert (twentyOneLoss.result == TwentyOneResult::loss);
+    assert (twentyOneLoss.points == -20);
+    assert (twentyOneLoss.skillLoss == 5);
+
+    const auto natural = twentyOneOutcome (21, 19);
+    assert (natural.snareSounds == 10);
+    assert (natural.tomSounds == 0);
+
+    const auto shared21 = twentyOneOutcome (21, 21);
+    assert (shared21.result == TwentyOneResult::push);
+    assert (shared21.snareSounds == 0);
+    assert (shared21.tomSounds == 5);
 
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
@@ -198,7 +218,7 @@ int main()
     assert (jackpot.rainbowMultiplier == 2);
 
     std::set<int> soundRecipes;
-    for (int game = 0; game < 4; ++game)
+    for (int game = 0; game < 5; ++game)
         for (int result = 0; result < 8; ++result)
             soundRecipes.insert (soundRecipe ((Game) game, (SoundMoment) result, 11));
     assert (soundRecipes.size() >= 20);
