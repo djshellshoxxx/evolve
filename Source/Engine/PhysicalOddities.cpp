@@ -1,4 +1,5 @@
 #include "PhysicalOddities.h"
+#include <juce_core/juce_core.h>
 
 #include <chrono>
 #include <thread>
