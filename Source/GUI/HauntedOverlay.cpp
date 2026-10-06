@@ -1,6 +1,7 @@
 #include "HauntedOverlay.h"
 #include "MutagenLookAndFeel.h"
 #include "../Engine/HiddenDiscoveries.h"
+#include <cmath>
 
 namespace mutagen::haunted
 {
