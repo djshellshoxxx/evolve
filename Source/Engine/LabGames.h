@@ -6,7 +6,7 @@
 
 namespace mutagen::labgames
 {
-    enum class Game { roulette = 0, monte = 1, slots = 2 };
+    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3 };
 
     enum class SoundMoment
     {
@@ -61,6 +61,14 @@ namespace mutagen::labgames
         bool jackpot = false;
     };
 
+    struct DiceOutcome
+    {
+        bool won = false;
+        int monsterOrbs = 0;
+        int miniOrbs = 0;
+        bool orbInversionPenalty = false;
+    };
+
     inline bool shouldOfferRoulette (int minuteBucket, int roll1to5)
     {
         return minuteBucket > 0 && minuteBucket % 5 == 0 && roll1to5 == 1;
@@ -74,6 +82,11 @@ namespace mutagen::labgames
     inline bool shouldOfferSlots (int minuteBucket, int roll1to10)
     {
         return minuteBucket > 0 && minuteBucket % 3 == 0 && roll1to10 == 1;
+    }
+
+    inline bool shouldOfferDice (int minuteBucket, int roll1to30)
+    {
+        return minuteBucket > 0 && roll1to30 == 1;
     }
 
     inline RouletteOutcome rouletteOutcome (std::int64_t score, int roll1to12)
@@ -181,6 +194,22 @@ namespace mutagen::labgames
         else
         {
             out.points = 250;
+        }
+        return out;
+    }
+
+    inline DiceOutcome diceOutcome (int playerRoll, int labRoll)
+    {
+        DiceOutcome out;
+        out.won = playerRoll > labRoll;
+        if (out.won)
+        {
+            out.monsterOrbs = 100;
+            out.miniOrbs = 10;
+        }
+        else
+        {
+            out.orbInversionPenalty = true;
         }
         return out;
     }
