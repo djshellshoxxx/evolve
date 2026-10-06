@@ -91,6 +91,10 @@ namespace mutagen
         steerHeader.setFont (juce::Font (11.0f, juce::Font::bold));
         addAndMakeVisible (steerHeader);
 
+        steerStrengthKnob = std::make_unique<LabeledKnob> (
+            s, params::steerStrength, "Push", accent, false);
+        addAndMakeVisible (*steerStrengthKnob);
+
         for (int i = 0; i < 8; ++i)
         {
             steer[(size_t) i] = std::make_unique<juce::TextButton> (steerDefs[i].label);
@@ -127,26 +131,31 @@ namespace mutagen
             }
         };
 
-        setActual (params::selBrightness,  profile.brightness);
-        setActual (params::selDensity,     profile.density);
-        setActual (params::selHarmonicity, profile.harmonicity);
-        setActual (params::selAggression,  profile.aggression);
-        setActual (params::selDivergence,  profile.divergence);
+        const float intensity = juce::jlimit (
+            0.0f, 1.0f, *processor.apvts.getRawParameterValue (params::steerStrength));
+        const auto target = steering::scaledProfile (profile, intensity);
+
+        setActual (params::selBrightness,  target.brightness);
+        setActual (params::selDensity,     target.density);
+        setActual (params::selHarmonicity, target.harmonicity);
+        setActual (params::selAggression,  target.aggression);
+        setActual (params::selDivergence,  target.divergence);
 
         if (auto* selectionParam = processor.apvts.getParameter (params::selection))
         {
             const float current = *processor.apvts.getRawParameterValue (params::selection);
-            if (current < 0.72f)
+            const float desired = 0.25f + 0.65f * intensity;
+            if (current < desired)
             {
                 selectionParam->beginChangeGesture();
-                selectionParam->setValueNotifyingHost (selectionParam->convertTo0to1 (0.72f));
+                selectionParam->setValueNotifyingHost (selectionParam->convertTo0to1 (desired));
                 selectionParam->endChangeGesture();
             }
         }
 
         EngineCommand select;
         select.type = CommandType::applySelection;
-        select.fa = juce::jlimit (0.1f, 1.0f, strength);
+        select.fa = juce::jlimit (0.1f, 1.0f, strength * (0.35f + 0.65f * intensity));
         processor.pushCommand (select);
 
         if (mutateAfter)
@@ -156,8 +165,8 @@ namespace mutagen
             processor.pushCommand (mutate);
         }
 
-        processor.noteUserGesture ((profile.brightness + 1.0f) * 0.5f,
-                                   (profile.harmonicity + 1.0f) * 0.5f);
+        processor.noteUserGesture ((target.brightness + 1.0f) * 0.5f,
+                                   (target.harmonicity + 1.0f) * 0.5f);
     }
 
     void EnvironmentPanel::runCounterEvolve()
@@ -244,9 +253,11 @@ namespace mutagen
         }
 
         r.removeFromTop (2);
-        auto actionRow = r.removeFromTop (24);
+        auto actionRow = r.removeFromTop (42);
+        steerStrengthKnob->setBounds (actionRow.removeFromLeft (58).reduced (1));
+        actionRow.removeFromLeft (2);
         const int half = actionRow.getWidth() / 2;
-        counterButton.setBounds (actionRow.removeFromLeft (half).reduced (1));
-        diceButton.setBounds (actionRow.reduced (1));
+        counterButton.setBounds (actionRow.removeFromLeft (half).reduced (1, 9));
+        diceButton.setBounds (actionRow.reduced (1, 9));
     }
 }
