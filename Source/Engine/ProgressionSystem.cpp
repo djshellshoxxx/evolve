@@ -102,6 +102,9 @@ namespace mutagen
         tambourineSoundCount = readInt (root, "tambourineSounds");
         bassDropCount = readInt (root, "bassDrops");
         kazooSoundCount = readInt (root, "kazooSounds");
+        clapSoundCount = readInt (root, "clapSounds");
+        padSoundCount = readInt (root, "padSounds");
+        upSweepSoundCount = readInt (root, "upSweepSounds");
 
         // Sets are authoritative where available. Keep the legacy world count
         // so an older journal does not lose progression during migration.
@@ -446,6 +449,24 @@ namespace mutagen
         markDirty();
     }
 
+    void ProgressionSystem::addClapSounds (int count)
+    {
+        clapSoundCount = juce::jmax (0, clapSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addPadSounds (int count)
+    {
+        padSoundCount = juce::jmax (0, padSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addUpSweepSounds (int count)
+    {
+        upSweepSoundCount = juce::jmax (0, upSweepSoundCount + count);
+        markDirty();
+    }
+
     juce::String ProgressionSystem::consumeNotice()
     {
         auto result = pendingNotice;
@@ -511,6 +532,9 @@ namespace mutagen
         root->setProperty ("tambourineSounds", tambourineSoundCount);
         root->setProperty ("bassDrops", bassDropCount);
         root->setProperty ("kazooSounds", kazooSoundCount);
+        root->setProperty ("clapSounds", clapSoundCount);
+        root->setProperty ("padSounds", padSoundCount);
+        root->setProperty ("upSweepSounds", upSweepSoundCount);
 
         const auto file = progressFile();
         file.getParentDirectory().createDirectory();
