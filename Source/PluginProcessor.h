@@ -240,6 +240,12 @@ namespace mutagen
         bool pollMicCapture();
         bool pollMicAbort() { return mic.consumeAbortFlag(); }
 
+        // ---- hidden laboratory audio -----------------------------------
+        void triggerHauntedSound (int recipe, float intensity = 1.0f);
+        bool startHauntedMicCapture (float seconds = 5.0f);
+        bool pollHauntedMicCapture();
+        void cancelHauntedMicCapture();
+
         // ---- entropy read-out ------------------------------------------
         float entropyTapLevel() const;
         bool  entropyTapLive() const;
@@ -248,6 +254,26 @@ namespace mutagen
 
         // scratch
         juce::AudioBuffer<float> dryScratch;
+
+        // Procedural hidden-event voice. Trigger values are atomics because
+        // the message thread requests them and the audio thread renders them.
+        std::atomic<int> hauntedSoundRecipe { 0 };
+        std::atomic<float> hauntedSoundIntensity { 1.0f };
+        std::atomic<uint64_t> hauntedSoundStamp { 0 };
+        uint64_t hauntedSoundSeen = 0;
+        double hauntedPhaseA = 0.0, hauntedPhaseB = 0.0;
+        int hauntedSoundRemaining = 0, hauntedSoundTotal = 0;
+        uint32_t hauntedNoise = 0x31415926u;
+
+        // Two preallocated buffers avoid allocation on the audio thread for
+        // reverse/stretch microphone playback.
+        std::array<juce::AudioBuffer<float>, 2> hauntedReplayBuffers;
+        std::array<int, 2> hauntedReplayLength { 0, 0 };
+        std::atomic<int> hauntedReplayReady { -1 };
+        std::atomic<int> hauntedReplayActive { -1 };
+        int hauntedReplayPos = 0;
+        int hauntedReplayDelay = 0;
+        bool hauntedMicMode = false;
 
         double hostTimeSeconds = 0.0;
 
