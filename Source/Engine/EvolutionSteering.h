@@ -45,6 +45,20 @@ namespace mutagen::steering
 
     inline float clamp01 (float v) { return std::clamp (v, 0.0f, 1.0f); }
 
+    /** Scale how decisively a target pulls without changing its direction.
+        Zero is neutral; one preserves the requested profile exactly. */
+    inline Profile scaledProfile (const Profile& source, float amount)
+    {
+        const float a = clamp01 (amount);
+        Profile p;
+        p.brightness  = source.brightness  * a;
+        p.density     = source.density     * a;
+        p.harmonicity = source.harmonicity * a;
+        p.aggression  = source.aggression  * a;
+        p.divergence  = source.divergence  * a;
+        return p;
+    }
+
     /** Build a target that deliberately moves away from the measured sound.
         Descriptor inputs are normalized 0..1 values. Density is left neutral
         because the snapshot has no perceptual density descriptor. */

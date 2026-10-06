@@ -45,6 +45,16 @@ int main()
         counter.brightness < 0.0f && counter.harmonicity < 0.0f
         && counter.aggression < 0.0f && counter.divergence >= 0.6f;
 
+    // Steering intensity must scale the target without changing its direction.
+    const auto hardBright = steering::directionProfile (steering::Direction::bright);
+    const auto softBright = steering::scaledProfile (hardBright, 0.25f);
+    const auto fullBright = steering::scaledProfile (hardBright, 1.0f);
+    const bool steeringIntensity =
+        softBright.brightness > 0.0f
+        && softBright.brightness < fullBright.brightness
+        && near (softBright.brightness, hardBright.brightness * 0.25f)
+        && near (fullBright.brightness, hardBright.brightness);
+
     // Mutation dice is deterministic for a supplied roll (testable) but must
     // still cover the full bipolar steering space and produce different throws.
     const auto diceA = steering::diceProfile (0x12345678u);
@@ -66,7 +76,9 @@ int main()
                  directionProfiles ? "PASS" : "FAIL",
                  counterProfile ? "PASS" : "FAIL",
                  diceProfiles ? "PASS" : "FAIL");
+    std::printf ("Steering intensity: %s\n", steeringIntensity ? "PASS" : "FAIL");
 
     return (chamberPassesThrough && scoreCaptures && tableCaptures
-            && directionProfiles && counterProfile && diceProfiles) ? 0 : 1;
+            && directionProfiles && counterProfile && diceProfiles
+            && steeringIntensity) ? 0 : 1;
 }
