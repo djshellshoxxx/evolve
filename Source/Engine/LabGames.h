@@ -121,6 +121,30 @@ namespace mutagen::labgames
         bool jackpot = false;
     };
 
+    enum class ExchangeItem
+    {
+        tripEcho,
+        spectralSmear,
+        timeStretch,
+        reverseBloom,
+        specialOrbPack,
+        rainbowOrbPack,
+        monsterOrbPack,
+        miniOrbPack
+    };
+
+    struct ExchangePurchase
+    {
+        bool allowed = false;
+        int cost = 0;
+        int specialOrbs = 0;
+        int rainbowOrbs = 0;
+        int monsterOrbs = 0;
+        int miniOrbs = 0;
+        bool effectUnlock = false;
+        bool timeStretchUnlock = false;
+    };
+
     inline bool shouldOfferRoulette (int minuteBucket, int roll1to5)
     {
         return minuteBucket > 0 && minuteBucket % 5 == 0 && roll1to5 == 1;
@@ -452,6 +476,37 @@ namespace mutagen::labgames
     {
         return latestWasLoss && consecutiveMonteLosses > 0
             && consecutiveMonteLosses % 2 == 0;
+    }
+
+    inline bool labExchangeUnlocked (int gamesCompleted)
+    {
+        return gamesCompleted >= 10;
+    }
+
+    inline ExchangePurchase exchangePurchase (ExchangeItem item, std::int64_t currentScore)
+    {
+        ExchangePurchase out;
+        switch (item)
+        {
+            case ExchangeItem::tripEcho:
+                out.cost = 2500; out.effectUnlock = true; break;
+            case ExchangeItem::spectralSmear:
+                out.cost = 3500; out.effectUnlock = true; break;
+            case ExchangeItem::timeStretch:
+                out.cost = 3000; out.timeStretchUnlock = true; break;
+            case ExchangeItem::reverseBloom:
+                out.cost = 4200; out.effectUnlock = true; break;
+            case ExchangeItem::specialOrbPack:
+                out.cost = 1200; out.specialOrbs = 40; break;
+            case ExchangeItem::rainbowOrbPack:
+                out.cost = 1800; out.rainbowOrbs = 25; break;
+            case ExchangeItem::monsterOrbPack:
+                out.cost = 2100; out.monsterOrbs = 15; break;
+            case ExchangeItem::miniOrbPack:
+                out.cost = 900; out.miniOrbs = 12; break;
+        }
+        out.allowed = currentScore >= out.cost;
+        return out;
     }
 
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
