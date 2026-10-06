@@ -67,7 +67,7 @@ namespace mutagen
                         float entropyLevel, bool entropyLive);
 
         std::function<void()> onEnzyme, onCatalyst, onHeat, onWater, onRadiate;
-        std::function<void()> onNewWorld, onSaveRun, onLoadRun, onScores;
+        std::function<void()> onNewWorld, onSaveRun, onLoadRun, onScores, onJournal;
         std::function<void()> onMicArm, onMicCapture;
         std::function<void (int which, float amount, float speed)> onKnob;
 
@@ -83,6 +83,7 @@ namespace mutagen
         juce::TextButton saveRun { "SAVE RUN" };
         juce::TextButton loadRun { "LOAD RUN" };
         juce::TextButton scores { "SCORES" };
+        juce::TextButton journal { "JOURNAL" };
         // Where resized() left room for the entropy / mic read-out, so paint()
         // draws it in the gap rather than underneath the bottom row.
         juce::Rectangle<int> statusArea;
