@@ -10,6 +10,23 @@
 
 namespace mutagen::haunted
 {
+    bool systemBeepAsync (int frequencyHz, int durationMs)
+    {
+       #if JUCE_WINDOWS
+        frequencyHz = frequencyHz < 80 ? 80 : frequencyHz > 2400 ? 2400 : frequencyHz;
+        durationMs = durationMs < 20 ? 20 : durationMs > 900 ? 900 : durationMs;
+        std::thread ([frequencyHz, durationMs]
+        {
+            ::Beep ((DWORD) frequencyHz, (DWORD) durationMs);
+        }).detach();
+        return true;
+       #else
+        (void) frequencyHz;
+        (void) durationMs;
+        return false;
+       #endif
+    }
+
     bool pulseCdTrayThreeTimesAsync()
     {
        #if JUCE_WINDOWS
