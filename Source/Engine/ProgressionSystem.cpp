@@ -70,10 +70,13 @@ namespace mutagen
 
         readSet (root, "anomalies", anomalyIds);
         readSet (root, "relics", relicIds);
+        readSet (root, "worlds", worldIds);
 
-        // Sets are the authoritative collection; counters in old files may be stale.
+        // Sets are authoritative where available. Keep the legacy world count
+        // so an older journal does not lose progression during migration.
         lifetime.anomaliesFound = (int) anomalyIds.size();
         lifetime.relicsFound = (int) relicIds.size();
+        lifetime.worldsVisited = std::max (lifetime.worldsVisited, (int) worldIds.size());
     }
 
     void ProgressionSystem::markDirty (const juce::String& notice)
@@ -168,8 +171,14 @@ namespace mutagen
 
             if (snap.seed != 0)
             {
-                ++lifetime.worldsVisited;
-                changed = true;
+                const auto worldId = juce::String::toHexString ((juce::int64) snap.seed)
+                    + "  " + juce::String (snap.worldName);
+                if (worldIds.insert (worldId).second)
+                {
+                    lifetime.worldsVisited = std::max (lifetime.worldsVisited + 1,
+                                                       (int) worldIds.size());
+                    changed = true;
+                }
             }
         }
         else
@@ -211,9 +220,15 @@ namespace mutagen
 
             if (snap.seed != 0 && lastWorldSeed != 0 && snap.seed != lastWorldSeed)
             {
-                ++lifetime.worldsVisited;
-                changed = true;
-                pendingNotice = "WORLD ATLAS EXPANDED";
+                const auto worldId = juce::String::toHexString ((juce::int64) snap.seed)
+                    + "  " + juce::String (snap.worldName);
+                if (worldIds.insert (worldId).second)
+                {
+                    lifetime.worldsVisited = std::max (lifetime.worldsVisited + 1,
+                                                       (int) worldIds.size());
+                    changed = true;
+                    pendingNotice = "WORLD ATLAS EXPANDED";
+                }
             }
             if (snap.seed != 0)
                 lastWorldSeed = snap.seed;
@@ -310,6 +325,10 @@ namespace mutagen
         juce::Array<juce::var> relicsArray;
         for (const auto& id : relicIds) relicsArray.add (id);
         root->setProperty ("relics", relicsArray);
+
+        juce::Array<juce::var> worldsArray;
+        for (const auto& id : worldIds) worldsArray.add (id);
+        root->setProperty ("worlds", worldsArray);
 
         const auto file = progressFile();
         file.getParentDirectory().createDirectory();
