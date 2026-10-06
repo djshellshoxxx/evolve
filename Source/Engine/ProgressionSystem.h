@@ -48,6 +48,8 @@ namespace mutagen
         int greenOrbs() const { return greenOrbCount; }
         int redOrbs() const { return redOrbCount; }
         int pinkOrbs() const { return pinkOrbCount; }
+        int snareSounds() const { return snareSoundCount; }
+        int tomSounds() const { return tomSoundCount; }
 
         void changeGameSkill (int index, int delta);
         int removeRandomGameSkill (int selector);
@@ -57,6 +59,8 @@ namespace mutagen
         void addGreenOrbs (int count);
         void addRedOrbs (int count);
         void addPinkOrbs (int count);
+        void addSnareSounds (int count);
+        void addTomSounds (int count);
 
         /** Returns and clears the newest unlock/event notice. */
         juce::String consumeNotice();
@@ -86,6 +90,8 @@ namespace mutagen
         int greenOrbCount = 0;
         int redOrbCount = 0;
         int pinkOrbCount = 0;
+        int snareSoundCount = 0;
+        int tomSoundCount = 0;
 
         juce::String pendingNotice;
 
