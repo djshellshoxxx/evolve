@@ -56,6 +56,15 @@ namespace mutagen
         int tambourineSounds() const { return tambourineSoundCount; }
         int bassDrops() const { return bassDropCount; }
         int kazooSounds() const { return kazooSoundCount; }
+        int clapSounds() const { return clapSoundCount; }
+        int padSounds() const { return padSoundCount; }
+        int upSweepSounds() const { return upSweepSoundCount; }
+        int totalGameSkills() const
+        {
+            int total = 0;
+            for (const auto n : gameSkillCounts) total += n;
+            return total;
+        }
 
         void changeGameSkill (int index, int delta);
         int removeRandomGameSkill (int selector);
@@ -73,6 +82,9 @@ namespace mutagen
         void addTambourineSounds (int count);
         void addBassDrops (int count);
         void addKazooSounds (int count);
+        void addClapSounds (int count);
+        void addPadSounds (int count);
+        void addUpSweepSounds (int count);
 
         /** Returns and clears the newest unlock/event notice. */
         juce::String consumeNotice();
@@ -110,6 +122,9 @@ namespace mutagen
         int tambourineSoundCount = 0;
         int bassDropCount = 0;
         int kazooSoundCount = 0;
+        int clapSoundCount = 0;
+        int padSoundCount = 0;
+        int upSweepSoundCount = 0;
 
         juce::String pendingNotice;
 
