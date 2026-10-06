@@ -124,6 +124,26 @@ namespace mutagen
                                 "colony has been varied, appealing and scoring well for "
                                 "a while. It is a reward, not a control." } } },
 
+            { "Field Journal", {
+                { "JOURNAL", "Opens the persistent research record. Progress survives "
+                             "between runs and is kept separately from presets, scores "
+                             "and organism files." },
+                { "Research levels", "Earned from score, discoveries, generations, worlds, "
+                                     "rescues, source digestion, breeding, steering, anomalies "
+                                     "and other meaningful play." },
+                { "Researchers", "Six characters unlock through different styles of play. "
+                                  "Their briefings add context and point toward systems you "
+                                  "may not have explored yet." },
+                { "Story", "Eight chapters reveal as the evidence accumulates. The story "
+                             "does not pause the instrument and no branch deletes content." },
+                { "Challenges", "The journal keeps three objectives appropriate to your "
+                                  "current research level, encouraging under-used systems." },
+                { "Anomalies and relics", "Rare descriptor combinations are recorded once. "
+                                            "Major lifetime milestones award permanent relics." },
+                { "Three Directives", "Late research reveals PRESERVE, ACCELERATE and RELEASE. "
+                                       "The highlighted directive reflects your play history; "
+                                       "all three remain available." } } },
+
             { "Environment", {
                 { {}, "The five large controls do most of the work. Everything under "
                       "them is refinement." },
