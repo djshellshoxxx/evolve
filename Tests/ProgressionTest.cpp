@@ -305,6 +305,11 @@ int main()
     assert (! thirdMiniGameGateSpec (4, true, 1000007).has_value());
     assert (! thirdMiniGameGateSpec (3, true, 1000008).has_value());
 
+    assert (fourthMiniGameCelebrationDue (4, true, 10001));
+    assert (! fourthMiniGameCelebrationDue (4, false, 10001));
+    assert (! fourthMiniGameCelebrationDue (3, true, 10001));
+    assert (! fourthMiniGameCelebrationDue (4, true, 10000));
+
     const auto fxBuy = exchangePurchase (ExchangeItem::tripEcho, 5000);
     assert (fxBuy.allowed);
     assert (fxBuy.cost == 2500);
