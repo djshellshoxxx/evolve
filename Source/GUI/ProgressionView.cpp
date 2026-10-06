@@ -88,6 +88,55 @@ namespace mutagen
                 line (left, "Anomalies: " + juce::String ((int) progression.anomalies().size()));
                 line (left, "Relics: " + juce::String ((int) progression.relics().size()));
 
+                left.removeFromTop (8);
+                section (left, "LINEAGE CODEX");
+                const int lineageScore = stats.breedingOperations * 3 + stats.generationsObserved / 20;
+                const juce::String lineageRank = lineageScore >= 28 ? "DYNASTY"
+                                                : lineageScore >= 18 ? "LINEAGE"
+                                                : lineageScore >= 10 ? "STRAIN"
+                                                : lineageScore >= 4  ? "CULTURE"
+                                                                     : "SEED";
+                line (left, "Rank: " + lineageRank, text);
+                line (left, "Breeding operations " + juce::String (stats.breedingOperations)
+                            + " / generations carried " + juce::String (stats.generationsObserved),
+                      textDim, 28);
+
+                left.removeFromTop (8);
+                section (left, "ANOMALY CATALOGUE");
+                if (progression.anomalies().empty())
+                    line (left, "No anomalies recorded yet.", textDim);
+                else
+                    for (const auto& id : progression.anomalies())
+                        line (left, "[RECORDED] " + id.replaceCharacter ('_', ' ').toUpperCase(), accent);
+
+                left.removeFromTop (8);
+                section (left, "RELIC CABINET");
+                if (progression.relics().empty())
+                    line (left, "No relics earned yet.", textDim);
+                else
+                    for (const auto& id : progression.relics())
+                        line (left, "[RELIC] " + id.replaceCharacter ('_', ' ').toUpperCase(), text);
+
+                left.removeFromTop (8);
+                section (left, "WORLD ATLAS");
+                if (progression.worlds().empty())
+                    line (left, "The first observed world will be indexed here.", textDim, 24);
+                else
+                {
+                    int shown = 0;
+                    for (const auto& id : progression.worlds())
+                    {
+                        line (left, id, textDim);
+                        if (++shown >= 12)
+                        {
+                            if ((int) progression.worlds().size() > shown)
+                                line (left, "...and " + juce::String ((int) progression.worlds().size() - shown)
+                                            + " more worlds", textDim);
+                            break;
+                        }
+                    }
+                }
+
                 section (right, "TEN DEPTH SYSTEMS");
                 for (std::size_t i = 0; i < (std::size_t) Feature::count; ++i)
                 {
@@ -148,7 +197,7 @@ namespace mutagen
         addAndMakeVisible (closeButton);
 
         auto* journal = new JournalContent (progression);
-        journal->setSize (1040, 1160);
+        journal->setSize (1040, 1460);
         viewport.setViewedComponent (journal, true);
         viewport.setScrollBarsShown (true, false);
         addAndMakeVisible (viewport);
@@ -165,7 +214,7 @@ namespace mutagen
         closeButton.setBounds (getLocalBounds().removeFromTop (26).removeFromRight (72).reduced (4, 2));
         viewport.setBounds (r);
         if (auto* viewed = viewport.getViewedComponent())
-            viewed->setSize (juce::jmax (900, r.getWidth() - 12), 1160);
+            viewed->setSize (juce::jmax (900, r.getWidth() - 12), 1460);
     }
 
     void ProgressionView::refresh()
