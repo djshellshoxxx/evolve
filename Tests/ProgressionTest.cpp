@@ -282,6 +282,11 @@ int main()
     assert (greenGate.durationSeconds == 120);
     assert (greenGate.fadeSeconds > 0);
 
+    const auto yellowGreenGate = yellowGreenCollisionGateSpec();
+    assert (yellowGreenGate.bpm == 110);
+    assert (yellowGreenGate.durationSeconds == 120);
+    assert (yellowGreenGate.fadeSeconds == greenGate.fadeSeconds);
+
     const auto fxBuy = exchangePurchase (ExchangeItem::tripEcho, 5000);
     assert (fxBuy.allowed);
     assert (fxBuy.cost == 2500);
