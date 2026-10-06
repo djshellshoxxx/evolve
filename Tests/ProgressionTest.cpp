@@ -1,4 +1,5 @@
 #include "../Source/Engine/Progression.h"
+#include "../Source/Engine/HauntedEvents.h"
 #include <cassert>
 #include <iostream>
 
@@ -74,6 +75,17 @@ int main()
     assert (challenges.size() == 3);
     assert (! challenges[0].title.empty());
     assert (! challenges[1].objective.empty());
+
+    using mutagen::haunted::crossedThreshold;
+    using mutagen::haunted::cdTrayRollWins;
+
+    assert (! crossedThreshold (1000034, 1000034, 1000035));
+    assert (crossedThreshold (1000034, 1000035, 1000035));
+    assert (crossedThreshold (999999, 1000040, 1000035));
+    assert (! crossedThreshold (1000035, 1000040, 1000035));
+    assert (! cdTrayRollWins (16));
+    assert (cdTrayRollWins (17));
+    assert (! cdTrayRollWins (20));
 
     std::cout << "Progression rules: PASS\n";
     return 0;
