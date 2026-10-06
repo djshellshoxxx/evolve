@@ -277,6 +277,11 @@ int main()
     assert (labExchangeUnlocked (10));
     assert (labExchangeUnlocked (25));
 
+    const auto greenGate = greenCollisionGateSpec();
+    assert (greenGate.bpm == 150);
+    assert (greenGate.durationSeconds == 120);
+    assert (greenGate.fadeSeconds > 0);
+
     const auto fxBuy = exchangePurchase (ExchangeItem::tripEcho, 5000);
     assert (fxBuy.allowed);
     assert (fxBuy.cost == 2500);
