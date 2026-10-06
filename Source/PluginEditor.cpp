@@ -371,7 +371,7 @@ namespace mutagen
             const int roll = hauntedRng.rollInclusive (1, 20);
             if (haunted::cdTrayRollWins (roll))
             {
-                haunted::pulseCdTrayThreeTimesAsync();
+                cdTrayPulser.start (3);
                 processor.triggerHauntedSound (1717, 1.0f);
                 topBar.setStatus ("DEVICE EVENT 17: AN UNUSED DOOR OPENS");
             }
