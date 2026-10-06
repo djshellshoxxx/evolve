@@ -81,11 +81,15 @@ namespace mutagen
         void spawnMutationJackpot (int randomColourOrbs, int giantRainbowOrbs,
                                   int blackVirusOrbs, int breedRatio);
         void setOrbInversion (float seconds);
+        void setOrbSpeedBoost (float multiplier, float seconds);
+        void setLabPet (int pet); // 0 none, 1 cat, 2 dog
+        void triggerSnowFireworks (float seconds = 8.0f);
 
         std::function<void(int)> onGreenOrbsBorn;
         std::function<void()> onRainbowCorner;
         std::function<void()> onMutationCatastrophe;
         std::function<void(int)> onBlackOrbsBorn;
+        std::function<void(int bpm)> onTemporaryGator;
 
         /** Where the HUD sits, so clicks there are not treated as mutations. */
         void setHudProbe (std::function<bool (juce::Point<int>)> fn) { hudProbe = std::move (fn); }
@@ -95,7 +99,7 @@ namespace mutagen
         enum class OrbKind
         {
             special, rainbow, glowingRainbow, giantRainbow,
-            monster, mini, green, red, pink, yellow, blackVirus,
+            monster, mini, green, red, pink, yellow, white, blackVirus,
             squid, mite, spider
         };
         struct Orb
@@ -149,7 +153,12 @@ namespace mutagen
         float orbCollisionClock = 0.0f;
         float chamberShake = 0.0f;
         float mutationFlash = 0.0f;
+        float orbSpeedMultiplier = 1.0f;
+        float orbSpeedBoostSeconds = 0.0f;
+        float celebrationSeconds = 0.0f;
         int giantRainbowBreedRatio = 1;
+        int labPet = 0;
+        juce::Point<float> petPos { 0.5f, 0.5f };
 
         // drag tracking
         bool  dragging = false;
