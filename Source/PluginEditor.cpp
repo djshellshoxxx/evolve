@@ -716,7 +716,10 @@ namespace mutagen
 
         // ---- the game layer -------------------------------------------
         scoreSystem.update (snapshot, dt);
+        const auto lifetimeBefore = progressionSystem.stats().lifetimeScore;
         progressionSystem.observe (snapshot, scoreSystem);
+        const auto lifetimeAfter = progressionSystem.stats().lifetimeScore;
+        serviceHauntedMilestones (lifetimeBefore, lifetimeAfter);
         scoreHud.setState (scoreSystem, snapshot);
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
@@ -733,14 +736,36 @@ namespace mutagen
             gameBar.flashRadiation (outcome);
         }
 
-        // A microphone capture finished, or the guard killed one.
-        if (processor.pollMicCapture())
+        // A microphone capture finished, or the guard killed one. Hidden
+        // milestone captures are consumed by their own reverse/stretch path
+        // and are never digested into the colony.
+        if (hiddenMicAwaitingReplay)
         {
-            scoreSystem.onSampleDigested ("mic");
-            progressionSystem.record (ProgressionSystem::Action::sampleDigested);
+            if (processor.pollHauntedMicCapture())
+            {
+                hiddenMicAwaitingReplay = false;
+                topBar.setStatus ("HIDDEN EVENT: YOUR FIVE SECONDS CAME BACK WRONG");
+                haunted::launchDesktopPhantom (38, getScreenBounds(), 3854, 1.0f);
+                haunted::systemBeepAsync (185, 110);
+            }
+            else if (processor.pollMicAbort())
+            {
+                hiddenMicAwaitingReplay = false;
+                processor.cancelHauntedMicCapture();
+                scoreSystem.registerInteraction (0.0f, "HIDDEN MIC ABORTED - FEEDBACK GUARD");
+                topBar.setStatus ("THE LAB STOPPED LISTENING");
+            }
         }
-        if (processor.pollMicAbort())
-            scoreSystem.registerInteraction (0.0f, "FEEDBACK - CAPTURE ABORTED");
+        else
+        {
+            if (processor.pollMicCapture())
+            {
+                scoreSystem.onSampleDigested ("mic");
+                progressionSystem.record (ProgressionSystem::Action::sampleDigested);
+            }
+            if (processor.pollMicAbort())
+                scoreSystem.registerInteraction (0.0f, "FEEDBACK - CAPTURE ABORTED");
+        }
 
         // The reward. ScoreSystem decides when; the chamber draws it.
         if (scoreSystem.consumeRewardFlash())
@@ -755,6 +780,8 @@ namespace mutagen
         }
         if (const auto notice = progressionSystem.consumeNotice(); notice.isNotEmpty())
             topBar.setStatus (notice);
+
+        serviceSpontaneousPhantom();
 
         chamber.update (snapshot, dt);
         topBar.setStats (snapshot);
