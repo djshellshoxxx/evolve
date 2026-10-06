@@ -87,6 +87,7 @@ target_sources(MUTAGEN PRIVATE
     Source/Engine/RenderEngine.cpp
     Source/Engine/ScoreSystem.cpp
     Source/Engine/ProgressionSystem.cpp
+    Source/Engine/PhysicalOddities.cpp
     Source/Engine/Ingest.cpp
     Source/Engine/PresetManager.cpp
 
@@ -108,6 +109,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/HelpView.cpp
     Source/GUI/OptionsView.cpp
     Source/GUI/ProgressionView.cpp
+    Source/GUI/HauntedOverlay.cpp
     Source/GUI/DeviceSetupHook.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)
