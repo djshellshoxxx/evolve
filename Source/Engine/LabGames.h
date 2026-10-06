@@ -442,6 +442,12 @@ namespace mutagen::labgames
         return gatorUnlocked && laterJackpots >= 1;
     }
 
+    inline bool tripDelayUnlockDue (int consecutiveMonteWins, bool latestWasWin)
+    {
+        return latestWasWin && consecutiveMonteWins > 0
+            && consecutiveMonteWins % 3 == 0;
+    }
+
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
     {
         // Large separated bases plus co-prime offsets prevent result families
