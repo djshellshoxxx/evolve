@@ -66,15 +66,22 @@ namespace mutagen
                 left.removeFromTop (8);
 
                 section (left, "RESEARCHERS");
-                for (std::size_t i = 0; i < (std::size_t) Character::count; ++i)
+                if (! state.features[(std::size_t) Feature::researcherCharacters])
                 {
-                    const auto who = (Character) i;
-                    const bool unlocked = state.characters[i];
-                    line (left, juce::String (unlocked ? "[OPEN] " : "[LOCKED] ")
-                                + characterName (who) + " / " + characterRole (who),
-                          unlocked ? text : textDim);
-                    if (unlocked)
-                        line (left, characterBriefing (who), textDim, 34);
+                    line (left, "[LOCKED] Researcher communications unlock at level 2.", textDim, 28);
+                }
+                else
+                {
+                    for (std::size_t i = 0; i < (std::size_t) Character::count; ++i)
+                    {
+                        const auto who = (Character) i;
+                        const bool unlocked = state.characters[i];
+                        line (left, juce::String (unlocked ? "[OPEN] " : "[LOCKED] ")
+                                    + characterName (who) + " / " + characterRole (who),
+                              unlocked ? text : textDim);
+                        if (unlocked)
+                            line (left, characterBriefing (who), textDim, 34);
+                    }
                 }
 
                 left.removeFromTop (8);
@@ -90,20 +97,29 @@ namespace mutagen
 
                 left.removeFromTop (8);
                 section (left, "LINEAGE CODEX");
-                const int lineageScore = stats.breedingOperations * 3 + stats.generationsObserved / 20;
-                const juce::String lineageRank = lineageScore >= 28 ? "DYNASTY"
-                                                : lineageScore >= 18 ? "LINEAGE"
-                                                : lineageScore >= 10 ? "STRAIN"
-                                                : lineageScore >= 4  ? "CULTURE"
-                                                                     : "SEED";
-                line (left, "Rank: " + lineageRank, text);
-                line (left, "Breeding operations " + juce::String (stats.breedingOperations)
-                            + " / generations carried " + juce::String (stats.generationsObserved),
-                      textDim, 28);
+                if (! state.features[(std::size_t) Feature::lineageCodex])
+                {
+                    line (left, "[LOCKED] Breed lineages or reach research level 4.", textDim, 28);
+                }
+                else
+                {
+                    const int lineageScore = stats.breedingOperations * 3 + stats.generationsObserved / 20;
+                    const juce::String lineageRank = lineageScore >= 28 ? "DYNASTY"
+                                                    : lineageScore >= 18 ? "LINEAGE"
+                                                    : lineageScore >= 10 ? "STRAIN"
+                                                    : lineageScore >= 4  ? "CULTURE"
+                                                                         : "SEED";
+                    line (left, "Rank: " + lineageRank, text);
+                    line (left, "Breeding operations " + juce::String (stats.breedingOperations)
+                                + " / generations carried " + juce::String (stats.generationsObserved),
+                          textDim, 28);
+                }
 
                 left.removeFromTop (8);
                 section (left, "ANOMALY CATALOGUE");
-                if (progression.anomalies().empty())
+                if (! state.features[(std::size_t) Feature::anomalyCatalogue])
+                    line (left, "[LOCKED] Expand research or encounter an anomaly.", textDim, 28);
+                else if (progression.anomalies().empty())
                     line (left, "No anomalies recorded yet.", textDim);
                 else
                     for (const auto& id : progression.anomalies())
@@ -111,7 +127,9 @@ namespace mutagen
 
                 left.removeFromTop (8);
                 section (left, "RELIC CABINET");
-                if (progression.relics().empty())
+                if (! state.features[(std::size_t) Feature::relicCabinet])
+                    line (left, "[LOCKED] Major research milestones reveal the cabinet.", textDim, 28);
+                else if (progression.relics().empty())
                     line (left, "No relics earned yet.", textDim);
                 else
                     for (const auto& id : progression.relics())
@@ -119,8 +137,14 @@ namespace mutagen
 
                 left.removeFromTop (8);
                 section (left, "WORLD ATLAS");
-                if (progression.worlds().empty())
+                if (! state.features[(std::size_t) Feature::worldAtlas])
+                {
+                    line (left, "[LOCKED] Survey more worlds or reach research level 5.", textDim, 28);
+                }
+                else if (progression.worlds().empty())
+                {
                     line (left, "The first observed world will be indexed here.", textDim, 24);
+                }
                 else
                 {
                     int shown = 0;
@@ -148,25 +172,39 @@ namespace mutagen
 
                 right.removeFromTop (8);
                 section (right, "RESEARCH PROTOCOLS");
-                for (int i = 0; i < 10; ++i)
+                if (! state.features[(std::size_t) Feature::researchProtocols])
                 {
-                    const bool unlocked = state.level >= protocolUnlockLevel (i);
-                    const juce::String prefix = unlocked
-                        ? juce::String ("[OPEN] ")
-                        : juce::String ("[LEVEL ") + juce::String (protocolUnlockLevel (i)) + "] ";
-                    line (right, prefix + protocolName (i), unlocked ? text : textDim);
-                    if (unlocked)
-                        line (right, protocolDescription (i), textDim, 30);
+                    line (right, "[LOCKED] Protocol console unlocks at research level 2.", textDim, 28);
+                }
+                else
+                {
+                    for (int i = 0; i < 10; ++i)
+                    {
+                        const bool unlocked = state.level >= protocolUnlockLevel (i);
+                        const juce::String prefix = unlocked
+                            ? juce::String ("[OPEN] ")
+                            : juce::String ("[LEVEL ") + juce::String (protocolUnlockLevel (i)) + "] ";
+                        line (right, prefix + protocolName (i), unlocked ? text : textDim);
+                        if (unlocked)
+                            line (right, protocolDescription (i), textDim, 30);
+                    }
                 }
 
                 right.removeFromTop (8);
                 section (right, "CHALLENGE DECK");
-                for (const auto& ch : challengeDeck (stats))
+                if (! state.features[(std::size_t) Feature::challengeDeck])
                 {
-                    line (right, juce::String (ch.title), text, 18);
-                    line (right, juce::String (ch.objective), textDim, 30);
-                    line (right, "Reward: " + juce::String (ch.reward), accent, 18);
-                    right.removeFromTop (4);
+                    line (right, "[LOCKED] Challenge research begins at level 3.", textDim, 28);
+                }
+                else
+                {
+                    for (const auto& ch : challengeDeck (stats))
+                    {
+                        line (right, juce::String (ch.title), text, 18);
+                        line (right, juce::String (ch.objective), textDim, 30);
+                        line (right, "Reward: " + juce::String (ch.reward), accent, 18);
+                        right.removeFromTop (4);
+                    }
                 }
 
                 if (state.features[(std::size_t) Feature::storyBranches])
