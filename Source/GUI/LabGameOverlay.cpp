@@ -106,6 +106,51 @@ namespace mutagen
         toFront (true);
     }
 
+    void LabGameOverlay::showMutationSlots (bool sideGame)
+    {
+        mode = sideGame ? Mode::sideMutationSlots : Mode::mutationSlots;
+        currentGame = sideGame ? labgames::Game::sideMutationSlots
+                               : labgames::Game::mutationSlots;
+        title = sideGame ? "SIDE MUTATION SLOTS" : "MUTATION SLOTS";
+        detail = sideGame
+            ? "Permanent side machine. Same prize grammar, different sounds."
+            : "Skill-milestone machine. Jackpot breeds things that should not breed.";
+        anim = 0.0f;
+        resultPositive = true;
+        configureButtons();
+        setVisible (true);
+        toFront (true);
+    }
+
+    void LabGameOverlay::showPetChoice()
+    {
+        mode = Mode::petChoice;
+        currentGame = labgames::Game::sideMutationSlots;
+        title = "CHOOSE A LAB PET";
+        detail = "The pet persists and follows yellow orbs around the chamber.";
+        anim = 0.0f;
+        resultPositive = true;
+        configureButtons();
+        setVisible (true);
+        toFront (true);
+    }
+
+    void LabGameOverlay::showWolfermean()
+    {
+        mode = Mode::wolfermean;
+        currentGame = labgames::Game::slots;
+        title = "WOLFERMEAN";
+        detail = "snit snit";
+        anim = 0.0f;
+        resultPositive = true;
+        a.setVisible (false);
+        b.setVisible (false);
+        c.setVisible (false);
+        decline.setVisible (false);
+        setVisible (true);
+        toFront (true);
+    }
+
     void LabGameOverlay::configureButtons()
     {
         a.setEnabled (true);
@@ -159,6 +204,25 @@ namespace mutagen
             a.setButtonText ("SCRATCH");
             a.onClick = [this] { if (onScratch) onScratch(); };
         }
+        else if (mode == Mode::mutationSlots)
+        {
+            a.setButtonText ("SPIN");
+            a.onClick = [this] { if (onMutationSpin) onMutationSpin(); };
+        }
+        else if (mode == Mode::sideMutationSlots)
+        {
+            a.setButtonText ("SPIN");
+            a.onClick = [this] { if (onSideMutationSpin) onSideMutationSpin(); };
+        }
+        else if (mode == Mode::petChoice)
+        {
+            a.setButtonText ("CAT");
+            b.setButtonText ("DOG");
+            b.setVisible (true);
+            decline.setButtonText ("LATER");
+            a.onClick = [this] { if (onPetChosen) onPetChosen (true); };
+            b.onClick = [this] { if (onPetChosen) onPetChosen (false); };
+        }
     }
 
     void LabGameOverlay::resolve (const juce::String& t, const juce::String& d,
@@ -184,6 +248,13 @@ namespace mutagen
     {
         if (! isVisible()) return;
         anim += 1.0f / 60.0f;
+        if (mode == Mode::wolfermean && anim > 2.5f)
+        {
+            setVisible (false);
+            mode = Mode::none;
+            if (onDecline) onDecline();
+            return;
+        }
         repaint();
     }
 
@@ -201,7 +272,9 @@ namespace mutagen
           : currentGame == labgames::Game::slots ? juce::Colours::cyan
           : currentGame == labgames::Game::dice ? juce::Colours::lime
           : currentGame == labgames::Game::twentyOne ? juce::Colour (0xffff4545)
-                                                     : juce::Colour (0xffffd65a);
+          : currentGame == labgames::Game::mutationSlots ? juce::Colour (0xff8cff49)
+          : currentGame == labgames::Game::sideMutationSlots ? juce::Colour (0xff44ffd8)
+                                                             : juce::Colour (0xffffd65a);
 
         if (mode == Mode::result && ! resultPositive)
             accent = juce::Colours::grey;
@@ -285,7 +358,7 @@ namespace mutagen
                                               52.0f, 76.0f }, 5.0f, 3.0f);
             }
         }
-        else // scratch
+        else if (currentGame == labgames::Game::scratch)
         {
             for (int i = 0; i < 5; ++i)
             {
@@ -298,6 +371,46 @@ namespace mutagen
                     for (int s = 0; s < 4; ++s)
                         g.drawLine (box.getX() + 4.0f, box.getY() + 6.0f + s * 8.0f,
                                     box.getRight() - 4.0f, box.getY() + 2.0f + s * 8.0f, 1.0f);
+            }
+        }
+        else
+        {
+            // Mutation slots / pet choice / Wolfermean share a strange
+            // biological-machine visual vocabulary.
+            if (mode == Mode::petChoice)
+            {
+                g.setColour (juce::Colour (0xffffdf70).withAlpha (0.8f));
+                g.fillEllipse (72.0f, 112.0f, 58.0f, 34.0f);
+                g.drawLine (82.0f, 110.0f, 74.0f, 98.0f, 3.0f);
+                g.drawLine (120.0f, 110.0f, 128.0f, 98.0f, 3.0f);
+                g.setColour (juce::Colour (0xffff704f).withAlpha (0.8f));
+                g.fillEllipse (188.0f, 112.0f, 68.0f, 36.0f);
+            }
+            else if (mode == Mode::wolfermean)
+            {
+                const float t = std::fmod (anim * anim * 52.0f, juce::jmax (1.0f, r.getWidth() + 100.0f));
+                const float x = r.getRight() - t;
+                const float y = 122.0f + std::sin (anim * 6.0f) * 8.0f;
+                g.saveState();
+                juce::AffineTransform tr = juce::AffineTransform::translation (-x - 24.0f, -y - 14.0f)
+                    .rotated (juce::MathConstants<float>::pi)
+                    .translated (x + 24.0f, y + 14.0f);
+                g.addTransform (tr);
+                g.setColour (juce::Colour (0xff8a775f).withAlpha (0.92f));
+                g.fillEllipse (x, y, 48.0f, 28.0f);
+                g.fillEllipse (x + 36.0f, y - 8.0f, 20.0f, 20.0f);
+                g.restoreState();
+            }
+            else
+            {
+                for (int i = 0; i < 3; ++i)
+                {
+                    auto box = juce::Rectangle<float> (64.0f + i * 72.0f, 96.0f, 52.0f, 52.0f);
+                    g.drawRoundedRectangle (box, 9.0f, 3.0f);
+                    const float q = std::fmod (anim * (9.0f + i * 2.0f), 1.0f);
+                    g.setColour (juce::Colour::fromHSV (q, 0.88f, 1.0f, 0.7f));
+                    g.fillEllipse (box.reduced (10.0f));
+                }
             }
         }
 
