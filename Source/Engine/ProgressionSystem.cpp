@@ -94,6 +94,8 @@ namespace mutagen
         greenOrbCount = readInt (root, "greenOrbs");
         redOrbCount = readInt (root, "redOrbs");
         pinkOrbCount = readInt (root, "pinkOrbs");
+        snareSoundCount = readInt (root, "snareSounds");
+        tomSoundCount = readInt (root, "tomSounds");
 
         // Sets are authoritative where available. Keep the legacy world count
         // so an older journal does not lose progression during migration.
@@ -387,6 +389,18 @@ namespace mutagen
         markDirty();
     }
 
+    void ProgressionSystem::addSnareSounds (int count)
+    {
+        snareSoundCount = juce::jmax (0, snareSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addTomSounds (int count)
+    {
+        tomSoundCount = juce::jmax (0, tomSoundCount + count);
+        markDirty();
+    }
+
     juce::String ProgressionSystem::consumeNotice()
     {
         auto result = pendingNotice;
@@ -444,6 +458,8 @@ namespace mutagen
         root->setProperty ("greenOrbs", greenOrbCount);
         root->setProperty ("redOrbs", redOrbCount);
         root->setProperty ("pinkOrbs", pinkOrbCount);
+        root->setProperty ("snareSounds", snareSoundCount);
+        root->setProperty ("tomSounds", tomSoundCount);
 
         const auto file = progressFile();
         file.getParentDirectory().createDirectory();
