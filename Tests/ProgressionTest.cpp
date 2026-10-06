@@ -269,6 +269,10 @@ int main()
     assert (tripDelayUnlockDue (3, true));
     assert (! tripDelayUnlockDue (3, false));
 
+    assert (! reverseSkillUnlockDue (1, true));
+    assert (reverseSkillUnlockDue (2, true));
+    assert (! reverseSkillUnlockDue (2, false));
+
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
     assert (safeRoulette.kind != RoulettePrize::loseSkill);
