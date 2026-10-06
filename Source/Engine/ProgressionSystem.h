@@ -32,6 +32,7 @@ namespace mutagen
 
         const std::set<juce::String>& anomalies() const { return anomalyIds; }
         const std::set<juce::String>& relics() const { return relicIds; }
+        const std::set<juce::String>& worlds() const { return worldIds; }
 
         /** Returns and clears the newest unlock/event notice. */
         juce::String consumeNotice();
@@ -49,6 +50,7 @@ namespace mutagen
         progression::LifetimeStats lifetime;
         std::set<juce::String> anomalyIds;
         std::set<juce::String> relicIds;
+        std::set<juce::String> worldIds;
         juce::String pendingNotice;
 
         juce::int64 lastScore = 0;
