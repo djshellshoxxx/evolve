@@ -18,6 +18,9 @@ namespace mutagen
         void showDice();
         void showTwentyOne (int playerTotal, bool canHit);
         void showScratch (int ticketsAvailable);
+        void showMutationSlots (bool sideGame);
+        void showPetChoice();
+        void showWolfermean();
 
         bool active() const { return mode != Mode::none; }
 
@@ -30,6 +33,9 @@ namespace mutagen
         std::function<void()> onTwentyOneHit;
         std::function<void()> onTwentyOneStand;
         std::function<void()> onScratch;
+        std::function<void()> onMutationSpin;
+        std::function<void()> onSideMutationSpin;
+        std::function<void(bool cat)> onPetChosen;
 
         void resolve (const juce::String& title, const juce::String& detail,
                       labgames::Game game, labgames::SoundMoment moment,
@@ -42,7 +48,8 @@ namespace mutagen
         enum class Mode
         {
             none, roulette, skillRoulette, monte, slots, dice,
-            twentyOne, scratch, result
+            twentyOne, scratch, mutationSlots, sideMutationSlots,
+            petChoice, wolfermean, result
         };
 
         void timerCallback() override;
