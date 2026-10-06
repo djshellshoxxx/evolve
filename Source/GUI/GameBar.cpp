@@ -132,6 +132,7 @@ namespace mutagen
         setup (saveRun,  juce::Colour (0xff9fb6d4), &onSaveRun);
         setup (loadRun,  juce::Colour (0xff9fb6d4), &onLoadRun);
         setup (scores,   juce::Colour (0xff9fb6d4), &onScores);
+        setup (journal,  juce::Colour (0xff7fe3a0), &onJournal);
         setup (micArm,   juce::Colour (0xffffa0c0), &onMicArm);
         setup (micCapture, juce::Colour (0xffffa0c0), &onMicCapture);
 
@@ -231,8 +232,8 @@ namespace mutagen
         layRow (top, { { &enzyme, 104 }, { &catalyst, 112 }, { &heat, 86 },
                        { &water, 92 }, { &radiate, 84 } });
 
-        layRow (bottom, { { &newWorld, 96 }, { &saveRun, 84 }, { &loadRun, 84 },
-                          { &scores, 74 }, { &micArm, 86 }, { &micCapture, 96 } });
+        layRow (bottom, { { &newWorld, 90 }, { &saveRun, 78 }, { &loadRun, 78 },
+                          { &scores, 68 }, { &journal, 78 }, { &micArm, 82 }, { &micCapture, 92 } });
     }
 
     void GameBar::paint (juce::Graphics& g)
