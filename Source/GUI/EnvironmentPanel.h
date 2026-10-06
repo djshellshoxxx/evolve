@@ -3,6 +3,7 @@
 #include "Widgets.h"
 #include "../Engine/EvolutionSteering.h"
 #include <array>
+#include <functional>
 
 namespace mutagen
 {
@@ -16,6 +17,7 @@ namespace mutagen
     public:
         explicit EnvironmentPanel (MutagenProcessor&);
         void resized() override;
+        std::function<void()> onSteeringUsed;
 
     private:
         void applySteeringProfile (const steering::Profile&, float strength, bool mutateAfter);
