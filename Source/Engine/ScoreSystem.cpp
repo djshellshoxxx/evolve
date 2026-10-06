@@ -251,6 +251,15 @@ namespace mutagen
         }
     }
 
+    void ScoreSystem::adjustScore (juce::int64 points, const juce::String& label)
+    {
+        const auto before = (juce::int64) total;
+        total = juce::jmax (0.0, total + (double) points);
+        const auto applied = (juce::int64) total - before;
+        pushEvent (label, (int) juce::jlimit<juce::int64> (-2000000000LL, 2000000000LL, applied),
+                   applied < 0 ? cBad : applied > 0 ? cReward : cInfo);
+    }
+
     void ScoreSystem::onRadiation (int outcome)
     {
         if (outcome < 0)
