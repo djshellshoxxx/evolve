@@ -3,6 +3,7 @@
 #include "../Source/Engine/HiddenDiscoveries.h"
 #include <cassert>
 #include <iostream>
+#include <set>
 
 using namespace mutagen::progression;
 
@@ -120,6 +121,35 @@ int main()
     assert (! m1->title.empty());
     assert (! m1->skillName.empty());
     assert (! mutagen::haunted::milestoneForScore (1000000, 1999999).has_value());
+
+    const auto m2 = mutagen::haunted::milestoneForScore (1999999, 2000000);
+    assert (m2.has_value());
+    assert (m2->index == 2);
+    assert (m2->title != m1->title);
+    assert (m2->skillName != m1->skillName);
+    assert (m2->animationRecipe != m1->animationRecipe);
+    assert (m2->soundRecipe != m1->soundRecipe);
+
+    std::set<std::string> creatureNames;
+    for (int id = 0; id < 100; ++id)
+    {
+        creatureNames.insert (mutagen::haunted::creatureName (id));
+        assert (! mutagen::haunted::creatureLore (id).empty());
+    }
+    assert (creatureNames.size() == 100);
+
+    mutagen::haunted::ClickSequence mirror;
+    mirror.push (2, 0.0); mirror.push (7, 0.2); mirror.push (2, 0.4);
+    mirror.push (7, 0.6); mirror.push (2, 0.8);
+    assert (mirror.push (7, 1.0).mirrorEvent);
+
+    mutagen::haunted::SessionRng sessionRng;
+    assert (sessionRng.seed() != 0);
+    for (int i = 0; i < 200; ++i)
+    {
+        const int roll = sessionRng.rollInclusive (1, 20);
+        assert (roll >= 1 && roll <= 20);
+    }
 
     std::cout << "Progression rules: PASS\n";
     return 0;
