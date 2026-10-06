@@ -35,6 +35,7 @@ namespace mutagen::params
     inline constexpr auto selHarmonicity  = "selHarmonicity";  // -1 noisy .. +1 harmonic
     inline constexpr auto selAggression   = "selAggression";   // -1 calm .. +1 aggressive
     inline constexpr auto selDivergence   = "selDivergence";   // 0 familiar .. 1 divergent
+    inline constexpr auto steerStrength    = "steerStrength";   // 0 gentle .. 1 forceful
 
     // ---- Germination ---------------------------------------------------
     inline constexpr auto captureLength      = "captureLength";      // seconds
