@@ -230,6 +230,61 @@ namespace mutagen::progression
         return titles[(std::size_t) std::clamp (chapter, 0, finalStoryChapter)];
     }
 
+    inline const char* characterRole (Character c)
+    {
+        constexpr const char* roles[] = {
+            "Ecologist", "Signal Engineer", "Field Recordist",
+            "Lab Automation", "Archivist", "Unknown Observer"
+        };
+        return roles[(std::size_t) c];
+    }
+
+    inline const char* characterBriefing (Character c)
+    {
+        constexpr const char* text[] = {
+            "Diversity is not a defect to average away. Protect the strange branches.",
+            "If a sound cannot be described twice, the measurement is not finished.",
+            "Every recording brought into the dish is environmental DNA.",
+            "Your interventions are becoming statistically predictable. I am watching the pattern.",
+            "A lineage is a decision that survived long enough to become history.",
+            "YOU KEEP CALLING THEM WORLDS. THEY MAY BE CALLING YOU THE ENVIRONMENT."
+        };
+        return text[(std::size_t) c];
+    }
+
+    inline int protocolUnlockLevel (int index)
+    {
+        constexpr int levels[10] = { 1, 2, 2, 3, 4, 4, 5, 6, 7, 8 };
+        return levels[std::clamp (index, 0, 9)];
+    }
+
+    inline const char* protocolName (int index)
+    {
+        constexpr const char* names[10] = {
+            "Observation Log", "Directed Selection", "Counter-Evolution",
+            "Source DNA", "Lineage Breeding", "Genome Surgery",
+            "MAP Archive", "Anomaly Scan", "World Memory", "Directive Analysis"
+        };
+        return names[std::clamp (index, 0, 9)];
+    }
+
+    inline const char* protocolDescription (int index)
+    {
+        constexpr const char* text[10] = {
+            "Turns run telemetry into a persistent field journal.",
+            "Uses selection targets deliberately instead of waiting for drift.",
+            "Pushes away from the sound the colony is currently producing.",
+            "Treats imported audio and microphone capture as environmental material.",
+            "Carries selected traits through explicit parent and offspring lineages.",
+            "Uses the inspector, locks and targeted mutation as deliberate genome editing.",
+            "Reads coverage and novelty as a map of explored behavior space.",
+            "Recognizes rare descriptor combinations and records them permanently.",
+            "Compares worlds as persistent regions rather than disposable random seeds.",
+            "Interprets long-term play as Preserve, Accelerate or Release without locking content."
+        };
+        return text[std::clamp (index, 0, 9)];
+    }
+
     inline const char* storyText (int chapter)
     {
         constexpr const char* text[] = {
