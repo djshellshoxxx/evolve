@@ -707,3 +707,10 @@ written, so the CI result still needs to be read before calling M11 fully verifi
 - Extended `MutagenGuiSmokeTest` with steering-profile, counter-evolution and dice-range assertions.
 - Fixed one-shot selection bursts so parameter changes made immediately before the command are loaded into the Colony before selection is applied.
 - Added tooltips and Help content for all three new interactions.
+
+
+### 2026-10-06 — Steering intensity refinement
+- Added an automatable **Push Strength** parameter for the new sound-direction controls.
+- Direction, Counter-Evolve and Mutation Dice targets now scale continuously from subtle guidance to forceful steering.
+- Selection-burst strength and the minimum selection pressure scale with the same control, so a low setting does not secretly apply a full-strength ecological shove.
+- Added regression coverage for target scaling and clamping.
