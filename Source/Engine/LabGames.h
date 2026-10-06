@@ -560,10 +560,25 @@ namespace mutagen::labgames
         return gamesCompleted == 4 && latestWasWin && score > 10000;
     }
 
+    enum class SkillUseBonus { none, risingSweep, fallingSweep, burp, horn };
+
     inline int miniGameParticipationPoints() { return 3; }
     inline int orbGenerationPoints (int orbsGenerated) { return std::max (0, orbsGenerated); }
     inline int skillDiscoveryPoints (int skillsEarned) { return std::max (0, skillsEarned) * 4; }
     inline int skillUsePoints() { return -1; }
+
+    inline SkillUseBonus skillUseBonusForScore (std::int64_t score)
+    {
+        const auto positive = score < 0 ? -score : score;
+        if (positive % 100 == 99) return SkillUseBonus::horn;
+        switch (positive % 10)
+        {
+            case 9: return SkillUseBonus::risingSweep;
+            case 3: return SkillUseBonus::fallingSweep;
+            case 1: return SkillUseBonus::burp;
+            default: return SkillUseBonus::none;
+        }
+    }
 
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
     {
