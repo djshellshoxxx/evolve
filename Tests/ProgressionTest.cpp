@@ -160,6 +160,18 @@ int main()
     assert (! shouldOfferMonte (10, 2));
     assert (shouldOfferSlots (3, 1));
     assert (! shouldOfferSlots (3, 2));
+    assert (shouldOfferDice (1, 1));
+    assert (! shouldOfferDice (1, 2));
+
+    const auto diceWin = diceOutcome (6, 2);
+    assert (diceWin.won);
+    assert (diceWin.monsterOrbs == 100);
+    assert (diceWin.miniOrbs == 10);
+    assert (! diceWin.orbInversionPenalty);
+
+    const auto diceLoss = diceOutcome (2, 6);
+    assert (! diceLoss.won);
+    assert (diceLoss.orbInversionPenalty);
 
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
@@ -186,7 +198,7 @@ int main()
     assert (jackpot.rainbowMultiplier == 2);
 
     std::set<int> soundRecipes;
-    for (int game = 0; game < 3; ++game)
+    for (int game = 0; game < 4; ++game)
         for (int result = 0; result < 8; ++result)
             soundRecipes.insert (soundRecipe ((Game) game, (SoundMoment) result, 11));
     assert (soundRecipes.size() >= 20);
