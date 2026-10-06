@@ -102,10 +102,10 @@ namespace mutagen
                 for (int i = 0; i < 10; ++i)
                 {
                     const bool unlocked = state.level >= protocolUnlockLevel (i);
-                    line (right, juce::String (unlocked ? "[OPEN] " : "[LEVEL "
-                                          + juce::String (protocolUnlockLevel (i)) + "] ")
-                                 + protocolName (i),
-                          unlocked ? text : textDim);
+                    const juce::String prefix = unlocked
+                        ? juce::String ("[OPEN] ")
+                        : juce::String ("[LEVEL ") + juce::String (protocolUnlockLevel (i)) + "] ";
+                    line (right, prefix + protocolName (i), unlocked ? text : textDim);
                     if (unlocked)
                         line (right, protocolDescription (i), textDim, 30);
                 }
