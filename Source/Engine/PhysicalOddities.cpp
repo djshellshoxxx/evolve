@@ -1,9 +1,6 @@
 #include "PhysicalOddities.h"
 #include <juce_core/juce_core.h>
 
-#include <chrono>
-#include <thread>
-
 #if JUCE_WINDOWS
  #include <windows.h>
  #include <mmsystem.h>
@@ -11,41 +8,78 @@
 
 namespace mutagen::haunted
 {
-    bool systemBeepAsync (int frequencyHz, int durationMs)
+    bool systemBeepAsync (int frequencyHintHz, int durationHintMs)
     {
        #if JUCE_WINDOWS
-        frequencyHz = frequencyHz < 80 ? 80 : frequencyHz > 2400 ? 2400 : frequencyHz;
-        durationMs = durationMs < 20 ? 20 : durationMs > 900 ? 900 : durationMs;
-        std::thread ([frequencyHz, durationMs]
-        {
-            ::Beep ((DWORD) frequencyHz, (DWORD) durationMs);
-        }).detach();
-        return true;
+        // MessageBeep returns immediately and cannot outlive the plugin in a
+        // detached worker. Use the hints to vary the OS sound class.
+        const unsigned int selector =
+            ((frequencyHintHz / 100) + (durationHintMs / 50)) & 3;
+        const UINT type = selector == 0 ? MB_OK
+                        : selector == 1 ? MB_ICONASTERISK
+                        : selector == 2 ? MB_ICONEXCLAMATION
+                                        : MB_ICONQUESTION;
+        return ::MessageBeep (type) != FALSE;
        #else
-        (void) frequencyHz;
-        (void) durationMs;
+        (void) frequencyHintHz;
+        (void) durationHintMs;
         return false;
        #endif
     }
 
-    bool pulseCdTrayThreeTimesAsync()
+    CdTrayPulser::~CdTrayPulser()
+    {
+        stop();
+    }
+
+    void CdTrayPulser::setDoor (bool open)
     {
        #if JUCE_WINDOWS
-        std::thread ([]
-        {
-            // MCI talks to the operating system's CD-audio device. Failure is
-            // intentionally silent: many current computers have no optical drive.
-            for (int i = 0; i < 3; ++i)
-            {
-                mciSendStringW (L"set cdaudio door open", nullptr, 0, nullptr);
-                std::this_thread::sleep_for (std::chrono::milliseconds (650));
-                mciSendStringW (L"set cdaudio door closed", nullptr, 0, nullptr);
-                std::this_thread::sleep_for (std::chrono::milliseconds (500));
-            }
-        }).detach();
-        return true;
+        mciSendStringW (open ? L"set cdaudio door open"
+                             : L"set cdaudio door closed",
+                        nullptr, 0, nullptr);
        #else
-        return false;
+        (void) open;
        #endif
+    }
+
+    void CdTrayPulser::start (int pulses)
+    {
+        stop();
+        pulsesRemaining = juce::jlimit (1, 8, pulses);
+        doorOpen = true;
+        setDoor (true);
+        startTimer (650);
+    }
+
+    void CdTrayPulser::stop()
+    {
+        stopTimer();
+        if (doorOpen)
+            setDoor (false);
+        doorOpen = false;
+        pulsesRemaining = 0;
+    }
+
+    void CdTrayPulser::timerCallback()
+    {
+        if (doorOpen)
+        {
+            setDoor (false);
+            doorOpen = false;
+            --pulsesRemaining;
+            if (pulsesRemaining <= 0)
+            {
+                stopTimer();
+                return;
+            }
+            startTimer (500);
+        }
+        else
+        {
+            setDoor (true);
+            doorOpen = true;
+            startTimer (650);
+        }
     }
 }
