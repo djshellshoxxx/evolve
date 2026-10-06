@@ -66,6 +66,12 @@ namespace mutagen
         bool gateShapesUnlocked() const { return gateShapesUnlockedFlag; }
         bool tripDelayUnlocked() const { return tripDelayUnlockedFlag; }
         bool reverseSkillUnlocked() const { return reverseSkillUnlockedFlag; }
+        int gamesCompleted() const { return gamesCompletedCount; }
+        bool exchangeEffectUnlocked (int index) const
+        {
+            return index >= 0 && index < (int) exchangeEffects.size()
+                ? exchangeEffects[(size_t) index] : false;
+        }
 
         int totalGameSkills() const
         {
@@ -100,6 +106,8 @@ namespace mutagen
         void unlockGateShapes();
         void unlockTripDelay();
         void unlockReverseSkill();
+        void recordGameCompleted();
+        void unlockExchangeEffect (int index);
 
         /** Returns and clears the newest unlock/event notice. */
         juce::String consumeNotice();
@@ -147,6 +155,8 @@ namespace mutagen
         bool gateShapesUnlockedFlag = false;
         bool tripDelayUnlockedFlag = false;
         bool reverseSkillUnlockedFlag = false;
+        int gamesCompletedCount = 0;
+        std::array<bool, 4> exchangeEffects {};
 
         juce::String pendingNotice;
 
