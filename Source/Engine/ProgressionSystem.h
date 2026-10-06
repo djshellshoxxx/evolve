@@ -59,6 +59,14 @@ namespace mutagen
         int clapSounds() const { return clapSoundCount; }
         int padSounds() const { return padSoundCount; }
         int upSweepSounds() const { return upSweepSoundCount; }
+
+        bool sideMutationUnlocked() const { return sideMutationUnlockedFlag; }
+        int petChoice() const { return petChoiceValue; } // 0 none, 1 cat, 2 dog
+        bool gatorUnlocked() const { return gatorUnlockedFlag; }
+        bool gateShapesUnlocked() const { return gateShapesUnlockedFlag; }
+        bool tripDelayUnlocked() const { return tripDelayUnlockedFlag; }
+        bool reverseSkillUnlocked() const { return reverseSkillUnlockedFlag; }
+
         int totalGameSkills() const
         {
             int total = 0;
@@ -85,6 +93,13 @@ namespace mutagen
         void addClapSounds (int count);
         void addPadSounds (int count);
         void addUpSweepSounds (int count);
+
+        void unlockSideMutation();
+        void setPetChoice (int pet);
+        void unlockGator();
+        void unlockGateShapes();
+        void unlockTripDelay();
+        void unlockReverseSkill();
 
         /** Returns and clears the newest unlock/event notice. */
         juce::String consumeNotice();
@@ -125,6 +140,13 @@ namespace mutagen
         int clapSoundCount = 0;
         int padSoundCount = 0;
         int upSweepSoundCount = 0;
+
+        bool sideMutationUnlockedFlag = false;
+        int petChoiceValue = 0;
+        bool gatorUnlockedFlag = false;
+        bool gateShapesUnlockedFlag = false;
+        bool tripDelayUnlockedFlag = false;
+        bool reverseSkillUnlockedFlag = false;
 
         juce::String pendingNotice;
 
