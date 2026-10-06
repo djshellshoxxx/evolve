@@ -1107,6 +1107,8 @@ bool MutagenProcessor::startHauntedMicCapture (float seconds)
         return false;
 
     hauntedMicMode = true;
+    hauntedMicRestoreArmed = mic.isArmed();
+    hauntedMicRestoreMonitoring = mic.liveMonitoring();
     mic.setLiveMonitoring (false);
     mic.arm (true);
     mic.startCapture (juce::jlimit (1.0f, 5.0f, seconds));
@@ -1117,6 +1119,8 @@ void MutagenProcessor::cancelHauntedMicCapture()
 {
     hauntedMicMode = false;
     mic.cancel();
+    mic.setLiveMonitoring (hauntedMicRestoreMonitoring);
+    mic.arm (hauntedMicRestoreArmed);
 }
 
 bool MutagenProcessor::pollHauntedMicCapture()
@@ -1173,6 +1177,9 @@ bool MutagenProcessor::pollHauntedMicCapture()
 
     hauntedReplayLength[(size_t) slot] = length;
     hauntedReplayReady.store (slot, std::memory_order_release);
+
+    mic.setLiveMonitoring (hauntedMicRestoreMonitoring);
+    mic.arm (hauntedMicRestoreArmed);
     return true;
 }
 
