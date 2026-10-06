@@ -44,6 +44,7 @@ namespace mutagen
         bool awardAnomaly (const juce::String& id, bool condition);
         bool awardRelic (const juce::String& id, bool condition);
         void updateRelics();
+        void updateUnlockNotice (const progression::ResearchState& before);
 
         progression::LifetimeStats lifetime;
         std::set<juce::String> anomalyIds;
