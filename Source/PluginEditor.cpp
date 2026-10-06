@@ -5,6 +5,7 @@
 
 #include "PluginEditor.h"
 #include "AppOptions.h"
+#include <iterator>
 
 namespace mutagen
 {
