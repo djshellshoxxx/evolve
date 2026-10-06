@@ -25,6 +25,14 @@ namespace mutagen
                     for (const auto& item : *arr)
                         out.insert (item.toString());
         }
+
+        void readIntSet (const juce::var& root, const char* key, std::set<int>& out)
+        {
+            if (auto* obj = root.getDynamicObject())
+                if (auto* arr = obj->getProperty (key).getArray())
+                    for (const auto& item : *arr)
+                        out.insert ((int) item);
+        }
     }
 
     ProgressionSystem::ProgressionSystem()
@@ -71,6 +79,8 @@ namespace mutagen
         readSet (root, "anomalies", anomalyIds);
         readSet (root, "relics", relicIds);
         readSet (root, "worlds", worldIds);
+        readIntSet (root, "creatures", creatureIds);
+        readIntSet (root, "milestones", milestoneIds);
 
         // Sets are authoritative where available. Keep the legacy world count
         // so an older journal does not lose progression during migration.
@@ -290,6 +300,22 @@ namespace mutagen
         updateUnlockNotice (before);
     }
 
+    bool ProgressionSystem::discoverCreature (int id)
+    {
+        if (id < 0 || id >= 100 || ! creatureIds.insert (id).second)
+            return false;
+        markDirty ("CREATURE DISCOVERED " + juce::String (id + 1) + "/100");
+        return true;
+    }
+
+    bool ProgressionSystem::unlockMilestoneArtifact (int index)
+    {
+        if (index <= 0 || ! milestoneIds.insert (index).second)
+            return false;
+        markDirty ("MILESTONE ARTIFACT " + juce::String (index) + " UNLOCKED");
+        return true;
+    }
+
     juce::String ProgressionSystem::consumeNotice()
     {
         auto result = pendingNotice;
@@ -329,6 +355,14 @@ namespace mutagen
         juce::Array<juce::var> worldsArray;
         for (const auto& id : worldIds) worldsArray.add (id);
         root->setProperty ("worlds", worldsArray);
+
+        juce::Array<juce::var> creaturesArray;
+        for (const auto id : creatureIds) creaturesArray.add (id);
+        root->setProperty ("creatures", creaturesArray);
+
+        juce::Array<juce::var> milestonesArray;
+        for (const auto id : milestoneIds) milestonesArray.add (id);
+        root->setProperty ("milestones", milestonesArray);
 
         const auto file = progressFile();
         file.getParentDirectory().createDirectory();
