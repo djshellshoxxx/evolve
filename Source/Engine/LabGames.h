@@ -563,6 +563,7 @@ namespace mutagen::labgames
     inline int miniGameParticipationPoints() { return 3; }
     inline int orbGenerationPoints (int orbsGenerated) { return std::max (0, orbsGenerated); }
     inline int skillDiscoveryPoints (int skillsEarned) { return std::max (0, skillsEarned) * 4; }
+    inline int skillUsePoints() { return -1; }
 
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
     {
