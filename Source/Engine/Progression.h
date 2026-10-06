@@ -224,8 +224,10 @@ namespace mutagen::progression
     inline const char* storyTitle (int chapter)
     {
         constexpr const char* titles[] = {
-            "Petri Dish", "Variation", "Selection Leaves a Trace", "The Colony Remembers",
-            "Signal From Outside", "MOTH's Hypothesis", "The Visitor", "Three Directives"
+            "Petri Dish / First Discrepancy", "Variation / The Extra Specimen",
+            "Selection Leaves a Trace", "The Colony Remembers Us",
+            "Signal From Outside", "MOTH's Hypothesis", "The Visitor Was Early",
+            "Three Directives / No Exit"
         };
         return titles[(std::size_t) std::clamp (chapter, 0, finalStoryChapter)];
     }
@@ -288,14 +290,14 @@ namespace mutagen::progression
     inline const char* storyText (int chapter)
     {
         constexpr const char* text[] = {
-            "A colony begins as sound under observation. Nothing in the dish knows it is being judged.",
-            "Repeated runs refuse to collapse into one answer. Difference itself becomes the first useful result.",
-            "Selection works, but the lab notes a second pattern: the operator repeats certain interventions too.",
-            "Lineages begin carrying the consequences of old decisions. The archive is no longer merely historical.",
-            "Outside recordings alter the colony like environmental DNA. Nadi argues that the boundary of the experiment is artificial.",
-            "MOTH reports a correlation between steering habits and future colony behavior. It cannot prove whether this is adaptation or operator bias.",
-            "Anomalies begin recurring in unrelated worlds. A new signature appears in the journal under no known researcher account.",
-            "The lab stops asking what the colony should become. Three directives remain: preserve what emerged, accelerate the process, or release it into new worlds."
+            "LOG 00. The colony begins under observation. MOTH counts three observers in the room. The lab inventory lists one operator.",
+            "The same run produces incompatible histories. A specimen appears in the frame before its first recorded discovery. Mara calls it a rendering fault and then deletes that sentence.",
+            "Selection works. More troubling: the colony begins anticipating the directions the operator usually chooses. MOTH labels this USER PREDICTION, then changes the label to WEATHER.",
+            "Lineages preserve decisions that were never saved. Jun finds a child organism whose parent checksum belongs to tomorrow's archive.",
+            "Outside recordings alter the colony like environmental DNA. Nadi hears a room tone inside one capture that does not match the room where it was made.",
+            "MOTH reports that steering habits predict future colony behavior. In the next line MOTH denies writing the report. Both lines have the same timestamp.",
+            "Anomalies recur in unrelated worlds. The Visitor leaves notes naming worlds before the operator visits them. One note contains the operator's next click sequence.",
+            "The lab stops asking what the colony should become. PRESERVE, ACCELERATE and RELEASE remain. A fourth directive flashes for one frame: OBSERVE THE OPERATOR."
         };
         return text[(std::size_t) std::clamp (chapter, 0, finalStoryChapter)];
     }
