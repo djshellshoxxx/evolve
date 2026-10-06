@@ -244,6 +244,17 @@ int main()
     assert (mutationJackpot.blackVirusOrbs == 5);
     assert (mutationJackpot.giantRainbowBreedRatio == 2);
 
+    assert (sideMutationUnlockDue (4, 5, 1));
+    assert (! sideMutationUnlockDue (4, 5, 2));
+    assert (! sideMutationUnlockDue (5, 9, 1));
+    assert (sideMutationUnlockDue (9, 10, 1));
+
+    const auto sideJackpot = sideMutationSlotOutcome (777);
+    assert (sideJackpot.jackpot);
+    assert (sideJackpot.randomColourOrbs == 50);
+    assert (sideJackpot.giantRainbowOrbs == 10);
+    assert (sideJackpot.blackVirusOrbs == 5);
+
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
     assert (safeRoulette.kind != RoulettePrize::loseSkill);
@@ -269,7 +280,7 @@ int main()
     assert (jackpot.rainbowMultiplier == 2);
 
     std::set<int> soundRecipes;
-    for (int game = 0; game < 8; ++game)
+    for (int game = 0; game < 9; ++game)
         for (int result = 0; result < 8; ++result)
             soundRecipes.insert (soundRecipe ((Game) game, (SoundMoment) result, 11));
     assert (soundRecipes.size() >= 20);
