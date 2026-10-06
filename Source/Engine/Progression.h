@@ -134,7 +134,7 @@ namespace mutagen::progression
         f[(std::size_t) Feature::challengeDeck] = out.level >= 3;
         f[(std::size_t) Feature::anomalyCatalogue] = out.level >= 3 || s.anomaliesFound > 0;
         f[(std::size_t) Feature::lineageCodex] = out.level >= 4 || s.breedingOperations >= 2;
-        f[(std::size_t) Feature::researchProtocols] = out.level >= 4;
+        f[(std::size_t) Feature::researchProtocols] = out.level >= 2;
         f[(std::size_t) Feature::relicCabinet] = out.level >= 5 || s.relicsFound > 0;
         f[(std::size_t) Feature::worldAtlas] = out.level >= 5 || s.worldsVisited >= 6;
         f[(std::size_t) Feature::storyBranches] = out.storyChapter >= finalStoryChapter;
@@ -254,7 +254,7 @@ namespace mutagen::progression
 
     inline int protocolUnlockLevel (int index)
     {
-        constexpr int levels[10] = { 1, 2, 2, 3, 4, 4, 5, 6, 7, 8 };
+        constexpr int levels[10] = { 2, 2, 3, 3, 4, 4, 5, 6, 7, 8 };
         return levels[std::clamp (index, 0, 9)];
     }
 
