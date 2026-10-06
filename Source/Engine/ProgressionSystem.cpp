@@ -96,6 +96,12 @@ namespace mutagen
         pinkOrbCount = readInt (root, "pinkOrbs");
         snareSoundCount = readInt (root, "snareSounds");
         tomSoundCount = readInt (root, "tomSounds");
+        bassDrumSoundCount = readInt (root, "bassDrumSounds");
+        pianoKeySoundCount = readInt (root, "pianoKeySounds");
+        stringSoundCount = readInt (root, "stringSounds");
+        tambourineSoundCount = readInt (root, "tambourineSounds");
+        bassDropCount = readInt (root, "bassDrops");
+        kazooSoundCount = readInt (root, "kazooSounds");
 
         // Sets are authoritative where available. Keep the legacy world count
         // so an older journal does not lose progression during migration.
@@ -401,6 +407,45 @@ namespace mutagen
         markDirty();
     }
 
+    void ProgressionSystem::addBassDrumSounds (int count)
+    {
+        bassDrumSoundCount = juce::jmax (0, bassDrumSoundCount + count);
+        markDirty();
+    }
+
+    bool ProgressionSystem::tradeBassDrumsForPianoKey()
+    {
+        if (bassDrumSoundCount < 5) return false;
+        bassDrumSoundCount -= 5;
+        ++pianoKeySoundCount;
+        markDirty();
+        return true;
+    }
+
+    void ProgressionSystem::addStringSounds (int count)
+    {
+        stringSoundCount = juce::jmax (0, stringSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addTambourineSounds (int count)
+    {
+        tambourineSoundCount = juce::jmax (0, tambourineSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addBassDrops (int count)
+    {
+        bassDropCount = juce::jmax (0, bassDropCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addKazooSounds (int count)
+    {
+        kazooSoundCount = juce::jmax (0, kazooSoundCount + count);
+        markDirty();
+    }
+
     juce::String ProgressionSystem::consumeNotice()
     {
         auto result = pendingNotice;
@@ -460,6 +505,12 @@ namespace mutagen
         root->setProperty ("pinkOrbs", pinkOrbCount);
         root->setProperty ("snareSounds", snareSoundCount);
         root->setProperty ("tomSounds", tomSoundCount);
+        root->setProperty ("bassDrumSounds", bassDrumSoundCount);
+        root->setProperty ("pianoKeySounds", pianoKeySoundCount);
+        root->setProperty ("stringSounds", stringSoundCount);
+        root->setProperty ("tambourineSounds", tambourineSoundCount);
+        root->setProperty ("bassDrops", bassDropCount);
+        root->setProperty ("kazooSounds", kazooSoundCount);
 
         const auto file = progressFile();
         file.getParentDirectory().createDirectory();
