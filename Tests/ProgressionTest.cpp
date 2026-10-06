@@ -297,6 +297,14 @@ int main()
     assert (pinkCornerGate.durationSeconds == 120);
     assert (pinkCornerGate.fadeSeconds == greenGate.fadeSeconds);
 
+    const auto thirdGameGate = thirdMiniGameGateSpec (3, true, 1000007);
+    assert (thirdGameGate.has_value());
+    assert (thirdGameGate->bpm == 180);
+    assert (thirdGameGate->durationSeconds == 300);
+    assert (! thirdMiniGameGateSpec (3, false, 1000007).has_value());
+    assert (! thirdMiniGameGateSpec (4, true, 1000007).has_value());
+    assert (! thirdMiniGameGateSpec (3, true, 1000008).has_value());
+
     const auto fxBuy = exchangePurchase (ExchangeItem::tripEcho, 5000);
     assert (fxBuy.allowed);
     assert (fxBuy.cost == 2500);
