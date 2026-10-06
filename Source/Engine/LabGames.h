@@ -560,6 +560,10 @@ namespace mutagen::labgames
         return gamesCompleted == 4 && latestWasWin && score > 10000;
     }
 
+    inline int miniGameParticipationPoints() { return 3; }
+    inline int orbGenerationPoints (int orbsGenerated) { return std::max (0, orbsGenerated); }
+    inline int skillDiscoveryPoints (int skillsEarned) { return std::max (0, skillsEarned) * 4; }
+
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
     {
         // Large separated bases plus co-prime offsets prevent result families
