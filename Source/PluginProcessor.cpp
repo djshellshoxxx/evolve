@@ -9,6 +9,7 @@
 #include "Engine/Entropy.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <cmath>
+#include <vector>
 
 using namespace mutagen;
 
@@ -70,6 +71,16 @@ void MutagenProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     mic.prepare (sampleRate, samplesPerBlock);
 
     dryScratch.setSize (2, samplesPerBlock);
+    for (auto& replay : hauntedReplayBuffers)
+    {
+        replay.setSize (1, juce::jmax (1, (int) (sampleRate * 12.0)), false, true, false);
+        replay.clear();
+    }
+    hauntedReplayReady.store (-1);
+    hauntedReplayActive.store (-1);
+    hauntedReplayPos = 0;
+    hauntedReplayDelay = 0;
+
     captureRing.setSize (1, juce::jmax (1, (int) (sampleRate * 12.0)));
     captureRing.clear();
     captureWritePos = 0;
@@ -685,6 +696,97 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     //      glitch, tremolo, auto-pan, output trim ----
     postChain.process (buffer, transport);
 
+    // ---- hidden laboratory voice ---------------------------------------
+    // New recipes are latched without allocation or locks.
+    if (const auto stamp = hauntedSoundStamp.load (std::memory_order_acquire);
+        stamp != hauntedSoundSeen)
+    {
+        hauntedSoundSeen = stamp;
+        const int recipe = hauntedSoundRecipe.load (std::memory_order_relaxed);
+        const float intensity = hauntedSoundIntensity.load (std::memory_order_relaxed);
+        hauntedSoundTotal = hauntedSoundRemaining =
+            juce::jmax (1, (int) (sampleRateHz * (1.6 + (recipe % 7) * 0.32) * intensity));
+        hauntedPhaseA = hauntedPhaseB = 0.0;
+        hauntedNoise ^= (uint32_t) recipe * 0x9e3779b9u + 0x7f4a7c15u;
+    }
+
+    if (hauntedSoundRemaining > 0)
+    {
+        const int recipe = hauntedSoundRecipe.load (std::memory_order_relaxed);
+        const float intensity = juce::jlimit (0.15f, 1.25f,
+            hauntedSoundIntensity.load (std::memory_order_relaxed));
+        const double fA = 43.0 + (double) ((recipe * 71) % 620);
+        const double fB = 67.0 + (double) ((recipe * 113) % 980);
+        const int chans = juce::jmin (2, totalOut);
+
+        for (int n = 0; n < numSamples && hauntedSoundRemaining > 0; ++n)
+        {
+            const float life = 1.0f - (float) hauntedSoundRemaining
+                                      / (float) juce::jmax (1, hauntedSoundTotal);
+            const float env = std::sin (juce::MathConstants<float>::pi
+                                        * juce::jlimit (0.0f, 1.0f, life));
+            hauntedNoise ^= hauntedNoise << 13;
+            hauntedNoise ^= hauntedNoise >> 17;
+            hauntedNoise ^= hauntedNoise << 5;
+            const float noise = ((hauntedNoise & 0xffffu) / 32767.5f - 1.0f);
+
+            const double mod = std::sin (hauntedPhaseB) * (0.4 + (recipe % 5) * 0.18);
+            float v = (float) std::sin (hauntedPhaseA + mod) * 0.13f
+                    + (float) std::sin (hauntedPhaseB * 0.503) * 0.055f
+                    + noise * 0.018f;
+            v *= env * intensity;
+
+            hauntedPhaseA += juce::MathConstants<double>::twoPi * fA / sampleRateHz;
+            hauntedPhaseB += juce::MathConstants<double>::twoPi * fB / sampleRateHz;
+            if (hauntedPhaseA > juce::MathConstants<double>::twoPi) hauntedPhaseA -= juce::MathConstants<double>::twoPi;
+            if (hauntedPhaseB > juce::MathConstants<double>::twoPi) hauntedPhaseB -= juce::MathConstants<double>::twoPi;
+
+            for (int ch = 0; ch < chans; ++ch)
+            {
+                const float pan = ch == 0 ? (0.7f + 0.3f * std::sin (life * 19.0f))
+                                          : (0.7f - 0.3f * std::sin (life * 19.0f));
+                buffer.addSample (ch, n, v * pan);
+            }
+            --hauntedSoundRemaining;
+        }
+    }
+
+    // Adopt a completed reverse/stretch buffer, then leave a deliberate
+    // one-second silent gap before playback so the microphone capture cannot
+    // immediately feed its own output back into the room.
+    if (hauntedReplayActive.load (std::memory_order_relaxed) < 0)
+    {
+        const int ready = hauntedReplayReady.exchange (-1, std::memory_order_acq_rel);
+        if (ready >= 0)
+        {
+            hauntedReplayActive.store (ready, std::memory_order_release);
+            hauntedReplayPos = 0;
+            hauntedReplayDelay = (int) sampleRateHz;
+        }
+    }
+
+    if (const int slot = hauntedReplayActive.load (std::memory_order_acquire); slot >= 0)
+    {
+        if (hauntedReplayDelay > 0)
+        {
+            hauntedReplayDelay -= juce::jmin (hauntedReplayDelay, numSamples);
+        }
+        else
+        {
+            auto& replay = hauntedReplayBuffers[(size_t) slot];
+            const int length = hauntedReplayLength[(size_t) slot];
+            const int room = juce::jmin (numSamples, length - hauntedReplayPos);
+            if (room > 0)
+            {
+                for (int ch = 0; ch < juce::jmin (2, totalOut); ++ch)
+                    buffer.addFrom (ch, 0, replay, 0, hauntedReplayPos, room, 0.72f);
+                hauntedReplayPos += room;
+            }
+            if (hauntedReplayPos >= length)
+                hauntedReplayActive.store (-1, std::memory_order_release);
+        }
+    }
+
     // dry / wet blend for effect + hybrid roles
     if (wantDry)
     {
@@ -978,6 +1080,8 @@ void MutagenProcessor::startMicCapture (float seconds)
 
 bool MutagenProcessor::pollMicCapture()
 {
+    if (hauntedMicMode)
+        return false;
     if (! mic.consumeReady()) return false;
 
     const int n = mic.capturedLength();
@@ -986,6 +1090,109 @@ bool MutagenProcessor::pollMicCapture()
     juce::AudioBuffer<float> tmp (1, n);
     tmp.copyFrom (0, 0, mic.captured(), 0, 0, n);
     digestBuffer (tmp, sampleRateHz, "mic");
+    return true;
+}
+
+void MutagenProcessor::triggerHauntedSound (int recipe, float intensity)
+{
+    hauntedSoundRecipe.store (juce::jmax (0, recipe), std::memory_order_relaxed);
+    hauntedSoundIntensity.store (juce::jlimit (0.1f, 1.25f, intensity),
+                                 std::memory_order_relaxed);
+    hauntedSoundStamp.fetch_add (1, std::memory_order_release);
+}
+
+bool MutagenProcessor::startHauntedMicCapture (float seconds)
+{
+    if (mic.currentState() == MicInput::State::capturing)
+        return false;
+
+    hauntedMicMode = true;
+    hauntedMicRestoreArmed = mic.isArmed();
+    hauntedMicRestoreMonitoring = mic.liveMonitoring();
+    mic.setLiveMonitoring (false);
+    mic.arm (true);
+    mic.startCapture (juce::jlimit (1.0f, 5.0f, seconds));
+
+    if (mic.currentState() != MicInput::State::capturing)
+    {
+        hauntedMicMode = false;
+        mic.setLiveMonitoring (hauntedMicRestoreMonitoring);
+        mic.arm (hauntedMicRestoreArmed);
+        return false;
+    }
+
+    return true;
+}
+
+void MutagenProcessor::cancelHauntedMicCapture()
+{
+    hauntedMicMode = false;
+    mic.cancel();
+    mic.setLiveMonitoring (hauntedMicRestoreMonitoring);
+    mic.arm (hauntedMicRestoreArmed);
+}
+
+bool MutagenProcessor::pollHauntedMicCapture()
+{
+    if (! hauntedMicMode || ! mic.consumeReady())
+        return false;
+
+    hauntedMicMode = false;
+    const int n = mic.capturedLength();
+    if (n < 512)
+    {
+        mic.setLiveMonitoring (hauntedMicRestoreMonitoring);
+        mic.arm (hauntedMicRestoreArmed);
+        return false;
+    }
+
+    const int active = hauntedReplayActive.load (std::memory_order_acquire);
+    const int slot = active == 0 ? 1 : 0;
+    auto& out = hauntedReplayBuffers[(size_t) slot];
+    out.clear();
+
+    // Reverse + granular overlap/add stretch. 1.65x is long enough to sound
+    // unreal while still preserving recognisable fragments of the capture.
+    constexpr float stretch = 1.65f;
+    constexpr int grain = 1024;
+    constexpr int hopIn = grain / 2;
+    const int hopOut = juce::roundToInt ((float) hopIn * stretch);
+    const int maxOut = out.getNumSamples();
+    std::vector<float> norm ((size_t) maxOut, 0.0f);
+    float* dst = out.getWritePointer (0);
+    const float* src = mic.captured().getReadPointer (0);
+
+    int outStart = 0;
+    for (int inStart = 0; inStart + grain < n && outStart + grain < maxOut;
+         inStart += hopIn, outStart += hopOut)
+    {
+        for (int k = 0; k < grain; ++k)
+        {
+            const int reverseIndex = n - 1 - (inStart + k);
+            if (reverseIndex < 0) break;
+            const float phase = (float) k / (float) (grain - 1);
+            const float w = 0.5f - 0.5f * std::cos (
+                juce::MathConstants<float>::twoPi * phase);
+            const int oi = outStart + k;
+            dst[oi] += src[reverseIndex] * w;
+            norm[(size_t) oi] += w;
+        }
+    }
+
+    int length = juce::jmin (maxOut, outStart + grain);
+    for (int i = 0; i < length; ++i)
+        if (norm[(size_t) i] > 1.0e-4f)
+            dst[i] /= norm[(size_t) i];
+
+    const float mag = out.getMagnitude (0, 0, length);
+    if (mag > 0.9f)
+        out.applyGain (0, 0, length, 0.9f / mag);
+
+    hauntedReplayLength[(size_t) slot] = length;
+    hauntedReplayReady.store (slot, std::memory_order_release);
+
+    mic.setLiveMonitoring (hauntedMicRestoreMonitoring);
+    mic.arm (hauntedMicRestoreArmed);
     return true;
 }
 

@@ -188,6 +188,34 @@ or moving a run does not rewrite the research history.
 
 ---
 
+## Hidden Laboratory
+
+MUTAGEN now contains a second layer that is intentionally discovered rather than
+presented as a normal feature panel. Exploratory click sequences across different GUI
+regions can reveal **100 persistent creatures**. The exact sequences are not documented
+in the user manual; ordinary experimentation is enough to find them.
+
+Discovered creatures are recorded in the Field Journal and can later reappear as
+short-lived animations that leave the plugin window where the host and operating
+system permit desktop overlays. Hidden events also have procedural sound signatures.
+
+Every whole-million score crossing unlocks a numbered **Milestone Artifact** with a
+unique procedural sound recipe, animation recipe and replayable skill. Unlocked skills
+can be replayed from the Journal without manufacturing extra score.
+
+The story begins strange at chapter zero and becomes less reliable over time: MOTH edits
+its own notes, researchers disagree about events, specimens can appear before their
+recorded discovery, and late Visitor material implies the operator may be part of the
+environment being measured.
+
+A few extremely rare events can touch system hardware on Windows. They are deliberately
+kept off the audio thread. Microphone capture uses the existing muted-output/howl-guard
+path and inserts a silent gap before reversed, granularly stretched playback. Optical
+drive requests are ignored on systems without a usable drive, and modern Windows
+machines may route system beeps through normal audio rather than a motherboard speaker.
+
+---
+
 ## How it stays interesting
 
 Five mechanisms from the quality-diversity literature, all running at once:

@@ -727,3 +727,22 @@ written, so the CI result still needs to be read before calling M11 fully verifi
 - Added JOURNAL to the action strip plus a scrollable in-app progression view.
 - Added a pure C++20 progression regression test; standalone compile passed with -Wall -Wextra -Werror.
 - Full product rationale and thresholds are in docs/deep-progression-spec.md.
+
+
+### 2026-10-06 — Haunted Laboratory / hidden discovery phase
+- Added broad-zone sequential-click discovery with a deliberately easy five-click window.
+- Added 100 persistent hidden creatures with stable generated names, lore, sound recipes and animation identities.
+- Added five additional accidental patterns: Mirror Event, Corner Choir, Panic Bloom, MOTH Looks Back and Visitor Footprint.
+- Added random later reappearances of already-discovered creatures.
+- Added transparent desktop phantom animations that travel beyond the plugin bounds where the host/OS permits.
+- Added a real-time-safe procedural hidden-event voice in the plugin output.
+- Added whole-million score artifacts with unique numbered sound recipes, animation recipes and replayable skills.
+- Added Journal collection display and a milestone-skill replay selector.
+- Rewrote the story so surreal inconsistencies begin at chapter zero and escalate through the existing progression.
+- Added a randomized-per-start session RNG with random_device plus high-resolution fallback.
+- Added the requested 100,385-point one-shot 1-in-10 roll: roll 4 starts a guarded five-second mic capture, bypasses normal ingestion, reverses and granularly stretches it, then waits one silent second before playback.
+- Added the requested 1,000,035-point one-shot 1-in-20 roll: roll 17 pulses an available Windows optical-drive tray three times.
+- Added best-effort Windows system beeps at randomized hidden-event moments. Modern Windows may route these through the system audio device rather than a physical motherboard speaker.
+- Replaced detached hardware threads with editor-owned timer/state logic so no worker can outlive a plugin DLL.
+- Added regression coverage for exact score crossings, winning rolls, deterministic discovery, all 100 unique creature names/lore entries, hidden patterns, randomized roll bounds and unique consecutive million-point artifacts.
+- Full design notes live in docs/haunted-lab-spec.md.

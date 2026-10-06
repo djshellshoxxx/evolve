@@ -22,7 +22,11 @@
 #include "GUI/HelpView.h"
 #include "GUI/OptionsView.h"
 #include "GUI/ProgressionView.h"
+#include "GUI/HauntedOverlay.h"
 #include "Engine/ScoreSystem.h"
+#include "Engine/HauntedEvents.h"
+#include "Engine/HiddenDiscoveries.h"
+#include "Engine/PhysicalOddities.h"
 #include "Engine/ProgressionSystem.h"
 #include "Engine/RenderEngine.h"
 
@@ -37,6 +41,7 @@ namespace mutagen
 
         void paint (juce::Graphics&) override;
         void resized() override;
+        void mouseDown (const juce::MouseEvent&) override;
 
     private:
         void timerCallback() override;
@@ -51,6 +56,12 @@ namespace mutagen
         void saveRun();
         void loadRun();
         void handleDroppedFiles (const juce::StringArray& files);
+        void handleHiddenClick (const juce::MouseEvent&);
+        void triggerCreature (int creatureId, bool newlyDiscovered);
+        void triggerMilestoneArtifact (int index, bool replay);
+        void applyMilestoneSkill (int index);
+        void serviceHauntedMilestones (juce::int64 beforeScore, juce::int64 afterScore);
+        void serviceSpontaneousPhantom();
 
         MutagenProcessor& processor;
         MutagenLookAndFeel lnf;
@@ -79,6 +90,17 @@ namespace mutagen
         ScoreHud          scoreHud;
         GameBar           gameBar;
         uint64_t          lastRadiationCounter = 0;
+
+        // ---- hidden / haunted laboratory layer -------------------------
+        haunted::SessionRng hauntedRng;
+        haunted::ClickSequence hiddenClicks;
+        haunted::CdTrayPulser cdTrayPulser;
+        bool cdTrayRollDone = false;
+        bool micReverseRollDone = false;
+        bool hiddenMicAwaitingReplay = false;
+        int spontaneousPhantomTicks = 0;
+        double lastCreatureDiscoverySec = -100.0;
+        double lastHiddenEffectSec = -100.0;
 
         RenderEngine      renderEngine;
         std::unique_ptr<juce::FileChooser> chooser;

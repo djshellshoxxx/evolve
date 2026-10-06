@@ -1,5 +1,6 @@
 #include "ProgressionView.h"
 #include "MutagenLookAndFeel.h"
+#include "../Engine/HiddenDiscoveries.h"
 
 namespace mutagen
 {
@@ -60,9 +61,14 @@ namespace mutagen
                 };
 
                 section (left, "CURRENT STORY");
+                line (left, "UNFILED NOTE: MOTH reports that this log existed before the session began.",
+                      accent, 28);
                 line (left, "CHAPTER " + juce::String (state.storyChapter)
                             + "  " + storyTitle (state.storyChapter), text, 22);
-                line (left, storyText (state.storyChapter), textDim, 54);
+                line (left, storyText (state.storyChapter), textDim, 62);
+                if (! progression.creatures().empty())
+                    line (left, "ADDENDUM: at least one specimen has no agreed first-observation time.",
+                          textDim, 28);
                 left.removeFromTop (8);
 
                 section (left, "RESEARCHERS");
@@ -94,6 +100,29 @@ namespace mutagen
                 line (left, "Peak combo: " + juce::String (stats.peakCombo));
                 line (left, "Anomalies: " + juce::String ((int) progression.anomalies().size()));
                 line (left, "Relics: " + juce::String ((int) progression.relics().size()));
+                line (left, "Creatures: " + juce::String ((int) progression.creatures().size()) + "/100");
+                line (left, "Milestone artifacts: " + juce::String ((int) progression.milestoneArtifacts().size()));
+
+                left.removeFromTop (8);
+                section (left, "DISCOVERED CREATURES");
+                if (progression.creatures().empty())
+                    line (left, "Nothing has stepped out of the interface yet.", textDim, 24);
+                else
+                {
+                    int shownCreatures = 0;
+                    for (const auto id : progression.creatures())
+                    {
+                        line (left, juce::String (haunted::creatureName (id)), accent);
+                        line (left, juce::String (haunted::creatureLore (id)), textDim, 28);
+                        if (++shownCreatures >= 18)
+                        {
+                            if ((int) progression.creatures().size() > shownCreatures)
+                                line (left, "...and " + juce::String ((int) progression.creatures().size() - shownCreatures)
+                                            + " more recorded specimens.", textDim, 24);
+                            break;
+                        }
+                    }
+                }
 
                 left.removeFromTop (8);
                 section (left, "LINEAGE CODEX");
@@ -234,11 +263,46 @@ namespace mutagen
         closeButton.onClick = [this] { if (onClose) onClose(); };
         addAndMakeVisible (closeButton);
 
+        artifactSelector.setTextWhenNothingSelected ("Milestone skills");
+        addAndMakeVisible (artifactSelector);
+        replayArtifact.setEnabled (false);
+        replayArtifact.onClick = [this]
+        {
+            const int selected = artifactSelector.getSelectedId();
+            if (selected > 0 && onReplayMilestone)
+                onReplayMilestone (selected);
+        };
+        artifactSelector.onChange = [this]
+        {
+            replayArtifact.setEnabled (artifactSelector.getSelectedId() > 0);
+        };
+        addAndMakeVisible (replayArtifact);
+
         auto* journal = new JournalContent (progression);
-        journal->setSize (1040, 1460);
+        journal->setSize (1040, 2400);
         viewport.setViewedComponent (journal, true);
         viewport.setScrollBarsShown (true, false);
         addAndMakeVisible (viewport);
+        rebuildArtifactSelector();
+    }
+
+    void ProgressionView::rebuildArtifactSelector()
+    {
+        const int previous = artifactSelector.getSelectedId();
+        artifactSelector.clear (juce::dontSendNotification);
+        for (const auto index : progression.milestoneArtifacts())
+        {
+            const auto artifact = haunted::milestoneForScore (
+                (juce::int64) index * 1000000 - 1,
+                (juce::int64) index * 1000000);
+            if (artifact.has_value())
+                artifactSelector.addItem (
+                    juce::String (artifact->skillName) + " / " + juce::String (artifact->title),
+                    index);
+        }
+        if (previous > 0)
+            artifactSelector.setSelectedId (previous, juce::dontSendNotification);
+        replayArtifact.setEnabled (artifactSelector.getSelectedId() > 0);
     }
 
     void ProgressionView::paint (juce::Graphics& g)
@@ -250,13 +314,19 @@ namespace mutagen
     {
         auto r = contentArea();
         closeButton.setBounds (getLocalBounds().removeFromTop (26).removeFromRight (72).reduced (4, 2));
+
+        auto controls = r.removeFromTop (30);
+        artifactSelector.setBounds (controls.removeFromLeft (juce::jmin (520, controls.getWidth() - 160)).reduced (2));
+        replayArtifact.setBounds (controls.removeFromLeft (140).reduced (2));
+        r.removeFromTop (4);
         viewport.setBounds (r);
         if (auto* viewed = viewport.getViewedComponent())
-            viewed->setSize (juce::jmax (900, r.getWidth() - 12), 1460);
+            viewed->setSize (juce::jmax (900, r.getWidth() - 12), 2400);
     }
 
     void ProgressionView::refresh()
     {
+        rebuildArtifactSelector();
         if (auto* viewed = viewport.getViewedComponent())
             viewed->repaint();
         repaint();

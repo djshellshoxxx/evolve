@@ -87,6 +87,7 @@ target_sources(MUTAGEN PRIVATE
     Source/Engine/RenderEngine.cpp
     Source/Engine/ScoreSystem.cpp
     Source/Engine/ProgressionSystem.cpp
+    Source/Engine/PhysicalOddities.cpp
     Source/Engine/Ingest.cpp
     Source/Engine/PresetManager.cpp
 
@@ -108,6 +109,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/HelpView.cpp
     Source/GUI/OptionsView.cpp
     Source/GUI/ProgressionView.cpp
+    Source/GUI/HauntedOverlay.cpp
     Source/GUI/DeviceSetupHook.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)
@@ -139,6 +141,10 @@ target_link_libraries(MUTAGEN PRIVATE
     PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
+
+if(WIN32)
+    target_link_libraries(MUTAGEN PRIVATE winmm)
+endif()
 
 # NB: link-time optimisation (juce_recommended_lto_flags) is deliberately not
 # used - it triggers an MSVC internal compiler error in juce_audio_utils on

@@ -5,6 +5,8 @@
 
 #include "PluginEditor.h"
 #include "AppOptions.h"
+#include <iterator>
+#include <cmath>
 
 namespace mutagen
 {
@@ -88,6 +90,14 @@ namespace mutagen
         wireGameLayer();
         wireChrome();
 
+        // Observe clicks from nested controls as well as the chamber. Register
+        // on top-level children rather than on this component itself, avoiding
+        // a duplicate callback when the editor background receives a click.
+        for (int i = 0; i < getNumChildComponents(); ++i)
+            if (auto* child = getChildComponent (i))
+                child->addMouseListener (this, true);
+        spontaneousPhantomTicks = hauntedRng.rollInclusive (1200, 3600);
+
         // ---- wiring ----
         chamber.onSelectionChanged = [this] (const Selection& s)
         {
@@ -120,6 +130,10 @@ namespace mutagen
             progressionView.refresh();
         };
         progressionView.onClose = [this] { progressionView.setVisible (false); };
+        progressionView.onReplayMilestone = [this] (int index)
+        {
+            triggerMilestoneArtifact (index, true);
+        };
         performance.onClose = [this]
         {
             showPerformance = false;
@@ -174,7 +188,218 @@ namespace mutagen
     MutagenEditor::~MutagenEditor()
     {
         stopTimer();
+        for (int i = 0; i < getNumChildComponents(); ++i)
+            if (auto* child = getChildComponent (i))
+                child->removeMouseListener (this);
+        processor.cancelHauntedMicCapture();
         setLookAndFeel (nullptr);
+    }
+
+    void MutagenEditor::mouseDown (const juce::MouseEvent& e)
+    {
+        handleHiddenClick (e);
+    }
+
+    void MutagenEditor::handleHiddenClick (const juce::MouseEvent& e)
+    {
+        if (getWidth() <= 0 || getHeight() <= 0)
+            return;
+
+        const auto p = getLocalPoint (e.eventComponent, e.getPosition());
+        const int col = juce::jlimit (0, 3, p.x * 4 / juce::jmax (1, getWidth()));
+        const int row = juce::jlimit (0, 2, p.y * 3 / juce::jmax (1, getHeight()));
+        const int zone = row * 4 + col;
+        const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+        const auto result = hiddenClicks.push (zone, now);
+
+        if (result.creatureId >= 0 && now - lastCreatureDiscoverySec > 2.4)
+        {
+            const bool fresh = progressionSystem.discoverCreature (result.creatureId);
+            if (fresh || hauntedRng.rollInclusive (1, 4) == 1)
+            {
+                lastCreatureDiscoverySec = now;
+                triggerCreature (result.creatureId, fresh);
+            }
+        }
+
+        if (now - lastHiddenEffectSec < 1.25)
+            return;
+
+        auto hiddenEvent = [this, now] (const juce::String& text, int recipe, int phantomId)
+        {
+            lastHiddenEffectSec = now;
+            topBar.setStatus (text);
+            processor.triggerHauntedSound (recipe, 0.82f);
+            haunted::launchDesktopPhantom (phantomId, getScreenBounds(), recipe, 0.82f);
+            if (hauntedRng.rollInclusive (1, 4) == 1)
+                haunted::systemBeepAsync (120 + (recipe * 37) % 880, 70 + recipe % 180);
+        };
+
+        if (result.mirrorEvent)
+            hiddenEvent ("MIRROR EVENT: THE LAST GESTURE ARRIVED TWICE", 901, 77);
+        else if (result.cornerChoir)
+            hiddenEvent ("CORNER CHOIR: FOUR EDGES ANSWER", 902, 33);
+        else if (result.panicBloom)
+            hiddenEvent ("PANIC BLOOM: TOO MANY HANDS", 903, 91);
+        else if (result.mothLooksBack)
+            hiddenEvent ("MOTH LOOKS BACK", 904, 66);
+        else if (result.visitorFootprint)
+            hiddenEvent ("VISITOR FOOTPRINT: INPUT SOURCE UNKNOWN", 905, 99);
+    }
+
+    void MutagenEditor::triggerCreature (int creatureId, bool newlyDiscovered)
+    {
+        const int recipe = 1000 + creatureId * 17;
+        processor.triggerHauntedSound (recipe, newlyDiscovered ? 0.9f : 0.58f);
+        haunted::launchDesktopPhantom (creatureId, getScreenBounds(),
+                                       creatureId * 13 + 7,
+                                       newlyDiscovered ? 1.0f : 0.68f);
+
+        if (newlyDiscovered)
+        {
+            topBar.setStatus ("SPECIMEN " + juce::String (creatureId + 1)
+                              + "/100: "
+                              + juce::String (haunted::creatureName (creatureId)).toUpperCase());
+            progressionView.refresh();
+        }
+        else
+        {
+            topBar.setStatus ("SOMETHING LEFT THE WINDOW");
+        }
+
+        if (hauntedRng.rollInclusive (1, 6) == 1)
+            haunted::systemBeepAsync (90 + (creatureId * 29) % 1300,
+                                      45 + (creatureId * 11) % 240);
+    }
+
+    void MutagenEditor::applyMilestoneSkill (int index)
+    {
+        EngineCommand a;
+        EngineCommand b;
+        const float strength = 0.35f + (float) (index % 6) * 0.09f;
+
+        switch ((index - 1) & 7)
+        {
+            case 0: a.type = CommandType::addEnzyme; break;
+            case 1: a.type = CommandType::addCatalyst; break;
+            case 2: a.type = CommandType::addHeat; a.fa = 1.0f; break;
+            case 3: a.type = CommandType::addHeat; a.fa = -1.0f; break;
+            case 4: a.type = CommandType::applySelection; a.fa = strength; break;
+            case 5: a.type = CommandType::mutateNow; break;
+            case 6:
+                a.type = CommandType::knobGesture;
+                a.ia = 0; a.fa = index % 2 == 0 ? 0.7f : -0.7f; a.fb = strength;
+                break;
+            default:
+                a.type = CommandType::knobGesture;
+                a.ia = 1; a.fa = index % 2 == 0 ? -0.6f : 0.6f; a.fb = strength;
+                break;
+        }
+        processor.pushCommand (a);
+
+        // A second, gentler gesture makes every numbered skill materially
+        // distinct without making later milestones progressively destructive.
+        b.type = CommandType::knobGesture;
+        b.ia = 2;
+        b.fa = std::sin ((float) index * 1.618f) * 0.55f;
+        b.fb = 0.25f + (float) (index % 7) * 0.07f;
+        processor.pushCommand (b);
+        scoreSystem.registerInteraction (0.8f, "MILESTONE SKILL");
+    }
+
+    void MutagenEditor::triggerMilestoneArtifact (int index, bool replay)
+    {
+        const auto artifact = haunted::milestoneForScore (
+            (juce::int64) index * 1000000 - 1,
+            (juce::int64) index * 1000000);
+        if (! artifact.has_value())
+            return;
+
+        if (! replay)
+        {
+            progressionSystem.unlockMilestoneArtifact (index);
+            progressionView.refresh();
+        }
+
+        processor.triggerHauntedSound (artifact->soundRecipe, replay ? 0.72f : 1.12f);
+        chamber.triggerReward (std::fmod ((float) index * 0.173f, 1.0f));
+        applyMilestoneSkill (index);
+
+        for (int i = 0; i < (replay ? 1 : 3); ++i)
+        {
+            const int creatureId = (index * 29 + i * 31) % 100;
+            haunted::launchDesktopPhantom (creatureId, getScreenBounds(),
+                                           artifact->animationRecipe + i * 17,
+                                           replay ? 0.72f : 1.18f);
+        }
+
+        topBar.setStatus ((replay ? "REPLAY: " : "MILESTONE: ")
+                          + juce::String (artifact->title).toUpperCase()
+                          + " / " + juce::String (artifact->skillName).toUpperCase());
+
+        if (hauntedRng.rollInclusive (1, 3) == 1)
+            haunted::systemBeepAsync (160 + (artifact->soundRecipe % 1400),
+                                      90 + (index * 23) % 320);
+    }
+
+    void MutagenEditor::serviceHauntedMilestones (juce::int64 beforeScore,
+                                                  juce::int64 afterScore)
+    {
+        if (afterScore <= beforeScore)
+            return;
+
+        if (! micReverseRollDone
+            && haunted::crossedThreshold (beforeScore, afterScore,
+                                          haunted::micReverseThreshold))
+        {
+            micReverseRollDone = true;
+            const int roll = hauntedRng.rollInclusive (1, 10);
+            if (haunted::micRollWins (roll) && processor.getTotalNumInputChannels() > 0)
+            {
+                if (processor.startHauntedMicCapture (5.0f))
+                {
+                    hiddenMicAwaitingReplay = true;
+                    topBar.setStatus ("HIDDEN EVENT: THE LAB IS LISTENING FOR FIVE SECONDS");
+                    haunted::systemBeepAsync (220, 80);
+                }
+            }
+        }
+
+        if (! cdTrayRollDone
+            && haunted::crossedThreshold (beforeScore, afterScore,
+                                          haunted::cdTrayThreshold))
+        {
+            cdTrayRollDone = true;
+            const int roll = hauntedRng.rollInclusive (1, 20);
+            if (haunted::cdTrayRollWins (roll))
+            {
+                cdTrayPulser.start (3);
+                processor.triggerHauntedSound (1717, 1.0f);
+                topBar.setStatus ("DEVICE EVENT 17: AN UNUSED DOOR OPENS");
+            }
+        }
+
+        const int first = (int) (beforeScore / 1000000) + 1;
+        const int last  = (int) (afterScore / 1000000);
+        for (int index = juce::jmax (1, first); index <= last; ++index)
+            if (progressionSystem.milestoneArtifacts().count (index) == 0)
+                triggerMilestoneArtifact (index, false);
+    }
+
+    void MutagenEditor::serviceSpontaneousPhantom()
+    {
+        if (--spontaneousPhantomTicks > 0)
+            return;
+
+        spontaneousPhantomTicks = hauntedRng.rollInclusive (1200, 3600);
+        const auto& known = progressionSystem.creatures();
+        if (known.empty())
+            return;
+
+        int which = hauntedRng.rollInclusive (0, (int) known.size() - 1);
+        auto it = known.begin();
+        std::advance (it, which);
+        triggerCreature (*it, false);
     }
 
     // =====================================================================
@@ -496,8 +721,11 @@ namespace mutagen
         processor.copyLatestSnapshot (snapshot);
 
         // ---- the game layer -------------------------------------------
+        const auto runScoreBefore = scoreSystem.score();
         scoreSystem.update (snapshot, dt);
+        const auto runScoreAfter = scoreSystem.score();
         progressionSystem.observe (snapshot, scoreSystem);
+        serviceHauntedMilestones (runScoreBefore, runScoreAfter);
         scoreHud.setState (scoreSystem, snapshot);
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
@@ -514,14 +742,36 @@ namespace mutagen
             gameBar.flashRadiation (outcome);
         }
 
-        // A microphone capture finished, or the guard killed one.
-        if (processor.pollMicCapture())
+        // A microphone capture finished, or the guard killed one. Hidden
+        // milestone captures are consumed by their own reverse/stretch path
+        // and are never digested into the colony.
+        if (hiddenMicAwaitingReplay)
         {
-            scoreSystem.onSampleDigested ("mic");
-            progressionSystem.record (ProgressionSystem::Action::sampleDigested);
+            if (processor.pollHauntedMicCapture())
+            {
+                hiddenMicAwaitingReplay = false;
+                topBar.setStatus ("HIDDEN EVENT: YOUR FIVE SECONDS CAME BACK WRONG");
+                haunted::launchDesktopPhantom (38, getScreenBounds(), 3854, 1.0f);
+                haunted::systemBeepAsync (185, 110);
+            }
+            else if (processor.pollMicAbort())
+            {
+                hiddenMicAwaitingReplay = false;
+                processor.cancelHauntedMicCapture();
+                scoreSystem.registerInteraction (0.0f, "HIDDEN MIC ABORTED - FEEDBACK GUARD");
+                topBar.setStatus ("THE LAB STOPPED LISTENING");
+            }
         }
-        if (processor.pollMicAbort())
-            scoreSystem.registerInteraction (0.0f, "FEEDBACK - CAPTURE ABORTED");
+        else
+        {
+            if (processor.pollMicCapture())
+            {
+                scoreSystem.onSampleDigested ("mic");
+                progressionSystem.record (ProgressionSystem::Action::sampleDigested);
+            }
+            if (processor.pollMicAbort())
+                scoreSystem.registerInteraction (0.0f, "FEEDBACK - CAPTURE ABORTED");
+        }
 
         // The reward. ScoreSystem decides when; the chamber draws it.
         if (scoreSystem.consumeRewardFlash())
@@ -536,6 +786,8 @@ namespace mutagen
         }
         if (const auto notice = progressionSystem.consumeNotice(); notice.isNotEmpty())
             topBar.setStatus (notice);
+
+        serviceSpontaneousPhantom();
 
         chamber.update (snapshot, dt);
         topBar.setStats (snapshot);

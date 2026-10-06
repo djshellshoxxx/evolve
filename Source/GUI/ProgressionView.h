@@ -16,10 +16,15 @@ namespace mutagen
         void refresh();
 
         std::function<void()> onClose;
+        std::function<void(int milestoneIndex)> onReplayMilestone;
 
     private:
         ProgressionSystem& progression;
+        void rebuildArtifactSelector();
+
         juce::TextButton closeButton { "Close" };
+        juce::ComboBox artifactSelector;
+        juce::TextButton replayArtifact { "REPLAY SKILL" };
         juce::Viewport viewport;
         juce::Component content;
 
