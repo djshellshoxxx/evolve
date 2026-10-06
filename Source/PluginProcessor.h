@@ -274,6 +274,8 @@ namespace mutagen
         int hauntedReplayPos = 0;
         int hauntedReplayDelay = 0;
         bool hauntedMicMode = false;
+        bool hauntedMicRestoreArmed = false;
+        bool hauntedMicRestoreMonitoring = false;
 
         double hostTimeSeconds = 0.0;
 
