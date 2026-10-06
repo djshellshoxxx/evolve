@@ -89,9 +89,12 @@ namespace mutagen
         wireGameLayer();
         wireChrome();
 
-        // Observe clicks from nested controls as well as the chamber. Hidden
-        // discoveries are based on broad screen zones, not specific buttons.
-        addMouseListener (this, true);
+        // Observe clicks from nested controls as well as the chamber. Register
+        // on top-level children rather than on this component itself, avoiding
+        // a duplicate callback when the editor background receives a click.
+        for (int i = 0; i < getNumChildComponents(); ++i)
+            if (auto* child = getChildComponent (i))
+                child->addMouseListener (this, true);
         spontaneousPhantomTicks = hauntedRng.rollInclusive (1200, 3600);
 
         // ---- wiring ----
@@ -184,7 +187,9 @@ namespace mutagen
     MutagenEditor::~MutagenEditor()
     {
         stopTimer();
-        removeMouseListener (this);
+        for (int i = 0; i < getNumChildComponents(); ++i)
+            if (auto* child = getChildComponent (i))
+                child->removeMouseListener (this);
         processor.cancelHauntedMicCapture();
         setLookAndFeel (nullptr);
     }
