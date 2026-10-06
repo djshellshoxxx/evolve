@@ -142,6 +142,10 @@ target_link_libraries(MUTAGEN PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
 
+if(WIN32)
+    target_link_libraries(MUTAGEN PRIVATE winmm)
+endif()
+
 # NB: link-time optimisation (juce_recommended_lto_flags) is deliberately not
 # used - it triggers an MSVC internal compiler error in juce_audio_utils on
 # some toolchain versions and buys little here.
