@@ -31,9 +31,10 @@ namespace mutagen::haunted
 
                 const auto display = juce::Desktop::getInstance().getDisplays()
                     .getDisplayForRect (source);
-                const auto work = display != nullptr ? display->userArea
-                                                     : juce::Desktop::getInstance().getDisplays()
-                                                           .getPrimaryDisplay()->userArea;
+                const auto* primary = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
+                const auto work = display != nullptr ? display->userBounds.toNearestInt()
+                                : primary != nullptr ? primary->userBounds.toNearestInt()
+                                                     : source.expanded (900, 600);
 
                 const int lane = (id * 37 + recipe * 19) % 4;
                 switch (lane)
