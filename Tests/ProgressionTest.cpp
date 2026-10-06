@@ -288,6 +288,8 @@ int main()
     assert (skillUseBonusForScore (123) == SkillUseBonus::fallingSweep);
     assert (skillUseBonusForScore (121) == SkillUseBonus::burp);
     assert (skillUseBonusForScore (128) == SkillUseBonus::none);
+    assert (skillUseBonusForScore (1010) == SkillUseBonus::timeStretchCelebration);
+    assert (skillUseBonusForScore (1201) == SkillUseBonus::timeStretchCelebration);
 
     const auto greenGate = greenCollisionGateSpec();
     assert (greenGate.bpm == 150);
