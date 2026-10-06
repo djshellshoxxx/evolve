@@ -277,6 +277,12 @@ int main()
     assert (labExchangeUnlocked (10));
     assert (labExchangeUnlocked (25));
 
+    assert (miniGameParticipationPoints() == 3);
+    assert (orbGenerationPoints (0) == 0);
+    assert (orbGenerationPoints (37) == 37);
+    assert (skillDiscoveryPoints (1) == 4);
+    assert (skillDiscoveryPoints (5) == 20);
+
     const auto greenGate = greenCollisionGateSpec();
     assert (greenGate.bpm == 150);
     assert (greenGate.durationSeconds == 120);
