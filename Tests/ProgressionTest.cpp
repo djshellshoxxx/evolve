@@ -259,6 +259,12 @@ int main()
     assert (wolfermeanDue (3, true));
     assert (! wolfermeanDue (4, false));
 
+    assert (! gatorUnlockDue (1, true));
+    assert (gatorUnlockDue (2, true));
+    assert (! gatorUnlockDue (2, false));
+    assert (! gateShapesUnlockDue (false, 1));
+    assert (gateShapesUnlockDue (true, 1));
+
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
     assert (safeRoulette.kind != RoulettePrize::loseSkill);
