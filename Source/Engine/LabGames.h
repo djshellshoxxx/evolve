@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <optional>
 
 namespace mutagen::labgames
 {
@@ -539,6 +540,17 @@ namespace mutagen::labgames
     {
         auto s = GreenCollisionGateSpec{};
         s.bpm = 140;
+        return s;
+    }
+
+    inline std::optional<GreenCollisionGateSpec> thirdMiniGameGateSpec (
+        int gamesCompleted, bool latestWasWin, std::int64_t score)
+    {
+        if (gamesCompleted != 3 || ! latestWasWin || score >= 1000008)
+            return std::nullopt;
+        auto s = GreenCollisionGateSpec{};
+        s.bpm = 180;
+        s.durationSeconds = 300;
         return s;
     }
 
