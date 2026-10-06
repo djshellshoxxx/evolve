@@ -1,5 +1,8 @@
 # MUTAGEN
 
+> **Project status:** experimental open-source audio/software-art project. MUTAGEN is not currently part of the Circuit Drift Labs commercial product line.
+
+
 A sound colony you play like a game.
 
 MUTAGEN is a VST3 / AU / standalone instrument built around a population of small
