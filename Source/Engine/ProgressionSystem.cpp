@@ -117,8 +117,44 @@ namespace mutagen
         awardRelic ("combo_20", lifetime.peakCombo >= 20);
     }
 
+    void ProgressionSystem::updateUnlockNotice (const progression::ResearchState& before)
+    {
+        const auto after = state();
+        if (pendingNotice.isNotEmpty())
+            return;
+
+        if (after.level > before.level)
+        {
+            pendingNotice = "RESEARCH LEVEL " + juce::String (after.level) + " UNLOCKED";
+            return;
+        }
+
+        if (after.storyChapter > before.storyChapter)
+        {
+            pendingNotice = "STORY: " + juce::String (progression::storyTitle (after.storyChapter)).toUpperCase();
+            return;
+        }
+
+        for (std::size_t i = 0; i < after.characters.size(); ++i)
+            if (after.characters[i] && ! before.characters[i])
+            {
+                pendingNotice = "RESEARCHER: "
+                    + juce::String (progression::characterName ((progression::Character) i)).toUpperCase();
+                return;
+            }
+
+        for (std::size_t i = 0; i < after.features.size(); ++i)
+            if (after.features[i] && ! before.features[i])
+            {
+                pendingNotice = "SYSTEM UNLOCKED: "
+                    + juce::String (progression::featureName ((progression::Feature) i)).toUpperCase();
+                return;
+            }
+    }
+
     void ProgressionSystem::observe (const EngineSnapshot& snap, const ScoreSystem& score)
     {
+        const auto before = state();
         bool changed = false;
 
         if (! primed)
@@ -220,10 +256,12 @@ namespace mutagen
             markDirty();
 
         updateRelics();
+        updateUnlockNotice (before);
     }
 
     void ProgressionSystem::record (Action action)
     {
+        const auto before = state();
         switch (action)
         {
             case Action::sampleDigested:       ++lifetime.samplesDigested; break;
@@ -234,6 +272,7 @@ namespace mutagen
         }
         markDirty();
         updateRelics();
+        updateUnlockNotice (before);
     }
 
     juce::String ProgressionSystem::consumeNotice()
