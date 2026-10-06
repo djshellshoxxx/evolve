@@ -92,8 +92,6 @@ namespace mutagen
         // Observe clicks from nested controls as well as the chamber. Hidden
         // discoveries are based on broad screen zones, not specific buttons.
         addMouseListener (this, true);
-        lastHauntedScore = progressionSystem.stats().lifetimeScore;
-        hauntedScorePrimed = true;
         spontaneousPhantomTicks = hauntedRng.rollInclusive (1200, 3600);
 
         // ---- wiring ----
@@ -716,11 +714,11 @@ namespace mutagen
         processor.copyLatestSnapshot (snapshot);
 
         // ---- the game layer -------------------------------------------
+        const auto runScoreBefore = scoreSystem.score();
         scoreSystem.update (snapshot, dt);
-        const auto lifetimeBefore = progressionSystem.stats().lifetimeScore;
+        const auto runScoreAfter = scoreSystem.score();
         progressionSystem.observe (snapshot, scoreSystem);
-        const auto lifetimeAfter = progressionSystem.stats().lifetimeScore;
-        serviceHauntedMilestones (lifetimeBefore, lifetimeAfter);
+        serviceHauntedMilestones (runScoreBefore, runScoreAfter);
         scoreHud.setState (scoreSystem, snapshot);
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
