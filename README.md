@@ -169,6 +169,25 @@ up whenever things are going fine stops reading as a reward within about a minut
 
 ---
 
+## Field Journal and long-term progression
+
+The **JOURNAL** button opens a persistent research record that sits above individual
+runs. It does not alter the audio thread or invalidate old organisms. It records what
+you actually do across sessions: generations observed, timbres discovered, worlds
+visited, noise rescues, outside samples digested, radiation exposure, breeding,
+steering, score, anomalies, relics and combo peaks.
+
+Progress unlocks eight story chapters, six researcher characters, ten research
+protocols, a rotating challenge deck, an anomaly catalogue, relics, lineage records
+and the world atlas. Late play reveals three non-exclusive directives — **PRESERVE**,
+**ACCELERATE** and **RELEASE** — with the journal recommending one from the way you
+have actually played. No ending deletes or permanently locks the others.
+
+The progression file is separate from presets, scores and `.mutagen` saves, so deleting
+or moving a run does not rewrite the research history.
+
+---
+
 ## How it stays interesting
 
 Five mechanisms from the quality-diversity literature, all running at once:
