@@ -81,6 +81,15 @@ void MutagenProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     hauntedReplayPos = 0;
     hauntedReplayDelay = 0;
 
+    tripDelayBuffer.setSize (2, juce::jmax (1, (int) (sampleRate * 8.0)), false, true, false);
+    tripDelayBuffer.clear();
+    tripDelayWrite = 0;
+    tripDelayReadPhase = 0.0;
+    temporaryGateSamplesLeft = 0;
+    temporaryGateActive.store (false);
+    tripDelaySamplesLeft = 0;
+    tripDelayActiveFlag.store (false);
+
     captureRing.setSize (1, juce::jmax (1, (int) (sampleRate * 12.0)));
     captureRing.clear();
     captureWritePos = 0;
@@ -706,7 +715,9 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
         const float intensity = hauntedSoundIntensity.load (std::memory_order_relaxed);
         hauntedSoundTotal = hauntedSoundRemaining =
             juce::jmax (1, (int) (sampleRateHz * (1.6 + (recipe % 7) * 0.32) * intensity));
-        hauntedPhaseA = hauntedPhaseB = 0.0;
+        hauntedSoundReverseLatched = hauntedSoundReverse.load (std::memory_order_relaxed);
+        hauntedPhaseA = hauntedPhaseB = hauntedSoundReverseLatched
+            ? juce::MathConstants<double>::twoPi : 0.0;
         hauntedNoise ^= (uint32_t) recipe * 0x9e3779b9u + 0x7f4a7c15u;
     }
 
@@ -753,10 +764,13 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
                     + noise * 0.018f;
             v *= env * intensity;
 
-            hauntedPhaseA += juce::MathConstants<double>::twoPi * fA / sampleRateHz;
-            hauntedPhaseB += juce::MathConstants<double>::twoPi * fB / sampleRateHz;
+            const double dir = hauntedSoundReverseLatched ? -1.0 : 1.0;
+            hauntedPhaseA += dir * juce::MathConstants<double>::twoPi * fA / sampleRateHz;
+            hauntedPhaseB += dir * juce::MathConstants<double>::twoPi * fB / sampleRateHz;
             if (hauntedPhaseA > juce::MathConstants<double>::twoPi) hauntedPhaseA -= juce::MathConstants<double>::twoPi;
             if (hauntedPhaseB > juce::MathConstants<double>::twoPi) hauntedPhaseB -= juce::MathConstants<double>::twoPi;
+            if (hauntedPhaseA < 0.0) hauntedPhaseA += juce::MathConstants<double>::twoPi;
+            if (hauntedPhaseB < 0.0) hauntedPhaseB += juce::MathConstants<double>::twoPi;
 
             for (int ch = 0; ch < chans; ++ch)
             {
@@ -802,6 +816,86 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
             if (hauntedReplayPos >= length)
                 hauntedReplayActive.store (-1, std::memory_order_release);
         }
+    }
+
+    // ---- temporary collision / mini-game gator -----------------------
+    if (const auto stamp = temporaryGateStamp.load (std::memory_order_acquire);
+        stamp != temporaryGateSeen)
+    {
+        temporaryGateSeen = stamp;
+        const int duration = temporaryGateDurationSeconds.load (std::memory_order_relaxed);
+        const int fade = temporaryGateFadeSeconds.load (std::memory_order_relaxed);
+        temporaryGateSamplesLeft = (int64_t) (sampleRateHz * duration);
+        temporaryGateFadeSamples = (int64_t) (sampleRateHz * fade);
+        temporaryGatePhase = 0.0;
+        temporaryGateActive.store (true, std::memory_order_release);
+    }
+
+    if (temporaryGateSamplesLeft > 0)
+    {
+        const int bpm = juce::jlimit (40, 320, temporaryGateBpm.load (std::memory_order_relaxed));
+        const double beatHz = bpm / 60.0;
+        const double gateHz = beatHz * 2.0; // eighth-note on/off pulse
+        const int64_t fadeStart = temporaryGateFadeSamples;
+        for (int n = 0; n < numSamples; ++n)
+        {
+            if (temporaryGateSamplesLeft <= 0) break;
+            double phase01 = temporaryGatePhase / juce::MathConstants<double>::twoPi;
+            phase01 -= std::floor (phase01);
+            const float hard = phase01 < 0.5 ? 1.0f : 0.0f;
+            float depth = 1.0f;
+            if (temporaryGateSamplesLeft < fadeStart && fadeStart > 0)
+                depth = (float) temporaryGateSamplesLeft / (float) fadeStart;
+            const float gain = 1.0f - depth * (1.0f - hard);
+            for (int ch = 0; ch < juce::jmin (2, totalOut); ++ch)
+                buffer.setSample (ch, n, buffer.getSample (ch, n) * gain);
+            temporaryGatePhase += juce::MathConstants<double>::twoPi * gateHz / sampleRateHz;
+            if (temporaryGatePhase > juce::MathConstants<double>::twoPi)
+                temporaryGatePhase -= juce::MathConstants<double>::twoPi;
+            --temporaryGateSamplesLeft;
+        }
+        if (temporaryGateSamplesLeft <= 0)
+            temporaryGateActive.store (false, std::memory_order_release);
+    }
+
+    // ---- Trip Delay / temporary all-sound time stretch -----------------
+    if (const auto stamp = tripDelayStamp.load (std::memory_order_acquire);
+        stamp != tripDelaySeen)
+    {
+        tripDelaySeen = stamp;
+        tripDelaySamplesLeft = (int64_t) (sampleRateHz
+            * tripDelayDurationSeconds.load (std::memory_order_relaxed));
+        tripDelayReadPhase = 0.0;
+        tripDelayActiveFlag.store (true, std::memory_order_release);
+    }
+
+    if (tripDelaySamplesLeft > 0 && tripDelayBuffer.getNumSamples() > 2)
+    {
+        const int len = tripDelayBuffer.getNumSamples();
+        const int delaySamples = juce::jmin (len - 2, (int) (sampleRateHz * 2.75));
+        for (int n = 0; n < numSamples; ++n)
+        {
+            if (tripDelaySamplesLeft <= 0) break;
+            const int read = (tripDelayWrite - delaySamples + len) % len;
+            const int read2 = (read + 1) % len;
+            const float frac = (float) tripDelayReadPhase;
+            for (int ch = 0; ch < juce::jmin (2, totalOut); ++ch)
+            {
+                const float input = buffer.getSample (ch, n);
+                const float delayed = juce::jmap (frac,
+                    tripDelayBuffer.getSample (ch, read),
+                    tripDelayBuffer.getSample (ch, read2));
+                tripDelayBuffer.setSample (ch, tripDelayWrite,
+                    juce::jlimit (-1.0f, 1.0f, input + delayed * 0.48f));
+                buffer.setSample (ch, n, input * 0.78f + delayed * 0.58f);
+            }
+            if (++tripDelayWrite >= len) tripDelayWrite = 0;
+            tripDelayReadPhase += 0.965; // slight time-stretch drift
+            if (tripDelayReadPhase >= 1.0) tripDelayReadPhase -= 1.0;
+            --tripDelaySamplesLeft;
+        }
+        if (tripDelaySamplesLeft <= 0)
+            tripDelayActiveFlag.store (false, std::memory_order_release);
     }
 
     // dry / wet blend for effect + hybrid roles
@@ -1115,7 +1209,30 @@ void MutagenProcessor::triggerHauntedSound (int recipe, float intensity)
     hauntedSoundRecipe.store (juce::jmax (0, recipe), std::memory_order_relaxed);
     hauntedSoundIntensity.store (juce::jlimit (0.1f, 1.25f, intensity),
                                  std::memory_order_relaxed);
+    hauntedSoundReverse.store (false, std::memory_order_relaxed);
     hauntedSoundStamp.fetch_add (1, std::memory_order_release);
+}
+
+void MutagenProcessor::triggerSkillSound (int recipe, bool reverse)
+{
+    hauntedSoundRecipe.store (juce::jmax (0, recipe), std::memory_order_relaxed);
+    hauntedSoundIntensity.store (0.86f, std::memory_order_relaxed);
+    hauntedSoundReverse.store (reverse, std::memory_order_relaxed);
+    hauntedSoundStamp.fetch_add (1, std::memory_order_release);
+}
+
+void MutagenProcessor::triggerTemporaryGator (int bpm, int durationSeconds, int fadeSeconds)
+{
+    temporaryGateBpm.store (juce::jlimit (40, 320, bpm), std::memory_order_relaxed);
+    temporaryGateDurationSeconds.store (juce::jlimit (1, 600, durationSeconds), std::memory_order_relaxed);
+    temporaryGateFadeSeconds.store (juce::jlimit (1, 60, fadeSeconds), std::memory_order_relaxed);
+    temporaryGateStamp.fetch_add (1, std::memory_order_release);
+}
+
+void MutagenProcessor::triggerTripDelay (int durationSeconds)
+{
+    tripDelayDurationSeconds.store (juce::jlimit (1, 600, durationSeconds), std::memory_order_relaxed);
+    tripDelayStamp.fetch_add (1, std::memory_order_release);
 }
 
 bool MutagenProcessor::startHauntedMicCapture (float seconds)
