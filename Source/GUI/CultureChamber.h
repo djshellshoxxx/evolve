@@ -73,11 +73,38 @@ namespace mutagen
         /** Fire the fractal reward. The ScoreSystem decides when. */
         void triggerReward (float hue);
 
+        // ---- lab-game orb layer ---------------------------------------
+        void spawnSpecialOrbs (int count);
+        void spawnRainbowOrbs (int count, bool glowing, int multiplier = 1);
+        void spawnMonsterOrbs (int count);
+        void spawnMiniOrbs (int count);
+        void setOrbInversion (float seconds);
+
+        std::function<void(int)> onGreenOrbsBorn;
+        std::function<void()> onRainbowCorner;
+
         /** Where the HUD sits, so clicks there are not treated as mutations. */
         void setHudProbe (std::function<bool (juce::Point<int>)> fn) { hudProbe = std::move (fn); }
 
     private:
         struct Ripple { float x, y, r, life, maxLife; juce::Colour c; bool destructive; };
+        enum class OrbKind { special, rainbow, glowingRainbow, monster, mini, green, red, pink };
+        struct Orb
+        {
+            juce::Point<float> p, v;
+            float radius = 4.0f;
+            float life = 8.0f;
+            float maxLife = 8.0f;
+            OrbKind kind { OrbKind::special };
+            float pulse = 0.0f;
+            bool multiplied = false;
+        };
+        struct Sprinkle
+        {
+            juce::Point<float> p, v;
+            float life = 1.0f;
+            juce::Colour c;
+        };
 
         juce::Point<float> toPixels (float nx, float ny) const;
         juce::Point<float> toNormalised (juce::Point<float> p) const;
@@ -89,6 +116,10 @@ namespace mutagen
         void  paintCells (juce::Graphics&);
         void  paintSpectrum (juce::Graphics&, juce::Rectangle<float>);
         void  paintNiches (juce::Graphics&);
+        void  updateGameOrbs (double dt);
+        void  paintGameOrbs (juce::Graphics&);
+        void  addOrb (OrbKind kind, float speedScale, float lifeScale);
+        juce::Colour orbColour (OrbKind kind, float phase) const;
         juce::Colour cellColour (const CellView& c) const;
 
         MutagenProcessor& processor;
@@ -103,6 +134,10 @@ namespace mutagen
         int hoverCell = -1;
         juce::Point<float> mousePos;
         std::vector<Ripple> ripples;
+        std::vector<Orb> gameOrbs;
+        std::vector<Sprinkle> sprinkles;
+        float orbInversionSeconds = 0.0f;
+        float orbCollisionClock = 0.0f;
 
         // drag tracking
         bool  dragging = false;
