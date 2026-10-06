@@ -1,6 +1,7 @@
 #include "../Source/Engine/Progression.h"
 #include "../Source/Engine/HauntedEvents.h"
 #include "../Source/Engine/HiddenDiscoveries.h"
+#include "../Source/Engine/LabGames.h"
 #include <cassert>
 #include <iostream>
 #include <set>
@@ -150,6 +151,45 @@ int main()
         const int roll = sessionRng.rollInclusive (1, 20);
         assert (roll >= 1 && roll <= 20);
     }
+
+    using namespace mutagen::labgames;
+
+    assert (shouldOfferRoulette (5, 1));
+    assert (! shouldOfferRoulette (5, 2));
+    assert (shouldOfferMonte (10, 1));
+    assert (! shouldOfferMonte (10, 2));
+    assert (shouldOfferSlots (3, 1));
+    assert (! shouldOfferSlots (3, 2));
+
+    const auto safeRoulette = rouletteOutcome (127, 6);
+    assert (safeRoulette.kind != RoulettePrize::minus1000);
+    assert (safeRoulette.kind != RoulettePrize::loseSkill);
+
+    bool sawPenalty = false;
+    for (int roll = 1; roll <= 12; ++roll)
+    {
+        const auto o = rouletteOutcome (126, roll);
+        if (o.kind == RoulettePrize::minus1000 || o.kind == RoulettePrize::loseSkill)
+            sawPenalty = true;
+    }
+    assert (sawPenalty);
+
+    const auto monteWin = monteOutcome (true, 1);
+    assert (monteWin.points >= 0);
+    assert (monteWin.rainbowOrbs == 100 || monteWin.points == 10000);
+    const auto monteLoss = monteOutcome (false, 1);
+    assert (monteLoss.points == -20000);
+
+    const auto jackpot = slotOutcome (777);
+    assert (jackpot.jackpot);
+    assert (jackpot.glowingRainbowOrbs == 1000);
+    assert (jackpot.rainbowMultiplier == 2);
+
+    std::set<int> soundRecipes;
+    for (int game = 0; game < 3; ++game)
+        for (int result = 0; result < 8; ++result)
+            soundRecipes.insert (soundRecipe ((Game) game, (SoundMoment) result, 11));
+    assert (soundRecipes.size() >= 20);
 
     std::cout << "Progression rules: PASS\n";
     return 0;
