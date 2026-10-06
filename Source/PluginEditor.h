@@ -94,6 +94,7 @@ namespace mutagen
         // ---- hidden / haunted laboratory layer -------------------------
         haunted::SessionRng hauntedRng;
         haunted::ClickSequence hiddenClicks;
+        haunted::CdTrayPulser cdTrayPulser;
         bool cdTrayRollDone = false;
         bool micReverseRollDone = false;
         bool hiddenMicAwaitingReplay = false;
