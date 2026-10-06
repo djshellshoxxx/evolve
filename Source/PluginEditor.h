@@ -21,7 +21,9 @@
 #include "GUI/GameBar.h"
 #include "GUI/HelpView.h"
 #include "GUI/OptionsView.h"
+#include "GUI/ProgressionView.h"
 #include "Engine/ScoreSystem.h"
+#include "Engine/ProgressionSystem.h"
 #include "Engine/RenderEngine.h"
 
 namespace mutagen
@@ -68,6 +70,10 @@ namespace mutagen
         OptionsView       optionsView;
         std::unique_ptr<juce::TooltipWindow> tooltips;
 
+        // ---- the persistent meta-game ----
+        ProgressionSystem progressionSystem;
+        ProgressionView   progressionView;
+
         // ---- the game layer ----
         ScoreSystem       scoreSystem;
         ScoreHud          scoreHud;
@@ -80,6 +86,7 @@ namespace mutagen
         EngineSnapshot snapshot;
         double lastTimeSec = 0.0;
         double inspectorAccum = 0.0;
+        double progressionFlushAccum = 0.0;
         bool   showInspector = true;
         bool   showPerformance = false;
         bool   showFx = false;
