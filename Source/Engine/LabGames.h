@@ -7,7 +7,7 @@
 
 namespace mutagen::labgames
 {
-    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4, scratch = 5, skillRoulette = 6, mutationSlots = 7 };
+    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4, scratch = 5, skillRoulette = 6, mutationSlots = 7, sideMutationSlots = 8 };
 
     enum class SoundMoment
     {
@@ -411,6 +411,20 @@ namespace mutagen::labgames
         else if (roll0to999 % 7 == 0) out.soundUnlocks = 3;
         else out.soundUnlocks = 1;
         return out;
+    }
+
+    inline bool sideMutationUnlockDue (int skillsBefore, int skillsAfter, int roll1to2)
+    {
+        if (skillsAfter <= skillsBefore || roll1to2 != 1)
+            return false;
+        return skillsAfter / 5 > skillsBefore / 5;
+    }
+
+    inline MutationSlotOutcome sideMutationSlotOutcome (int roll0to999)
+    {
+        // Same prize grammar as Mutation Slots, independently rolled. The
+        // separate game ID guarantees a completely different sound family.
+        return mutationSlotOutcome (roll0to999);
     }
 
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
