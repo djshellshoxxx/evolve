@@ -6,7 +6,7 @@
 
 namespace mutagen::labgames
 {
-    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4 };
+    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4, scratch = 5 };
 
     enum class SoundMoment
     {
@@ -78,6 +78,24 @@ namespace mutagen::labgames
         int skillLoss = 0;
         int snareSounds = 0;
         int tomSounds = 0;
+    };
+
+    struct ScratchOutcome
+    {
+        int matchCount = 0;
+        int matchedSymbol = -1;
+        int points = 0;
+        int bassDrumSounds = 0;
+        int bassDrops = 0;
+        int kazooSounds = 0;
+        int stringSounds = 0;
+        int tambourineSounds = 0;
+    };
+
+    struct BassDrumTrade
+    {
+        int bassDrumsSpent = 0;
+        int pianoKeySounds = 0;
     };
 
     inline bool shouldOfferRoulette (int minuteBucket, int roll1to5)
@@ -265,6 +283,58 @@ namespace mutagen::labgames
         }
 
         out.result = TwentyOneResult::push;
+        return out;
+    }
+
+    inline int scratchTicketsCrossed (std::int64_t before, std::int64_t after)
+    {
+        if (after <= before || after < 10000) return 0;
+        const auto a = before / 10000;
+        const auto b = after / 10000;
+        return (int) std::max<std::int64_t> (0, b - a);
+    }
+
+    inline ScratchOutcome scratchOutcome (const std::array<int, 5>& symbols)
+    {
+        ScratchOutcome out;
+        std::array<int, 5> counts {};
+        for (const int symbol : symbols)
+            if (symbol >= 0 && symbol < 5)
+                ++counts[(size_t) symbol];
+
+        for (int i = 0; i < 5; ++i)
+            if (counts[(size_t) i] > out.matchCount)
+            {
+                out.matchCount = counts[(size_t) i];
+                out.matchedSymbol = i;
+            }
+
+        if (out.matchCount >= 5)
+        {
+            out.stringSounds = 10;
+            out.tambourineSounds = 2;
+        }
+        else if (out.matchCount == 4)
+        {
+            out.bassDrops = 1;
+            out.kazooSounds = 1;
+        }
+        else if (out.matchCount == 3)
+        {
+            out.bassDrumSounds = 5;
+            out.points = 100;
+        }
+        return out;
+    }
+
+    inline BassDrumTrade bassDrumTrade (int ownedBassDrums)
+    {
+        BassDrumTrade out;
+        if (ownedBassDrums >= 5)
+        {
+            out.bassDrumsSpent = 5;
+            out.pianoKeySounds = 1;
+        }
         return out;
     }
 
