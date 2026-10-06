@@ -25,6 +25,7 @@ namespace mutagen
         void refreshFromLab();
 
         std::function<void()> onClose;
+        std::function<void()> onBreed;
 
     private:
         class SpecimenCard;

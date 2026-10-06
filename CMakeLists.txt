@@ -86,6 +86,7 @@ target_sources(MUTAGEN PRIVATE
     Source/Engine/PostChain.cpp
     Source/Engine/RenderEngine.cpp
     Source/Engine/ScoreSystem.cpp
+    Source/Engine/ProgressionSystem.cpp
     Source/Engine/Ingest.cpp
     Source/Engine/PresetManager.cpp
 
@@ -106,6 +107,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/ParamControl.cpp
     Source/GUI/HelpView.cpp
     Source/GUI/OptionsView.cpp
+    Source/GUI/ProgressionView.cpp
     Source/GUI/DeviceSetupHook.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)
@@ -224,4 +226,8 @@ if(MUTAGEN_BUILD_TESTS)
         juce::juce_recommended_config_flags)
 
     add_test(NAME MutagenGuiSmokeTest COMMAND MutagenGuiSmokeTest)
+
+    add_executable(MutagenProgressionTest Tests/ProgressionTest.cpp)
+    target_include_directories(MutagenProgressionTest PRIVATE Source)
+    add_test(NAME MutagenProgressionTest COMMAND MutagenProgressionTest)
 endif()

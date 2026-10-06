@@ -167,6 +167,7 @@ namespace mutagen
 
         processor.noteUserGesture ((target.brightness + 1.0f) * 0.5f,
                                    (target.harmonicity + 1.0f) * 0.5f);
+        if (onSteeringUsed) onSteeringUsed();
     }
 
     void EnvironmentPanel::runCounterEvolve()

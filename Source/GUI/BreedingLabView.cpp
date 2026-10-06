@@ -304,6 +304,7 @@ namespace mutagen
 
         const uint64_t seed = (uint64_t) juce::Random::getSystemRandom().nextInt64();
         processor.breedingLab.breed ((int) countSlider.getValue(), currentRecipe(), seed);
+        if (onBreed) onBreed();
         refreshFromLab();
     }
 
