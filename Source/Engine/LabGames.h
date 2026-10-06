@@ -98,6 +98,18 @@ namespace mutagen::labgames
         int pianoKeySounds = 0;
     };
 
+    struct SkillRouletteOutcome
+    {
+        int pianoKeys = 0;
+        int snareSounds = 0;
+        int claps = 0;
+        int pads = 0;
+        int tomSounds = 0;
+        int upSweeps = 0;
+        int points = 0;
+        int skillDelta = 0;
+    };
+
     inline bool shouldOfferRoulette (int minuteBucket, int roll1to5)
     {
         return minuteBucket > 0 && minuteBucket % 5 == 0 && roll1to5 == 1;
@@ -334,6 +346,30 @@ namespace mutagen::labgames
         {
             out.bassDrumsSpent = 5;
             out.pianoKeySounds = 1;
+        }
+        return out;
+    }
+
+    inline bool skillRouletteOfferDue (int skillsBefore, int skillsAfter, int roll1to4)
+    {
+        if (skillsAfter <= skillsBefore || roll1to4 != 1)
+            return false;
+        return skillsAfter / 5 > skillsBefore / 5;
+    }
+
+    inline SkillRouletteOutcome skillRouletteOutcome (int roll1to8)
+    {
+        SkillRouletteOutcome out;
+        switch (std::clamp (roll1to8, 1, 8))
+        {
+            case 1: out.pianoKeys = 2; break;
+            case 2: out.snareSounds = 3; break;
+            case 3: out.claps = 4; break;
+            case 4: out.pads = 1; break;
+            case 5: out.tomSounds = 5; break;
+            case 6: out.upSweeps = 3; break;
+            case 7: out.points = -1000; break;
+            case 8: out.skillDelta = -1; break;
         }
         return out;
     }
