@@ -528,6 +528,20 @@ namespace mutagen::labgames
         return s;
     }
 
+    inline GreenCollisionGateSpec blackWhiteCollisionGateSpec()
+    {
+        auto s = GreenCollisionGateSpec{};
+        s.bpm = 90;
+        return s;
+    }
+
+    inline GreenCollisionGateSpec pinkCornerGateSpec()
+    {
+        auto s = GreenCollisionGateSpec{};
+        s.bpm = 140;
+        return s;
+    }
+
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
     {
         // Large separated bases plus co-prime offsets prevent result families
