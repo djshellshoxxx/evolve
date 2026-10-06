@@ -1,5 +1,6 @@
 #include "../Source/Engine/Progression.h"
 #include "../Source/Engine/HauntedEvents.h"
+#include "../Source/Engine/HiddenDiscoveries.h"
 #include <cassert>
 #include <iostream>
 
@@ -92,6 +93,33 @@ int main()
     assert (! mutagen::haunted::micRollWins (5));
     assert (crossedThreshold (100384, 100385, mutagen::haunted::micReverseThreshold));
     assert (! crossedThreshold (100385, 100386, mutagen::haunted::micReverseThreshold));
+
+    mutagen::haunted::ClickSequence seq;
+    // Five exploratory zones in time should discover a stable creature.
+    seq.push (0, 0.00);
+    seq.push (5, 0.40);
+    seq.push (9, 0.90);
+    seq.push (2, 1.20);
+    const auto discovery = seq.push (7, 1.70);
+    assert (discovery.creatureId >= 0 && discovery.creatureId < 100);
+    assert (! mutagen::haunted::creatureName (discovery.creatureId).empty());
+
+    // The same sequence is deterministic.
+    mutagen::haunted::ClickSequence seq2;
+    seq2.push (0, 0.00); seq2.push (5, 0.40); seq2.push (9, 0.90); seq2.push (2, 1.20);
+    assert (seq2.push (7, 1.70).creatureId == discovery.creatureId);
+
+    // Easy discovery still rejects five clicks on one control.
+    mutagen::haunted::ClickSequence dull;
+    dull.push (1, 0.0); dull.push (1, 0.2); dull.push (1, 0.4); dull.push (1, 0.6);
+    assert (dull.push (1, 0.8).creatureId == -1);
+
+    const auto m1 = mutagen::haunted::milestoneForScore (999999, 1000000);
+    assert (m1.has_value());
+    assert (m1->index == 1);
+    assert (! m1->title.empty());
+    assert (! m1->skillName.empty());
+    assert (! mutagen::haunted::milestoneForScore (1000000, 1999999).has_value());
 
     std::cout << "Progression rules: PASS\n";
     return 0;
