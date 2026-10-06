@@ -61,9 +61,14 @@ namespace mutagen
                 };
 
                 section (left, "CURRENT STORY");
+                line (left, "UNFILED NOTE: MOTH reports that this log existed before the session began.",
+                      accent, 28);
                 line (left, "CHAPTER " + juce::String (state.storyChapter)
                             + "  " + storyTitle (state.storyChapter), text, 22);
-                line (left, storyText (state.storyChapter), textDim, 54);
+                line (left, storyText (state.storyChapter), textDim, 62);
+                if (! progression.creatures().empty())
+                    line (left, "ADDENDUM: at least one specimen has no agreed first-observation time.",
+                          textDim, 28);
                 left.removeFromTop (8);
 
                 section (left, "RESEARCHERS");
@@ -274,7 +279,7 @@ namespace mutagen
         addAndMakeVisible (replayArtifact);
 
         auto* journal = new JournalContent (progression);
-        journal->setSize (1040, 1460);
+        journal->setSize (1040, 2400);
         viewport.setViewedComponent (journal, true);
         viewport.setScrollBarsShown (true, false);
         addAndMakeVisible (viewport);
@@ -316,7 +321,7 @@ namespace mutagen
         r.removeFromTop (4);
         viewport.setBounds (r);
         if (auto* viewed = viewport.getViewedComponent())
-            viewed->setSize (juce::jmax (900, r.getWidth() - 12), 1460);
+            viewed->setSize (juce::jmax (900, r.getWidth() - 12), 2400);
     }
 
     void ProgressionView::refresh()
