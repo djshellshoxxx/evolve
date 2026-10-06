@@ -62,6 +62,10 @@ namespace mutagen
         /** A sample was dropped in and eaten. */
         void onSampleDigested (const juce::String& name);
 
+        /** Explicit game reward/penalty. Negative adjustments never take the
+            run score below zero. */
+        void adjustScore (juce::int64 points, const juce::String& label);
+
         void reset();
 
         // ---- read-out --------------------------------------------------
