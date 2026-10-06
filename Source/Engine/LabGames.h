@@ -6,7 +6,7 @@
 
 namespace mutagen::labgames
 {
-    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3 };
+    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4 };
 
     enum class SoundMoment
     {
@@ -69,6 +69,17 @@ namespace mutagen::labgames
         bool orbInversionPenalty = false;
     };
 
+    enum class TwentyOneResult { win, loss, push };
+
+    struct TwentyOneOutcome
+    {
+        TwentyOneResult result { TwentyOneResult::push };
+        int points = 0;
+        int skillLoss = 0;
+        int snareSounds = 0;
+        int tomSounds = 0;
+    };
+
     inline bool shouldOfferRoulette (int minuteBucket, int roll1to5)
     {
         return minuteBucket > 0 && minuteBucket % 5 == 0 && roll1to5 == 1;
@@ -87,6 +98,11 @@ namespace mutagen::labgames
     inline bool shouldOfferDice (int minuteBucket, int roll1to30)
     {
         return minuteBucket > 0 && roll1to30 == 1;
+    }
+
+    inline bool shouldOfferTwentyOne (int minuteBucket, int roll1to11)
+    {
+        return minuteBucket > 0 && minuteBucket % 4 == 0 && roll1to11 == 1;
     }
 
     inline RouletteOutcome rouletteOutcome (std::int64_t score, int roll1to12)
@@ -211,6 +227,44 @@ namespace mutagen::labgames
         {
             out.orbInversionPenalty = true;
         }
+        return out;
+    }
+
+    inline TwentyOneOutcome twentyOneOutcome (int player, int house)
+    {
+        TwentyOneOutcome out;
+        const bool playerBust = player > 21;
+        const bool houseBust = house > 21;
+
+        if (player == 21 && house == 21)
+        {
+            out.result = TwentyOneResult::push;
+            out.tomSounds = 5;
+            return out;
+        }
+
+        if (player == 21)
+        {
+            out.result = TwentyOneResult::win;
+            out.snareSounds = 10;
+            return out;
+        }
+
+        if (playerBust || (! houseBust && house > player))
+        {
+            out.result = TwentyOneResult::loss;
+            out.points = -20;
+            out.skillLoss = 5;
+            return out;
+        }
+
+        if (houseBust || player > house)
+        {
+            out.result = TwentyOneResult::win;
+            return out;
+        }
+
+        out.result = TwentyOneResult::push;
         return out;
     }
 
