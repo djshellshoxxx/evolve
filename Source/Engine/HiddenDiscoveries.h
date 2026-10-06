@@ -170,10 +170,10 @@ namespace mutagen::haunted
         };
         MilestoneArtifact out;
         out.index = index;
-        out.title = titles[(index - 1) % 8];
-        out.skillName = skills[(index - 1) % 8];
-        out.animationRecipe = (index * 37) % 23;
-        out.soundRecipe = (index * 53) % 29;
+        out.title = std::string (titles[(index - 1) % 8]) + " #" + std::to_string (index);
+        out.skillName = std::string (skills[(index - 1) % 8]) + " " + std::to_string (index);
+        out.animationRecipe = index * 37 + (index * index % 31);
+        out.soundRecipe = index * 53 + (index * index % 43);
         return out;
     }
 }
