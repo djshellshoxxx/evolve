@@ -427,6 +427,11 @@ namespace mutagen::labgames
         return mutationSlotOutcome (roll0to999);
     }
 
+    inline bool wolfermeanDue (int consecutiveWins, bool latestWasWin)
+    {
+        return latestWasWin && consecutiveWins > 0 && consecutiveWins % 3 == 0;
+    }
+
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
     {
         // Large separated bases plus co-prime offsets prevent result families
