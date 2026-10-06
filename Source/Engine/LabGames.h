@@ -7,7 +7,7 @@
 
 namespace mutagen::labgames
 {
-    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4, scratch = 5, skillRoulette = 6 };
+    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4, scratch = 5, skillRoulette = 6, mutationSlots = 7 };
 
     enum class SoundMoment
     {
@@ -109,6 +109,16 @@ namespace mutagen::labgames
         int upSweeps = 0;
         int points = 0;
         int skillDelta = 0;
+    };
+
+    struct MutationSlotOutcome
+    {
+        int soundUnlocks = 0;
+        int randomColourOrbs = 0;
+        int giantRainbowOrbs = 0;
+        int blackVirusOrbs = 0;
+        int giantRainbowBreedRatio = 1;
+        bool jackpot = false;
     };
 
     inline bool shouldOfferRoulette (int minuteBucket, int roll1to5)
@@ -372,6 +382,34 @@ namespace mutagen::labgames
             case 7: out.points = -1000; break;
             case 8: out.skillDelta = -1; break;
         }
+        return out;
+    }
+
+    inline bool mutationSlotsOfferDue (int skillsBefore, int skillsAfter)
+    {
+        if (skillsAfter <= skillsBefore) return false;
+        return skillsAfter / 20 > skillsBefore / 20;
+    }
+
+    inline MutationSlotOutcome mutationSlotOutcome (int roll0to999)
+    {
+        MutationSlotOutcome out;
+        roll0to999 = std::clamp (roll0to999, 0, 999);
+
+        if (roll0to999 == 777)
+        {
+            out.jackpot = true;
+            out.randomColourOrbs = 50;
+            out.giantRainbowOrbs = 10;
+            out.blackVirusOrbs = 5;
+            out.giantRainbowBreedRatio = 2;
+            return out;
+        }
+
+        if (roll0to999 % 29 == 0) out.soundUnlocks = 8;
+        else if (roll0to999 % 13 == 0) out.soundUnlocks = 5;
+        else if (roll0to999 % 7 == 0) out.soundUnlocks = 3;
+        else out.soundUnlocks = 1;
         return out;
     }
 
