@@ -27,13 +27,24 @@ namespace mutagen::haunted
 
     inline std::uint64_t makeSessionSeed()
     {
-        std::random_device rd;
         const auto now = (std::uint64_t)
             std::chrono::high_resolution_clock::now().time_since_epoch().count();
 
         std::uint64_t seed = now;
-        seed ^= (std::uint64_t) rd() << 32;
-        seed ^= (std::uint64_t) rd();
+        try
+        {
+            std::random_device rd;
+            seed ^= (std::uint64_t) rd() << 32;
+            seed ^= (std::uint64_t) rd();
+        }
+        catch (...)
+        {
+            // Some standard libraries expose random_device but cannot service
+            // it in restricted hosts. High-resolution time remains a per-start
+            // fallback rather than falling back to a fixed seed.
+            seed ^= (std::uint64_t)
+                std::chrono::steady_clock::now().time_since_epoch().count();
+        }
         seed ^= seed >> 29;
         seed *= 0x9E3779B97F4A7C15ULL;
         seed ^= seed >> 31;
