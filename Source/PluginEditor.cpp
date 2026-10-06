@@ -321,6 +321,7 @@ namespace mutagen
         }
 
         processor.triggerHauntedSound (artifact->soundRecipe, replay ? 0.72f : 1.12f);
+        chamber.triggerReward (std::fmod ((float) index * 0.173f, 1.0f));
         applyMilestoneSkill (index);
 
         for (int i = 0; i < (replay ? 1 : 3); ++i)
