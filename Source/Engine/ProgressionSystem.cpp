@@ -191,7 +191,11 @@ namespace mutagen
             wasNoiseLocked = snap.noiseLocked;
         }
 
-        lifetime.peakCombo = std::max (lifetime.peakCombo, score.combo());
+        if (score.combo() > lifetime.peakCombo)
+        {
+            lifetime.peakCombo = score.combo();
+            changed = true;
+        }
 
         // Catalogue conditions deliberately combine independent descriptors.
         // Each can only be awarded once across the lifetime profile.
