@@ -39,6 +39,25 @@ namespace mutagen
         bool discoverCreature (int id);
         bool unlockMilestoneArtifact (int index);
 
+        // Persistent lab-game inventory.
+        const std::array<int, 5>& gameSkills() const { return gameSkillCounts; }
+        int unlockedGameSounds() const { return gameSoundCount; }
+        int specialOrbs() const { return specialOrbCount; }
+        int rainbowOrbs() const { return rainbowOrbCount; }
+        int glowingRainbowOrbs() const { return glowingRainbowOrbCount; }
+        int greenOrbs() const { return greenOrbCount; }
+        int redOrbs() const { return redOrbCount; }
+        int pinkOrbs() const { return pinkOrbCount; }
+
+        void changeGameSkill (int index, int delta);
+        int removeRandomGameSkill (int selector);
+        void addGameSounds (int count);
+        void addSpecialOrbs (int count);
+        void addRainbowOrbs (int count, bool glowing = false);
+        void addGreenOrbs (int count);
+        void addRedOrbs (int count);
+        void addPinkOrbs (int count);
+
         /** Returns and clears the newest unlock/event notice. */
         juce::String consumeNotice();
 
@@ -58,6 +77,16 @@ namespace mutagen
         std::set<juce::String> worldIds;
         std::set<int> creatureIds;
         std::set<int> milestoneIds;
+
+        std::array<int, 5> gameSkillCounts {};
+        int gameSoundCount = 0;
+        int specialOrbCount = 0;
+        int rainbowOrbCount = 0;
+        int glowingRainbowOrbCount = 0;
+        int greenOrbCount = 0;
+        int redOrbCount = 0;
+        int pinkOrbCount = 0;
+
         juce::String pendingNotice;
 
         juce::int64 lastScore = 0;
