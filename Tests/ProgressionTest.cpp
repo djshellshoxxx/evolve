@@ -258,7 +258,7 @@ int main()
     assert (jackpot.rainbowMultiplier == 2);
 
     std::set<int> soundRecipes;
-    for (int game = 0; game < 6; ++game)
+    for (int game = 0; game < 7; ++game)
         for (int result = 0; result < 8; ++result)
             soundRecipes.insert (soundRecipe ((Game) game, (SoundMoment) result, 11));
     assert (soundRecipes.size() >= 20);
