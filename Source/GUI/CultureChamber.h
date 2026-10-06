@@ -78,17 +78,25 @@ namespace mutagen
         void spawnRainbowOrbs (int count, bool glowing, int multiplier = 1);
         void spawnMonsterOrbs (int count);
         void spawnMiniOrbs (int count);
+        void spawnMutationJackpot (int randomColourOrbs, int giantRainbowOrbs,
+                                  int blackVirusOrbs, int breedRatio);
         void setOrbInversion (float seconds);
 
         std::function<void(int)> onGreenOrbsBorn;
         std::function<void()> onRainbowCorner;
+        std::function<void()> onMutationCatastrophe;
 
         /** Where the HUD sits, so clicks there are not treated as mutations. */
         void setHudProbe (std::function<bool (juce::Point<int>)> fn) { hudProbe = std::move (fn); }
 
     private:
         struct Ripple { float x, y, r, life, maxLife; juce::Colour c; bool destructive; };
-        enum class OrbKind { special, rainbow, glowingRainbow, monster, mini, green, red, pink };
+        enum class OrbKind
+        {
+            special, rainbow, glowingRainbow, giantRainbow,
+            monster, mini, green, red, pink, yellow, blackVirus,
+            squid, mite, spider
+        };
         struct Orb
         {
             juce::Point<float> p, v;
@@ -138,6 +146,9 @@ namespace mutagen
         std::vector<Sprinkle> sprinkles;
         float orbInversionSeconds = 0.0f;
         float orbCollisionClock = 0.0f;
+        float chamberShake = 0.0f;
+        float mutationFlash = 0.0f;
+        int giantRainbowBreedRatio = 1;
 
         // drag tracking
         bool  dragging = false;
