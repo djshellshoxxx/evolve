@@ -28,6 +28,7 @@ namespace mutagen
         std::array<std::unique_ptr<LabeledKnob>, 10> small;
         std::array<std::unique_ptr<LabeledKnob>, 5>  sel;
         std::array<std::unique_ptr<juce::TextButton>, 8> steer;
+        std::unique_ptr<LabeledKnob> steerStrengthKnob;
 
         juce::Label selHeader;
         juce::Label steerHeader;
