@@ -16,6 +16,8 @@ namespace mutagen
         void showMonte();
         void showSlots();
         void showDice();
+        void showTwentyOne (int playerTotal, bool canHit);
+        void showScratch (int ticketsAvailable);
 
         bool active() const { return mode != Mode::none; }
 
@@ -24,6 +26,9 @@ namespace mutagen
         std::function<void(int card)> onMontePick;
         std::function<void()> onSlotsSpin;
         std::function<void()> onDiceRoll;
+        std::function<void()> onTwentyOneHit;
+        std::function<void()> onTwentyOneStand;
+        std::function<void()> onScratch;
 
         void resolve (const juce::String& title, const juce::String& detail,
                       labgames::Game game, labgames::SoundMoment moment,
@@ -33,7 +38,7 @@ namespace mutagen
         void resized() override;
 
     private:
-        enum class Mode { none, roulette, monte, slots, dice, result };
+        enum class Mode { none, roulette, monte, slots, dice, twentyOne, scratch, result };
         void timerCallback() override;
         void configureButtons();
 
