@@ -145,6 +145,13 @@ namespace mutagen::labgames
         bool timeStretchUnlock = false;
     };
 
+    struct GreenCollisionGateSpec
+    {
+        int bpm = 150;
+        int durationSeconds = 120;
+        int fadeSeconds = 18;
+    };
+
     inline bool shouldOfferRoulette (int minuteBucket, int roll1to5)
     {
         return minuteBucket > 0 && minuteBucket % 5 == 0 && roll1to5 == 1;
@@ -507,6 +514,11 @@ namespace mutagen::labgames
         }
         out.allowed = currentScore >= out.cost;
         return out;
+    }
+
+    inline GreenCollisionGateSpec greenCollisionGateSpec()
+    {
+        return {};
     }
 
     inline int soundRecipe (Game game, SoundMoment moment, int variation)
