@@ -193,6 +193,32 @@ int main()
     assert (shared21.snareSounds == 0);
     assert (shared21.tomSounds == 5);
 
+    assert (scratchTicketsCrossed (9999, 10000) == 1);
+    assert (scratchTicketsCrossed (9999, 30001) == 3);
+    assert (scratchTicketsCrossed (10000, 19999) == 0);
+
+    const std::array<int, 5> threeMatch { 2, 2, 2, 1, 4 };
+    const auto scratch3 = scratchOutcome (threeMatch);
+    assert (scratch3.matchCount == 3);
+    assert (scratch3.bassDrumSounds == 5);
+    assert (scratch3.points == 100);
+
+    const std::array<int, 5> fourMatch { 3, 3, 3, 3, 1 };
+    const auto scratch4 = scratchOutcome (fourMatch);
+    assert (scratch4.matchCount == 4);
+    assert (scratch4.bassDrops == 1);
+    assert (scratch4.kazooSounds == 1);
+
+    const std::array<int, 5> fiveMatch { 4, 4, 4, 4, 4 };
+    const auto scratch5 = scratchOutcome (fiveMatch);
+    assert (scratch5.matchCount == 5);
+    assert (scratch5.stringSounds == 10);
+    assert (scratch5.tambourineSounds == 2);
+
+    const auto trade = bassDrumTrade (10);
+    assert (trade.bassDrumsSpent == 5);
+    assert (trade.pianoKeySounds == 1);
+
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
     assert (safeRoulette.kind != RoulettePrize::loseSkill);
@@ -218,7 +244,7 @@ int main()
     assert (jackpot.rainbowMultiplier == 2);
 
     std::set<int> soundRecipes;
-    for (int game = 0; game < 5; ++game)
+    for (int game = 0; game < 6; ++game)
         for (int result = 0; result < 8; ++result)
             soundRecipes.insert (soundRecipe ((Game) game, (SoundMoment) result, 11));
     assert (soundRecipes.size() >= 20);
