@@ -7,6 +7,7 @@
 namespace mutagen::haunted
 {
     constexpr std::int64_t cdTrayThreshold = 1000035;
+    constexpr std::int64_t micReverseThreshold = 100385;
 
     inline bool crossedThreshold (std::int64_t before, std::int64_t after,
                                   std::int64_t threshold)
@@ -17,6 +18,11 @@ namespace mutagen::haunted
     inline bool cdTrayRollWins (int roll)
     {
         return roll == 17;
+    }
+
+    inline bool micRollWins (int roll)
+    {
+        return roll == 4;
     }
 
     inline std::uint64_t makeSessionSeed()
