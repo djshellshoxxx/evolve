@@ -714,3 +714,16 @@ written, so the CI result still needs to be read before calling M11 fully verifi
 - Direction, Counter-Evolve and Mutation Dice targets now scale continuously from subtle guidance to forceful steering.
 - Selection-burst strength and the minimum selection pressure scale with the same control, so a low setting does not secretly apply a full-strength ecological shove.
 - Added regression coverage for target scaling and clamping.
+
+
+### 2026-10-06 — Deep progression / Field Journal
+- Added a persistent, message-thread-only Field Journal with deterministic research levels.
+- Implemented ten depth systems: journal, researchers, story chapters, branching directives, protocols, challenge deck, anomaly catalogue, relic cabinet, lineage codex and world atlas.
+- Added six unlockable researcher characters and eight story chapters.
+- Added ten unlockable research protocols tied to increasingly deep workflows.
+- Added eight descriptor-driven anomaly records and eight milestone relics.
+- Added late-game PRESERVE / ACCELERATE / RELEASE analysis; no ending permanently locks the others.
+- Wired real gameplay events into progression: score growth, generations, discoveries, world changes, rescues, samples/mic capture, radiation, breeding, steering, saves and combo peaks.
+- Added JOURNAL to the action strip plus a scrollable in-app progression view.
+- Added a pure C++20 progression regression test; standalone compile passed with -Wall -Wextra -Werror.
+- Full product rationale and thresholds are in docs/deep-progression-spec.md.
