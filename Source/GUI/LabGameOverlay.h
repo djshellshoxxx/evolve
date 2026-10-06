@@ -12,7 +12,7 @@ namespace mutagen
     public:
         LabGameOverlay();
 
-        void showRoulette (juce::int64 score);
+        void showRoulette (juce::int64 score, bool skillRoulette = false);
         void showMonte();
         void showSlots();
         void showDice();
@@ -23,6 +23,7 @@ namespace mutagen
 
         std::function<void()> onDecline;
         std::function<void()> onRouletteSpin;
+        std::function<void()> onSkillRouletteSpin;
         std::function<void(int card)> onMontePick;
         std::function<void()> onSlotsSpin;
         std::function<void()> onDiceRoll;
@@ -38,7 +39,12 @@ namespace mutagen
         void resized() override;
 
     private:
-        enum class Mode { none, roulette, monte, slots, dice, twentyOne, scratch, result };
+        enum class Mode
+        {
+            none, roulette, skillRoulette, monte, slots, dice,
+            twentyOne, scratch, result
+        };
+
         void timerCallback() override;
         void configureButtons();
 
