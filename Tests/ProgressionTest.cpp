@@ -283,6 +283,11 @@ int main()
     assert (skillDiscoveryPoints (1) == 4);
     assert (skillDiscoveryPoints (5) == 20);
     assert (skillUsePoints() == -1);
+    assert (skillUseBonusForScore (1099) == SkillUseBonus::horn);
+    assert (skillUseBonusForScore (129) == SkillUseBonus::risingSweep);
+    assert (skillUseBonusForScore (123) == SkillUseBonus::fallingSweep);
+    assert (skillUseBonusForScore (121) == SkillUseBonus::burp);
+    assert (skillUseBonusForScore (128) == SkillUseBonus::none);
 
     const auto greenGate = greenCollisionGateSpec();
     assert (greenGate.bpm == 150);
