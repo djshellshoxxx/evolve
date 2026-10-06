@@ -56,7 +56,8 @@ namespace mutagen
           breedingLab (p),
           performance (p),
           fxRack (p),
-          optionsView (p)
+          optionsView (p),
+          progressionView (progressionSystem)
     {
         setLookAndFeel (&lnf);
 
@@ -72,6 +73,7 @@ namespace mutagen
 
         addChildComponent (helpView);
         addChildComponent (optionsView);
+        addChildComponent (progressionView);
 
         addAndMakeVisible (gameBar);
         addAndMakeVisible (scoreHud);
@@ -107,6 +109,17 @@ namespace mutagen
         timeline.onColonyChanged = [this] { chamber.repaint(); };
 
         breedingLab.onClose = [this] { breedingLab.setVisible (false); };
+        breedingLab.onBreed = [this]
+        {
+            progressionSystem.record (ProgressionSystem::Action::breedingOperation);
+            progressionView.refresh();
+        };
+        environment.onSteeringUsed = [this]
+        {
+            progressionSystem.record (ProgressionSystem::Action::steeringIntervention);
+            progressionView.refresh();
+        };
+        progressionView.onClose = [this] { progressionView.setVisible (false); };
         performance.onClose = [this]
         {
             showPerformance = false;
@@ -339,6 +352,16 @@ namespace mutagen
         gameBar.onSaveRun  = [this] { saveRun(); };
         gameBar.onLoadRun  = [this] { loadRun(); };
         gameBar.onScores   = [this] { scoreHud.setTableVisible (! scoreHud.isTableVisible()); };
+        gameBar.onJournal  = [this]
+        {
+            const bool show = ! progressionView.isVisible();
+            progressionView.setVisible (show);
+            if (show)
+            {
+                progressionView.refresh();
+                progressionView.toFront (true);
+            }
+        };
 
         // ---- microphone ---------------------------------------------------
         gameBar.onMicArm = [this]
@@ -364,6 +387,7 @@ namespace mutagen
             if (processor.digestFile (file))
             {
                 scoreSystem.onSampleDigested (file.getFileNameWithoutExtension());
+                progressionSystem.record (ProgressionSystem::Action::sampleDigested);
                 ++eaten;
             }
         }
@@ -412,6 +436,9 @@ namespace mutagen
                     {
                         // Filing the run is also what puts it on the board.
                         scoreSystem.submit (juce::String (snapshot.worldName), snapshot);
+                        progressionSystem.record (ProgressionSystem::Action::savedRun);
+                        progressionSystem.flush();
+                        progressionView.refresh();
                         topBar.setStatus ("saved " + f.getFileName());
                         scoreHud.setTableVisible (true);
                         return;
@@ -470,6 +497,7 @@ namespace mutagen
 
         // ---- the game layer -------------------------------------------
         scoreSystem.update (snapshot, dt);
+        progressionSystem.observe (snapshot, scoreSystem);
         scoreHud.setState (scoreSystem, snapshot);
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
@@ -482,18 +510,32 @@ namespace mutagen
             lastRadiationCounter = counter;
             const int outcome = processor.lastRadiationOutcome();
             scoreSystem.onRadiation (outcome);
+            progressionSystem.record (ProgressionSystem::Action::radiationExposure);
             gameBar.flashRadiation (outcome);
         }
 
         // A microphone capture finished, or the guard killed one.
         if (processor.pollMicCapture())
+        {
             scoreSystem.onSampleDigested ("mic");
+            progressionSystem.record (ProgressionSystem::Action::sampleDigested);
+        }
         if (processor.pollMicAbort())
             scoreSystem.registerInteraction (0.0f, "FEEDBACK - CAPTURE ABORTED");
 
         // The reward. ScoreSystem decides when; the chamber draws it.
         if (scoreSystem.consumeRewardFlash())
             chamber.triggerReward (snapshot.worldHue);
+
+        progressionFlushAccum += dt;
+        if (progressionFlushAccum >= 5.0)
+        {
+            progressionFlushAccum = 0.0;
+            progressionSystem.flush();
+            if (progressionView.isVisible()) progressionView.refresh();
+        }
+        if (const auto notice = progressionSystem.consumeNotice(); notice.isNotEmpty())
+            topBar.setStatus (notice);
 
         chamber.update (snapshot, dt);
         topBar.setStats (snapshot);
@@ -580,5 +622,6 @@ namespace mutagen
 
         helpView.setBounds (centred (980, 720));
         optionsView.setBounds (centred (980, 860));
+        progressionView.setBounds (centred (1080, 900));
     }
 }
