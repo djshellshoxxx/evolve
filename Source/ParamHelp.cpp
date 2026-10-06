@@ -60,6 +60,8 @@ namespace mutagen::params
                 { selAggression,  "What fitness rewards: calm on the left, aggressive on the right." },
                 { selDivergence,  "How much the colony is rewarded for finding something it "
                                   "has not found before, rather than for hitting the targets." },
+                { steerStrength,   "How hard the PUSH THE SOUND controls steer. Low values make "
+                                  "gentle suggestions; high values make decisive evolutionary turns." },
 
                 // ---- germination -------------------------------------------
                 { captureLength,     "How many seconds of the source the colony feeds on." },
