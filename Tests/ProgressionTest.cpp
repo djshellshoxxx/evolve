@@ -255,6 +255,10 @@ int main()
     assert (sideJackpot.giantRainbowOrbs == 10);
     assert (sideJackpot.blackVirusOrbs == 5);
 
+    assert (! wolfermeanDue (2, true));
+    assert (wolfermeanDue (3, true));
+    assert (! wolfermeanDue (4, false));
+
     const auto safeRoulette = rouletteOutcome (127, 6);
     assert (safeRoulette.kind != RoulettePrize::minus1000);
     assert (safeRoulette.kind != RoulettePrize::loseSkill);
