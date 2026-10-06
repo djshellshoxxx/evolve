@@ -23,12 +23,15 @@
 #include "GUI/OptionsView.h"
 #include "GUI/ProgressionView.h"
 #include "GUI/HauntedOverlay.h"
+#include "GUI/LabGameOverlay.h"
 #include "Engine/ScoreSystem.h"
 #include "Engine/HauntedEvents.h"
 #include "Engine/HiddenDiscoveries.h"
 #include "Engine/PhysicalOddities.h"
+#include "Engine/LabGames.h"
 #include "Engine/ProgressionSystem.h"
 #include "Engine/RenderEngine.h"
+#include <deque>
 
 namespace mutagen
 {
@@ -63,6 +66,16 @@ namespace mutagen
         void serviceHauntedMilestones (juce::int64 beforeScore, juce::int64 afterScore);
         void serviceSpontaneousPhantom();
 
+        enum class PendingGame { roulette, monte, slots, dice, twentyOne, scratch, skillRoulette };
+        void serviceLabGameSchedule (juce::int64 beforeScore, juce::int64 afterScore);
+        void queueLabGame (PendingGame);
+        void presentNextLabGame();
+        void playLabSound (labgames::Game, labgames::SoundMoment, int variation = 0, float intensity = 0.8f);
+        void awardGameSkill (int index, int count = 1);
+        void checkSkillRouletteTrigger (int skillsBefore, int skillsAfter);
+        void resolveTwentyOne();
+        int drawCardValue();
+
         MutagenProcessor& processor;
         MutagenLookAndFeel lnf;
 
@@ -75,6 +88,7 @@ namespace mutagen
         BreedingLabView   breedingLab;
         PerformanceView   performance;
         FxRackView        fxRack;
+        LabGameOverlay    labGameOverlay;
 
         // ---- the chrome every plugin in the range carries ----
         HelpView          helpView;
@@ -101,6 +115,16 @@ namespace mutagen
         int spontaneousPhantomTicks = 0;
         double lastCreatureDiscoverySec = -100.0;
         double lastHiddenEffectSec = -100.0;
+
+        // ---- optional lab games ----------------------------------------
+        std::deque<PendingGame> pendingGames;
+        int lastGameMinuteBucket = 0;
+        int scratchTickets = 0;
+        bool skillRoulettePendingRoll = false;
+        int monteWinningCard = 0;
+        int twentyOnePlayer = 0;
+        int twentyOneHouse = 0;
+        bool twentyOneActive = false;
 
         RenderEngine      renderEngine;
         std::unique_ptr<juce::FileChooser> chooser;
