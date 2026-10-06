@@ -156,10 +156,11 @@ namespace mutagen
                                 "migration spreads a good mutation through the whole "
                                 "colony; low keeps sub-populations distinct." },
                 { "PUSH THE SOUND",
-                  "The eight direction buttons are shortcuts for decisive selection. "
+                  "The eight direction buttons are shortcuts for direct selection. "
                   "DARK/BRIGHT, SPARSE/DENSE, NOISE/TONE and CALM/FIERCE clear the "
-                  "other selection axes, set one strong target, and apply a selection "
-                  "burst immediately." },
+                  "other selection axes, set one target, and apply a selection burst "
+                  "immediately. PUSH STRENGTH controls whether that move is a gentle "
+                  "nudge or a hard evolutionary turn." },
                 { "COUNTER-EVOLVE",
                   "Measures the current brightness, tonalness and roughness, then "
                   "selects in the opposite direction and forces a mutation pass. Use "
