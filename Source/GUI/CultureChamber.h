@@ -90,6 +90,7 @@ namespace mutagen
         std::function<void()> onMutationCatastrophe;
         std::function<void(int)> onBlackOrbsBorn;
         std::function<void(int bpm)> onTemporaryGator;
+        std::function<void(int)> onOrbsGenerated;
 
         /** Where the HUD sits, so clicks there are not treated as mutations. */
         void setHudProbe (std::function<bool (juce::Point<int>)> fn) { hudProbe = std::move (fn); }
