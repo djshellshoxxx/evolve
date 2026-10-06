@@ -282,6 +282,7 @@ int main()
     assert (orbGenerationPoints (37) == 37);
     assert (skillDiscoveryPoints (1) == 4);
     assert (skillDiscoveryPoints (5) == 20);
+    assert (skillUsePoints() == -1);
 
     const auto greenGate = greenCollisionGateSpec();
     assert (greenGate.bpm == 150);
