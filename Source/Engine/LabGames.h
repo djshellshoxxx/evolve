@@ -1,12 +1,13 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <string>
 
 namespace mutagen::labgames
 {
-    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4, scratch = 5 };
+    enum class Game { roulette = 0, monte = 1, slots = 2, dice = 3, twentyOne = 4, scratch = 5, skillRoulette = 6 };
 
     enum class SoundMoment
     {
