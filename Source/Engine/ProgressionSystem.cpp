@@ -82,6 +82,19 @@ namespace mutagen
         readIntSet (root, "creatures", creatureIds);
         readIntSet (root, "milestones", milestoneIds);
 
+        for (int i = 0; i < 5; ++i)
+        {
+            const auto key = "gameSkill" + juce::String (i);
+            gameSkillCounts[(size_t) i] = readInt (root, key.toRawUTF8());
+        }
+        gameSoundCount = readInt (root, "gameSounds");
+        specialOrbCount = readInt (root, "specialOrbs");
+        rainbowOrbCount = readInt (root, "rainbowOrbs");
+        glowingRainbowOrbCount = readInt (root, "glowingRainbowOrbs");
+        greenOrbCount = readInt (root, "greenOrbs");
+        redOrbCount = readInt (root, "redOrbs");
+        pinkOrbCount = readInt (root, "pinkOrbs");
+
         // Sets are authoritative where available. Keep the legacy world count
         // so an older journal does not lose progression during migration.
         lifetime.anomaliesFound = (int) anomalyIds.size();
@@ -316,6 +329,64 @@ namespace mutagen
         return true;
     }
 
+    void ProgressionSystem::changeGameSkill (int index, int delta)
+    {
+        if (index < 0 || index >= 5 || delta == 0) return;
+        gameSkillCounts[(size_t) index] = juce::jmax (0, gameSkillCounts[(size_t) index] + delta);
+        markDirty();
+    }
+
+    int ProgressionSystem::removeRandomGameSkill (int selector)
+    {
+        std::array<int, 5> owned {};
+        int count = 0;
+        for (int i = 0; i < 5; ++i)
+            if (gameSkillCounts[(size_t) i] > 0)
+                owned[(size_t) count++] = i;
+        if (count == 0) return -1;
+        const int index = owned[(size_t) (std::abs (selector) % count)];
+        --gameSkillCounts[(size_t) index];
+        markDirty();
+        return index;
+    }
+
+    void ProgressionSystem::addGameSounds (int count)
+    {
+        gameSoundCount = juce::jmax (0, gameSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addSpecialOrbs (int count)
+    {
+        specialOrbCount = juce::jmax (0, specialOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addRainbowOrbs (int count, bool glowing)
+    {
+        if (glowing) glowingRainbowOrbCount = juce::jmax (0, glowingRainbowOrbCount + count);
+        else rainbowOrbCount = juce::jmax (0, rainbowOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addGreenOrbs (int count)
+    {
+        greenOrbCount = juce::jmax (0, greenOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addRedOrbs (int count)
+    {
+        redOrbCount = juce::jmax (0, redOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addPinkOrbs (int count)
+    {
+        pinkOrbCount = juce::jmax (0, pinkOrbCount + count);
+        markDirty();
+    }
+
     juce::String ProgressionSystem::consumeNotice()
     {
         auto result = pendingNotice;
@@ -363,6 +434,16 @@ namespace mutagen
         juce::Array<juce::var> milestonesArray;
         for (const auto id : milestoneIds) milestonesArray.add (id);
         root->setProperty ("milestones", milestonesArray);
+
+        for (int i = 0; i < 5; ++i)
+            root->setProperty ("gameSkill" + juce::String (i), gameSkillCounts[(size_t) i]);
+        root->setProperty ("gameSounds", gameSoundCount);
+        root->setProperty ("specialOrbs", specialOrbCount);
+        root->setProperty ("rainbowOrbs", rainbowOrbCount);
+        root->setProperty ("glowingRainbowOrbs", glowingRainbowOrbCount);
+        root->setProperty ("greenOrbs", greenOrbCount);
+        root->setProperty ("redOrbs", redOrbCount);
+        root->setProperty ("pinkOrbs", pinkOrbCount);
 
         const auto file = progressFile();
         file.getParentDirectory().createDirectory();
