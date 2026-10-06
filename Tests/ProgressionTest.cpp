@@ -87,6 +87,12 @@ int main()
     assert (cdTrayRollWins (17));
     assert (! cdTrayRollWins (20));
 
+    assert (! mutagen::haunted::micRollWins (3));
+    assert (mutagen::haunted::micRollWins (4));
+    assert (! mutagen::haunted::micRollWins (5));
+    assert (crossedThreshold (100384, 100385, mutagen::haunted::micReverseThreshold));
+    assert (! crossedThreshold (100385, 100386, mutagen::haunted::micReverseThreshold));
+
     std::cout << "Progression rules: PASS\n";
     return 0;
 }
