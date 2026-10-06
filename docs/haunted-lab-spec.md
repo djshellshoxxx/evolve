@@ -6,7 +6,7 @@ The hidden layer must feel accidental, surreal and a little unsettling, but it m
 
 The story begins immediately. Before the first formal research unlock, the Journal shows a prologue and occasional ambiguous lab notes. Later chapters reinterpret earlier events rather than replacing them.
 
-Desktop-spill visuals are best-effort. A plugin host owns the VST window, so MUTAGEN may create short-lived transparent desktop overlays where the operating system permits it. If that is blocked, the same creature/animation escapes to the plugin edge and disappears there.
+Desktop-spill visuals are best-effort. A plugin host owns the VST window, so MUTAGEN may create short-lived transparent desktop overlays where the operating system permits it. If a host or operating system blocks those overlays, the event still records and its sound still plays.
 
 The requested BIOS-speaker behavior is implemented as an operating-system system-beep backend. Modern PCs generally do not expose a directly addressable motherboard PC speaker to applications.
 
@@ -29,7 +29,7 @@ Creature IDs 0..99 are generated from ten body families crossed with ten behavio
 
 ## Million-point milestones
 
-Crossing each whole 1,000,000 lifetime-score boundary unlocks a permanent Milestone Artifact. Its milestone number deterministically creates:
+Crossing each whole 1,000,000 visible run-score boundary unlocks a permanent Milestone Artifact. Its milestone number deterministically creates:
 - a unique animation recipe
 - a unique procedural sound recipe
 - a replayable skill
@@ -49,7 +49,7 @@ A successful capture is not digested into the colony. It is reversed and granula
 
 ## System beeps
 
-Selected hidden discoveries, milestone events and rare story events may request a short asynchronous system beep. Frequency and duration are bounded. Failure or unsupported platforms are silent.
+Selected hidden discoveries, milestone events and rare story events may request a non-blocking Windows system notification beep. Frequency/duration values are used only as variation hints because modern Windows generally routes MessageBeep through configured system sounds rather than a directly addressable motherboard speaker. Failure or unsupported platforms are silent.
 
 ## Story tone
 
