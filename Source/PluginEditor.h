@@ -64,6 +64,7 @@ namespace mutagen
         void serviceSpontaneousPhantom();
 
         MutagenProcessor& processor;
+        haunted::DesktopPhantomManager phantomManager;
         MutagenLookAndFeel lnf;
 
         TopBar            topBar;
