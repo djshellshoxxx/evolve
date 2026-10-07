@@ -110,6 +110,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/OptionsView.cpp
     Source/GUI/ProgressionView.cpp
     Source/GUI/HauntedOverlay.cpp
+    Source/GUI/LabGameOverlay.cpp
     Source/GUI/DeviceSetupHook.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)

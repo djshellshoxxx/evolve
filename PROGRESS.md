@@ -754,3 +754,27 @@ written, so the CI result still needs to be read before calling M11 fully verifi
 - Scoped desktop phantom windows to the editor lifetime; timed-out windows remove themselves through the owning registry.
 - Replaced assertion-only progression checks so the test remains active in Release builds.
 - Limited CI build parallelism and run the full CTest suite on each platform.
+
+---
+
+## Integration session (claude/focused-dirac-wb88c7)
+
+Step 1 — DONE: merged open PR #5 (feature/lab-games-orbs) and PR #6
+(fix/pinned-build-lifetime-audit) into this branch; resolved the
+Tests/ProgressionTest.cpp conflict (all checks use CHECK so they run in Release);
+added the missing Source/GUI/LabGameOverlay.cpp to CMakeLists.
+
+Remaining milestones (resume at the first unchecked):
+- [ ] S2 Story chapters: new levels/chapters, characters, twists, random events
+      (seeded per run so no two games match). Every beat teaches an audio /
+      music-theory fact woven into dialogue (intervals, harmonic series, ADSR,
+      filters, Nyquist, dB, phase, reverb, scales, rhythm).
+- [ ] S3 Sound collection + WAV export: capture collected sounds (orb/game
+      rewards, colony snapshots) and export them as 24-bit WAV files.
+- [ ] S4 Audit + bug fix pass; S5 optimisation + tests (ctest all green).
+- [ ] S6 CLAP via clap-juce-extensions; CI release job builds Windows
+      standalone .exe + VST3 + CLAP, Linux standalone + VST3 + CLAP, and
+      publishes a GitHub release.
+- [ ] S7 PR to main, green CI, merge.
+
+Local build: cmake -B build -G Ninja -DJUCE_SOURCE_DIR=<JUCE 8.0.6 checkout>
