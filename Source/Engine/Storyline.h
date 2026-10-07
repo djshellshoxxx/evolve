@@ -192,6 +192,17 @@ namespace mutagen::story
         int highestActSeen = 0;     // 0 = none yet
         int runsPlayed = 0;
         std::uint32_t twistsSeen = 0;
+        std::uint64_t secrets = 0;  // bit per secret room found
+        bool introSeen = false;
+        std::string playerName;
+        int plotFloor = 1;          // acts opened by time alone (one per 30 minutes of play)
+
+        int secretCount() const
+        {
+            int n = 0;
+            for (auto v = secrets; v != 0; v &= v - 1) ++n;
+            return n;
+        }
 
         int lexiconCount() const
         {
@@ -207,7 +218,7 @@ namespace mutagen::story
     /** 1-based act the player has earned. */
     inline int actFor (const Progress& p)
     {
-        int act = 1;
+        int act = std::clamp (p.plotFloor, 1, actCount);
         const int lex = p.lexiconCount();
         for (int i = 1; i < actCount; ++i)
         {

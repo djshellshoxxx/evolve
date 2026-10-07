@@ -142,6 +142,8 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/HauntedOverlay.cpp
     Source/GUI/LabGameOverlay.cpp
     Source/GUI/StoryPanel.cpp
+    Source/GUI/SecretLayer.cpp
+    Source/GUI/IntroOverlay.cpp
     Source/GUI/DeviceSetupHook.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)
@@ -183,7 +185,8 @@ endif()
 # some toolchain versions and buys little here.
 
 if(MSVC)
-    target_compile_options(MUTAGEN PRIVATE /fp:fast)
+    # /utf-8: the polyglot events carry Japanese, Hindi, Korean and Icelandic text.
+    target_compile_options(MUTAGEN PRIVATE /fp:fast /utf-8)
 else()
     target_compile_options(MUTAGEN PRIVATE -ffast-math)
 endif()

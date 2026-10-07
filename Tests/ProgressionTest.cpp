@@ -3,6 +3,7 @@
 #include "../Source/Engine/HiddenDiscoveries.h"
 #include "../Source/Engine/LabGames.h"
 #include "../Source/Engine/Storyline.h"
+#include "../Source/Engine/Secrets.h"
 #include <cstdlib>
 #include <iostream>
 #include <set>
@@ -426,6 +427,55 @@ int main()
         }
         CHECK ((int) seen.size() == lexiconSize);
         CHECK (r.drawQuiz (1) >= 0);
+    }
+
+    // ---- secrets, visitors, polyglots, name fates ------------------------
+    {
+        using namespace mutagen::secrets;
+        CHECK (secretCount == 39 && (int) all().size() == secretCount);
+        int tiers[4] {};
+        for (const auto& s : all()) ++tiers[(int) s.tier];
+        CHECK (tiers[0] >= 6 && tiers[1] >= 6 && tiers[2] >= 6 && tiers[3] >= 6);
+
+        int mirrored = 0, upside = 0;
+        for (const auto& v : visitors()) (v.glyphs == Glyphs::mirrored ? mirrored : upside)++;
+        CHECK (mirrored == 3 && upside == 4);
+        CHECK (polyglots().size() == 10);
+        CHECK (gibberish (42, 4).size() > 6 && gibberish (42, 4) != gibberish (43, 4));
+
+        // Easy ones really are easy: the dead centre and the top of a minute.
+        Tracker t;
+        Context c;
+        c.now = 1.0; c.nx = 0.5; c.ny = 0.5; c.second = 30;
+        CHECK (t.click (c, 0) == 1);
+        c.now = 2.0; c.nx = 0.3; c.second = 0;
+        CHECK (t.click (c, 0) == 0);
+        c.second = 30;
+        CHECK (t.click (c, 1) == -1 || t.click (c, 1) != 1);   // found secrets never re-fire
+
+        // Perfect cadence: column 7 then column 0 within two seconds.
+        Tracker cad;
+        Context k; k.second = 30; k.ny = 0.3;
+        k.now = 10.0; k.nx = 7.5 / 12.0; cad.click (k, 0);
+        k.now = 10.8; k.nx = 0.5 / 12.0;
+        CHECK (cad.click (k, 0) == 13);
+
+        // Calendar secrets.
+        Tracker cal;
+        Context d; d.weekday = 5; d.day = 13; d.nx = 0.3; d.ny = 0.3; d.second = 30;
+        CHECK (cal.click (d, 0) == 30);
+
+        // Name fates.
+        CHECK (fateForName ("Jo", 0) == Fate::wallRain);        // 1/2: roll 0 hits
+        CHECK (fateForName ("jo", 1) == Fate::none);            // 1/2: roll 1 misses
+        CHECK (fateForName ("Quinn", 12345) == Fate::flowers);  // always
+        CHECK (fateForName ("7even", 99) == Fate::numberCurse); // digits always
+        CHECK (fateForName ("Dee", 5) == Fate::hugeMites);      // always
+        CHECK (fateForName ("  Kai", 3) == Fate::moonCrash);    // 4/5, leading spaces ignored
+        CHECK (fateForName ("Kai", 4) == Fate::none);
+        CHECK (fateForName ("Zed", 0) == Fate::none);
+        CHECK (fateForName ("", 0) == Fate::none);
+        CHECK (ruleForName ("Tess") != nullptr && ruleForName ("Tess")->fate == Fate::blackSwarm);
     }
 
     std::cout << "Progression rules: PASS\n";
