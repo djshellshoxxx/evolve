@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(MUTAGEN VERSION 0.1.0 LANGUAGES C CXX)
+project(MUTAGEN VERSION 0.2.0 LANGUAGES C CXX)
+
+# Static MSVC runtime: the Windows standalone .exe runs without a VC++ redistributable.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -67,6 +70,31 @@ juce_add_plugin(MUTAGEN
     PRODUCT_NAME             "MUTAGEN")
 
 juce_generate_juce_header(MUTAGEN)
+
+# ---------------------------------------------------------------------------
+# CLAP, via clap-juce-extensions (JUCE 8 has no native CLAP wrapper).
+#   cmake -B build -DCLAP_JUCE_EXTENSIONS_DIR=/path/to/checkout  to skip the fetch
+# ---------------------------------------------------------------------------
+option(MUTAGEN_BUILD_CLAP "Build the CLAP plugin" ON)
+set(MUTAGEN_CLAP_JUCE_EXT_TAG "7adee3a1bd4684d4caa5601100e364abccff4b4d" CACHE STRING
+    "clap-juce-extensions commit to fetch")
+
+if(MUTAGEN_BUILD_CLAP)
+    if(DEFINED CLAP_JUCE_EXTENSIONS_DIR AND EXISTS "${CLAP_JUCE_EXTENSIONS_DIR}/CMakeLists.txt")
+        add_subdirectory("${CLAP_JUCE_EXTENSIONS_DIR}" "${CMAKE_BINARY_DIR}/clap-juce-extensions" EXCLUDE_FROM_ALL)
+    else()
+        FetchContent_Declare(
+            clap-juce-extensions
+            GIT_REPOSITORY https://github.com/free-audio/clap-juce-extensions.git
+            GIT_TAG        ${MUTAGEN_CLAP_JUCE_EXT_TAG}
+            GIT_SUBMODULES_RECURSE TRUE)
+        FetchContent_MakeAvailable(clap-juce-extensions)
+    endif()
+
+    clap_juce_extensions_plugin(TARGET MUTAGEN
+        CLAP_ID "com.colonyworks.mutagen"
+        CLAP_FEATURES instrument synthesizer audio-effect stereo)
+endif()
 
 target_sources(MUTAGEN PRIVATE
     Source/PluginProcessor.cpp
