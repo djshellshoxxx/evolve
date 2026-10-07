@@ -39,6 +39,77 @@ namespace mutagen
         bool discoverCreature (int id);
         bool unlockMilestoneArtifact (int index);
 
+        // Persistent lab-game inventory.
+        const std::array<int, 5>& gameSkills() const { return gameSkillCounts; }
+        int unlockedGameSounds() const { return gameSoundCount; }
+        int specialOrbs() const { return specialOrbCount; }
+        int rainbowOrbs() const { return rainbowOrbCount; }
+        int glowingRainbowOrbs() const { return glowingRainbowOrbCount; }
+        int greenOrbs() const { return greenOrbCount; }
+        int redOrbs() const { return redOrbCount; }
+        int pinkOrbs() const { return pinkOrbCount; }
+        int snareSounds() const { return snareSoundCount; }
+        int tomSounds() const { return tomSoundCount; }
+        int bassDrumSounds() const { return bassDrumSoundCount; }
+        int pianoKeySounds() const { return pianoKeySoundCount; }
+        int stringSounds() const { return stringSoundCount; }
+        int tambourineSounds() const { return tambourineSoundCount; }
+        int bassDrops() const { return bassDropCount; }
+        int kazooSounds() const { return kazooSoundCount; }
+        int clapSounds() const { return clapSoundCount; }
+        int padSounds() const { return padSoundCount; }
+        int upSweepSounds() const { return upSweepSoundCount; }
+
+        bool sideMutationUnlocked() const { return sideMutationUnlockedFlag; }
+        int petChoice() const { return petChoiceValue; } // 0 none, 1 cat, 2 dog
+        bool gatorUnlocked() const { return gatorUnlockedFlag; }
+        bool gateShapesUnlocked() const { return gateShapesUnlockedFlag; }
+        bool tripDelayUnlocked() const { return tripDelayUnlockedFlag; }
+        bool reverseSkillUnlocked() const { return reverseSkillUnlockedFlag; }
+        int gamesCompleted() const { return gamesCompletedCount; }
+        bool exchangeEffectUnlocked (int index) const
+        {
+            return index >= 0 && index < (int) exchangeEffects.size()
+                ? exchangeEffects[(size_t) index] : false;
+        }
+
+        int totalGameSkills() const
+        {
+            int total = 0;
+            for (const auto n : gameSkillCounts) total += n;
+            return total;
+        }
+
+        void changeGameSkill (int index, int delta);
+        int removeRandomGameSkill (int selector);
+        void addGameSounds (int count);
+        void addSpecialOrbs (int count);
+        void addRainbowOrbs (int count, bool glowing = false);
+        void addGreenOrbs (int count);
+        void addRedOrbs (int count);
+        void addPinkOrbs (int count);
+        void addSnareSounds (int count);
+        void addTomSounds (int count);
+        void addBassDrumSounds (int count);
+        bool tradeBassDrumsForPianoKey();
+        void addPianoKeySounds (int count);
+        void addStringSounds (int count);
+        void addTambourineSounds (int count);
+        void addBassDrops (int count);
+        void addKazooSounds (int count);
+        void addClapSounds (int count);
+        void addPadSounds (int count);
+        void addUpSweepSounds (int count);
+
+        void unlockSideMutation();
+        void setPetChoice (int pet);
+        void unlockGator();
+        void unlockGateShapes();
+        void unlockTripDelay();
+        void unlockReverseSkill();
+        void recordGameCompleted();
+        void unlockExchangeEffect (int index);
+
         /** Returns and clears the newest unlock/event notice. */
         juce::String consumeNotice();
 
@@ -58,6 +129,36 @@ namespace mutagen
         std::set<juce::String> worldIds;
         std::set<int> creatureIds;
         std::set<int> milestoneIds;
+
+        std::array<int, 5> gameSkillCounts {};
+        int gameSoundCount = 0;
+        int specialOrbCount = 0;
+        int rainbowOrbCount = 0;
+        int glowingRainbowOrbCount = 0;
+        int greenOrbCount = 0;
+        int redOrbCount = 0;
+        int pinkOrbCount = 0;
+        int snareSoundCount = 0;
+        int tomSoundCount = 0;
+        int bassDrumSoundCount = 0;
+        int pianoKeySoundCount = 0;
+        int stringSoundCount = 0;
+        int tambourineSoundCount = 0;
+        int bassDropCount = 0;
+        int kazooSoundCount = 0;
+        int clapSoundCount = 0;
+        int padSoundCount = 0;
+        int upSweepSoundCount = 0;
+
+        bool sideMutationUnlockedFlag = false;
+        int petChoiceValue = 0;
+        bool gatorUnlockedFlag = false;
+        bool gateShapesUnlockedFlag = false;
+        bool tripDelayUnlockedFlag = false;
+        bool reverseSkillUnlockedFlag = false;
+        int gamesCompletedCount = 0;
+        std::array<bool, 4> exchangeEffects {};
+
         juce::String pendingNotice;
 
         juce::int64 lastScore = 0;

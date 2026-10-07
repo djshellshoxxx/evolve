@@ -44,7 +44,8 @@ cmake -B build                      # fetches JUCE 8.0.6 on first run
 cmake --build build --config Release --target MUTAGEN_Standalone
 ```
 
-The VST3 is copied to your system plugin folder automatically. On this machine a
+The VST3 is copied to your system plugin folder automatically. A CLAP build is
+produced too (via clap-juce-extensions); pass `-DMUTAGEN_BUILD_CLAP=OFF` to skip it. On this machine a
 fully parallel build occasionally dies with `CL.exe exited with code -1`; `-j 1`
 always completes.
 
@@ -215,6 +216,59 @@ drive requests are ignored on systems without a usable drive, and modern Windows
 machines may route system beeps through normal audio rather than a motherboard speaker.
 
 ---
+
+## The Resonance Acts
+
+A second storyline runs in the narrator strip under the chamber. Seven new
+characters share the lab: **Dr. Cadence Mirelle** (acoustician), **Fourier** (the
+spectrum analyser), **Lyra Kestrel** (composer), **Sub** (an organism living below
+20 Hz), **Echo** (a delay line), **Nyquist** (the gatekeeper at half the sample rate)
+and **The Tuner**, who wants every sound in the building at exactly 440 Hz.
+
+Every line they speak is one true fact about acoustics, sound design or music
+theory, and the colony *performs* it while they speak: the cells sing the octave,
+the fifth, the dominant seventh; a tempo gate opens at 120 BPM; a delay starts
+repeating itself. Facts heard are counted as **lexicon**, and lexicon (plus sounds
+collected and ear checks passed) is what opens the next act. There are eight acts,
+sixty lexicon entries and sixteen ear checks.
+
+No two runs are the same. Each run draws its own **key and mode** (twelve roots,
+ten modes from Lydian to whole-tone), its own **twist** (eight, such as *Echo was
+always alone* or *The 432 decree*), its own event order and its own pacing.
+
+The lab games (roulette, three-card monte, slots, dice, twenty-one, scratch cards)
+are offered during play. Instrument rewards are real sounds: each one is recorded
+into your collection, and whoever hands it over tells you how that instrument works.
+
+## Collecting and exporting sounds
+
+**COLLECT** records the last three seconds of the colony. Story twists, new acts,
+newly discovered creatures and lab-game instrument rewards are collected
+automatically. Each sound is prepared like a sample-library one-shot: DC offset
+removed, peak-normalised to -1 dBFS and given 10 ms fades so it never clicks. It is
+then written straight away as a **24-bit WAV** to
+
+| OS | Folder |
+|---|---|
+| Windows | `%APPDATA%\MUTAGEN\Collected Sounds` |
+| macOS | `~/Library/MUTAGEN/Collected Sounds` |
+| Linux | `~/.config/MUTAGEN/Collected Sounds` |
+
+**EXPORT WAV** copies the whole collection to a folder you choose.
+
+## Downloads
+
+Builds are on the [Releases](https://github.com/djshellshoxxx/evolve/releases) page:
+
+| Platform | Contents |
+|---|---|
+| Windows x64 | `MUTAGEN.exe` (standalone, no installer or redistributable needed), `MUTAGEN.vst3`, `MUTAGEN.clap` |
+| Linux x64 | `MUTAGEN` (standalone), `MUTAGEN.vst3`, `MUTAGEN.clap` |
+| macOS (universal) | `MUTAGEN.app`, `MUTAGEN.component` (AU), `MUTAGEN.vst3`, `MUTAGEN.clap` (unsigned) |
+
+Plugin folders: VST3 goes in `C:\Program Files\Common Files\VST3`, `~/.vst3` or
+`~/Library/Audio/Plug-Ins/VST3`. CLAP goes in `C:\Program Files\Common Files\CLAP`,
+`~/.clap` or `~/Library/Audio/Plug-Ins/CLAP`.
 
 ## How it stays interesting
 

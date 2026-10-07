@@ -746,3 +746,53 @@ written, so the CI result still needs to be read before calling M11 fully verifi
 - Replaced detached hardware threads with editor-owned timer/state logic so no worker can outlive a plugin DLL.
 - Added regression coverage for exact score crossings, winning rolls, deterministic discovery, all 100 unique creature names/lore entries, hidden patterns, randomized roll bounds and unique consecutive million-point artifacts.
 - Full design notes live in docs/haunted-lab-spec.md.
+
+
+### 2026-10-07 — Build and lifetime audit
+
+- Fixed JUCE `var` integer conversions that failed on Linux with the pinned JUCE build.
+- Scoped desktop phantom windows to the editor lifetime; timed-out windows remove themselves through the owning registry.
+- Replaced assertion-only progression checks so the test remains active in Release builds.
+- Limited CI build parallelism and run the full CTest suite on each platform.
+
+---
+
+## Integration session (claude/focused-dirac-wb88c7)
+
+Step 1 — DONE (builds on Linux, all tests pass): merged open PR #5 (feature/lab-games-orbs) and PR #6
+(fix/pinned-build-lifetime-audit) into this branch; resolved the
+Tests/ProgressionTest.cpp conflict (all checks use CHECK so they run in Release);
+added the missing Source/GUI/LabGameOverlay.cpp to CMakeLists.
+Also fixed compile errors: stale launchDesktopPhantom call sites, jlimit on
+std::atomic, Display::userBounds -> userArea, incomplete PhantomRegistry type.
+
+Remaining milestones (resume at the first unchecked):
+- [x] S2 Story chapters: new levels/chapters, characters, twists, random events
+      (seeded per run so no two games match). Every beat teaches an audio /
+      music-theory fact woven into dialogue (intervals, harmonic series, ADSR,
+      filters, Nyquist, dB, phase, reverb, scales, rhythm).
+- [x] S3 Sound collection + WAV export: capture collected sounds (orb/game
+      rewards, colony snapshots) and export them as 24-bit WAV files.
+- [x] S4 Audit + bug fix pass; S5 optimisation + tests (ctest all green).
+- [ ] S6 CLAP via clap-juce-extensions; CI release job builds Windows
+      standalone .exe + VST3 + CLAP, Linux standalone + VST3 + CLAP, and
+      publishes a GitHub release.
+- [ ] S7 PR to main, green CI, merge.
+
+Local build: cmake -B build -G Ninja -DJUCE_SOURCE_DIR=<JUCE 8.0.6 checkout>
+
+S2/S3 notes: Source/Engine/Storyline.h (8 Resonance Acts, 7 new characters,
+60 lexicon events, 16 ear checks, 10 modes x 12 keys, 8 twists, seeded per run),
+Source/GUI/StoryPanel.* (narrator strip + director + COLLECT/EXPORT WAV),
+Source/Engine/SoundCollection.* (DC-remove, -1 dBFS normalise, 10 ms fades,
+24-bit WAV in <appdata>/MUTAGEN/Collected Sounds). Lab games from PR #5 were
+declared but never wired: now wired in Source/LabGameFlow.cpp, each instrument
+reward is collected as a WAV and comes with a fact. New CommandType::noteRelease.
+Tests: MutagenSoundCollectionTest + story checks in MutagenProgressionTest.
+
+S4 audit fixes: capture ring use-after-free/race (lock-guarded rings, atomic
+heads) and a separate output ring so COLLECT/render record what is heard;
+closing the editor no longer disarms the user's mic; trip-delay 1.5 kHz buzz
+and stale-tail replay; orbs now spawn for lab-game prizes; soft aces in 21;
+piano keys persisted; no WAV overwrite / progress loss across instances;
+duplicate story notes; overlay button layout; -50 dBFS collect gate.

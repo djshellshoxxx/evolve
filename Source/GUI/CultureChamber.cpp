@@ -70,6 +70,7 @@ namespace mutagen
         ripples.erase (std::remove_if (ripples.begin(), ripples.end(),
                         [] (const Ripple& r) { return r.life <= 0.0f; }), ripples.end());
 
+        updateGameOrbs (dt);
         repaint();
     }
 
@@ -79,6 +80,226 @@ namespace mutagen
         // the colony rather than as chrome in a corner.
         ghost.trigger ({ 0.3f + rnd.nextFloat() * 0.4f, 0.3f + rnd.nextFloat() * 0.4f },
                        hue, rnd);
+    }
+
+    void CultureChamber::addOrb (OrbKind kind, float speedScale, float lifeScale)
+    {
+        if (gameOrbs.size() >= 2600)
+            return;
+
+        const float a = rnd.nextFloat() * juce::MathConstants<float>::twoPi;
+        const float speed = (0.055f + rnd.nextFloat() * 0.095f) * speedScale;
+        Orb o;
+        o.p = { 0.08f + rnd.nextFloat() * 0.84f, 0.08f + rnd.nextFloat() * 0.84f };
+        o.v = { std::cos (a) * speed, std::sin (a) * speed };
+        o.radius = kind == OrbKind::monster ? 9.0f
+                 : kind == OrbKind::mini ? 2.2f
+                 : kind == OrbKind::glowingRainbow ? 5.5f : 4.2f;
+        o.maxLife = (kind == OrbKind::glowingRainbow ? 34.0f : 8.0f) * lifeScale;
+        o.life = o.maxLife;
+        o.kind = kind;
+        o.pulse = rnd.nextFloat() * juce::MathConstants<float>::twoPi;
+        gameOrbs.push_back (o);
+    }
+
+    void CultureChamber::spawnSpecialOrbs (int count)
+    {
+        count = juce::jlimit (0, 600, count);
+        for (int i = 0; i < count; ++i)
+        {
+            const auto kind = (i % 5 == 0) ? OrbKind::red
+                            : (i % 7 == 0) ? OrbKind::pink
+                                           : OrbKind::special;
+            addOrb (kind, 1.0f, 1.0f);
+        }
+    }
+
+    void CultureChamber::spawnRainbowOrbs (int count, bool glowing, int multiplier)
+    {
+        count = juce::jlimit (0, 1200, count);
+        multiplier = juce::jlimit (1, 2, multiplier);
+        for (int i = 0; i < count; ++i)
+        {
+            addOrb (glowing ? OrbKind::glowingRainbow : OrbKind::rainbow, 1.2f, 2.0f);
+            if (multiplier == 2 && ! gameOrbs.empty())
+                gameOrbs.back().multiplied = false;
+            else if (! gameOrbs.empty())
+                gameOrbs.back().multiplied = true;
+        }
+    }
+
+    void CultureChamber::spawnMonsterOrbs (int count)
+    {
+        for (int i = 0; i < juce::jlimit (0, 200, count); ++i)
+            addOrb (OrbKind::monster, 3.0f, 1.0f);
+    }
+
+    void CultureChamber::spawnMiniOrbs (int count)
+    {
+        for (int i = 0; i < juce::jlimit (0, 100, count); ++i)
+            addOrb (OrbKind::mini, 1.0f / 3.0f, 10.0f);
+    }
+
+    void CultureChamber::setOrbInversion (float seconds)
+    {
+        orbInversionSeconds = juce::jmax (orbInversionSeconds, juce::jlimit (1.0f, 60.0f, seconds));
+        for (auto& o : gameOrbs)
+            o.v = -o.v;
+    }
+
+    juce::Colour CultureChamber::orbColour (OrbKind kind, float p) const
+    {
+        if (orbInversionSeconds > 0.0f)
+            p = 1.0f - p;
+
+        switch (kind)
+        {
+            case OrbKind::special: return juce::Colour::fromHSV (std::fmod (0.72f + p * 0.22f, 1.0f), 0.72f, 1.0f, 1.0f);
+            case OrbKind::rainbow:
+            case OrbKind::glowingRainbow: return juce::Colour::fromHSV (std::fmod (p + (float) phase * 0.13f, 1.0f), 0.92f, 1.0f, 1.0f);
+            case OrbKind::monster: return juce::Colour::fromHSV (std::fmod (0.83f + p * 0.12f, 1.0f), 0.95f, 1.0f, 1.0f);
+            case OrbKind::mini: return juce::Colour (0xffb8fff8);
+            case OrbKind::green: return juce::Colour (0xff52ff79);
+            case OrbKind::red: return juce::Colour (0xffff465f);
+            case OrbKind::pink: return juce::Colour (0xffff70c8);
+        }
+        return juce::Colours::white;
+    }
+
+    void CultureChamber::updateGameOrbs (double dtSeconds)
+    {
+        const float dt = (float) juce::jlimit (0.0, 0.1, dtSeconds);
+        orbInversionSeconds = juce::jmax (0.0f, orbInversionSeconds - dt);
+        orbCollisionClock += dt;
+
+        int greenBorn = 0;
+        int cornerEvents = 0;
+        std::vector<Orb> multiplied;
+        multiplied.reserve (64);
+
+        for (auto& o : gameOrbs)
+        {
+            o.life -= dt;
+            o.pulse += dt * (o.kind == OrbKind::monster ? 11.0f : o.kind == OrbKind::mini ? 0.7f : 3.0f);
+
+            const auto before = o.p;
+            o.p += o.v * dt;
+
+            const bool hitX = o.p.x < 0.0f || o.p.x > 1.0f;
+            const bool hitY = o.p.y < 0.0f || o.p.y > 1.0f;
+            if (hitX) { o.p.x = juce::jlimit (0.0f, 1.0f, o.p.x); o.v.x = -o.v.x; }
+            if (hitY) { o.p.y = juce::jlimit (0.0f, 1.0f, o.p.y); o.v.y = -o.v.y; }
+
+            if ((o.kind == OrbKind::rainbow || o.kind == OrbKind::glowingRainbow) && hitX && hitY)
+            {
+                ++cornerEvents;
+                const auto px = toPixels (o.p.x, o.p.y);
+                for (int i = 0; i < 90; ++i)
+                {
+                    Sprinkle s;
+                    s.p = px;
+                    s.v = { (rnd.nextFloat() - 0.5f) * 150.0f,
+                            30.0f + rnd.nextFloat() * 150.0f };
+                    s.life = 1.4f + rnd.nextFloat() * 1.3f;
+                    s.c = juce::Colour::fromHSV (rnd.nextFloat(), 0.95f, 1.0f, 1.0f);
+                    sprinkles.push_back (s);
+                }
+            }
+
+            // Jackpot rainbows are born 2-for-1 once, after entering motion.
+            if (o.kind == OrbKind::glowingRainbow && ! o.multiplied
+                && o.life < o.maxLife * 0.82f && gameOrbs.size() + multiplied.size() < 2600)
+            {
+                Orb twin = o;
+                twin.v = { -o.v.y * 0.92f, o.v.x * 0.92f };
+                twin.multiplied = true;
+                o.multiplied = true;
+                multiplied.push_back (twin);
+            }
+        }
+
+        for (auto& twin : multiplied)
+            gameOrbs.push_back (twin);
+
+        // Bounded collision sampling. Rainbow + red/pink breeds a persistent
+        // green orb; we never do an O(N^2) pass over a 1000-orb jackpot.
+        if (orbCollisionClock >= 0.10f && gameOrbs.size() > 1)
+        {
+            orbCollisionClock = 0.0f;
+            const int checks = juce::jmin (420, (int) gameOrbs.size() * 2);
+            for (int n = 0; n < checks && gameOrbs.size() < 2600; ++n)
+            {
+                const int a = rnd.nextInt ((int) gameOrbs.size());
+                const int b = rnd.nextInt ((int) gameOrbs.size());
+                if (a == b) continue;
+                auto& x = gameOrbs[(size_t) a];
+                auto& y = gameOrbs[(size_t) b];
+                const bool xr = x.kind == OrbKind::rainbow || x.kind == OrbKind::glowingRainbow;
+                const bool yr = y.kind == OrbKind::rainbow || y.kind == OrbKind::glowingRainbow;
+                const bool xMate = x.kind == OrbKind::red || x.kind == OrbKind::pink;
+                const bool yMate = y.kind == OrbKind::red || y.kind == OrbKind::pink;
+                if (! ((xr && yMate) || (yr && xMate))) continue;
+                if (x.p.getDistanceFrom (y.p) > 0.032f) continue;
+
+                Orb green;
+                green.kind = OrbKind::green;
+                green.p = (x.p + y.p) * 0.5f;
+                green.v = (x.v + y.v) * 0.45f;
+                green.radius = 3.8f;
+                green.maxLife = green.life = 18.0f;
+                green.pulse = rnd.nextFloat() * 6.0f;
+                green.multiplied = true;
+                gameOrbs.push_back (green);
+                ++greenBorn;
+            }
+        }
+
+        gameOrbs.erase (std::remove_if (gameOrbs.begin(), gameOrbs.end(),
+                        [] (const Orb& o) { return o.life <= 0.0f; }), gameOrbs.end());
+
+        for (auto& s : sprinkles)
+        {
+            s.life -= dt;
+            s.p += s.v * dt;
+            s.v.y += 100.0f * dt;
+        }
+        sprinkles.erase (std::remove_if (sprinkles.begin(), sprinkles.end(),
+                         [] (const Sprinkle& s) { return s.life <= 0.0f; }), sprinkles.end());
+
+        if (greenBorn > 0 && onGreenOrbsBorn)
+            onGreenOrbsBorn (greenBorn);
+        if (cornerEvents > 0 && onRainbowCorner)
+            onRainbowCorner();
+    }
+
+    void CultureChamber::paintGameOrbs (juce::Graphics& g)
+    {
+        for (const auto& o : gameOrbs)
+        {
+            const auto p = toPixels (o.p.x, o.p.y);
+            const float pulse = 0.78f + 0.22f * std::sin (o.pulse);
+            float radius = o.radius * pulse;
+            const float huePhase = std::fmod (o.p.x * 0.37f + o.p.y * 0.63f + o.pulse * 0.03f, 1.0f);
+            const auto colour = orbColour (o.kind, huePhase);
+
+            if (o.kind == OrbKind::glowingRainbow || o.kind == OrbKind::monster)
+            {
+                g.setColour (colour.withAlpha (0.14f));
+                g.fillEllipse (p.x - radius * 2.2f, p.y - radius * 2.2f,
+                               radius * 4.4f, radius * 4.4f);
+            }
+            g.setColour (colour.withAlpha (0.88f));
+            g.fillEllipse (p.x - radius, p.y - radius, radius * 2.0f, radius * 2.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.45f));
+            g.fillEllipse (p.x - radius * 0.42f, p.y - radius * 0.48f,
+                           radius * 0.54f, radius * 0.54f);
+        }
+
+        for (const auto& s : sprinkles)
+        {
+            g.setColour (s.c.withAlpha (juce::jlimit (0.0f, 1.0f, s.life)));
+            g.fillRect (juce::Rectangle<float> (s.p.x, s.p.y, 3.0f, 7.0f));
+        }
     }
 
     // =====================================================================
@@ -377,6 +598,9 @@ namespace mutagen
 
         // ---- the fractal reward -------------------------------------------
         ghost.render (g, field);
+
+        // Lab-game orbs live above the colony but below alert flashes.
+        paintGameOrbs (g);
 
         // ---- RADIATE red flash ---------------------------------------------
         if (redFlash > 0.01f)

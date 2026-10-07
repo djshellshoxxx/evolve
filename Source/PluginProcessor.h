@@ -187,9 +187,17 @@ namespace mutagen
         std::atomic<uint64_t> fullStateStamp { 0 };
 
         // ---- live capture ring ---------------------------------
-        juce::AudioBuffer<float> captureRing;
-        int  captureWritePos = 0;
-        bool captureRingFilled = false;
+        // Two rings: the input (for CAPTURE LIVE) and the final output (for
+        // COLLECT, sound export and offline render). They are only resized in
+        // prepareToPlay, under ringLock, which the message/render threads hold
+        // while copying - so a host re-prepare can never free memory mid-read.
+        // Write heads are published once per block.
+        juce::AudioBuffer<float> captureRing, outputRing;
+        std::atomic<int> captureWritePos { 0 }, outputWritePos { 0 };
+        mutable juce::SpinLock ringLock;
+        static void writeRing (juce::AudioBuffer<float>&, std::atomic<int>&, const float*, int);
+        void readRing (const juce::AudioBuffer<float>&, const std::atomic<int>&,
+                       juce::AudioBuffer<float>& dst, float seconds, int minSamples) const;
 
         std::atomic<bool> exploringFlag { true };
 
@@ -242,6 +250,11 @@ namespace mutagen
 
         // ---- hidden laboratory audio -----------------------------------
         void triggerHauntedSound (int recipe, float intensity = 1.0f);
+        void triggerSkillSound (int recipe, bool reverse = false);
+        void triggerTemporaryGator (int bpm, int durationSeconds, int fadeSeconds = 18);
+        void triggerTripDelay (int durationSeconds = 120);
+        bool temporaryGatorActive() const { return temporaryGateActive.load(); }
+        bool tripDelayActive() const { return tripDelayActiveFlag.load(); }
         bool startHauntedMicCapture (float seconds = 5.0f);
         bool pollHauntedMicCapture();
         void cancelHauntedMicCapture();
@@ -260,6 +273,8 @@ namespace mutagen
         std::atomic<int> hauntedSoundRecipe { 0 };
         std::atomic<float> hauntedSoundIntensity { 1.0f };
         std::atomic<uint64_t> hauntedSoundStamp { 0 };
+        std::atomic<bool> hauntedSoundReverse { false };
+        bool hauntedSoundReverseLatched = false;
         uint64_t hauntedSoundSeen = 0;
         double hauntedPhaseA = 0.0, hauntedPhaseB = 0.0;
         int hauntedSoundRemaining = 0, hauntedSoundTotal = 0;
@@ -276,6 +291,26 @@ namespace mutagen
         bool hauntedMicMode = false;
         bool hauntedMicRestoreArmed = false;
         bool hauntedMicRestoreMonitoring = false;
+
+        std::atomic<int> temporaryGateBpm { 0 };
+        std::atomic<int> temporaryGateDurationSeconds { 0 };
+        std::atomic<int> temporaryGateFadeSeconds { 18 };
+        std::atomic<uint64_t> temporaryGateStamp { 0 };
+        std::atomic<bool> temporaryGateActive { false };
+        uint64_t temporaryGateSeen = 0;
+        int64_t temporaryGateSamplesLeft = 0;
+        int64_t temporaryGateFadeSamples = 0;
+        double temporaryGatePhase = 0.0;
+
+        std::atomic<int> tripDelayDurationSeconds { 0 };
+        std::atomic<uint64_t> tripDelayStamp { 0 };
+        std::atomic<bool> tripDelayActiveFlag { false };
+        uint64_t tripDelaySeen = 0;
+        int64_t tripDelaySamplesLeft = 0;
+        juce::AudioBuffer<float> tripDelayBuffer;
+        int tripDelayWrite = 0;
+        int64_t tripDelayAge = 0;
+        double tripDelayReadPhase = 0.0;
 
         double hostTimeSeconds = 0.0;
 

@@ -82,6 +82,43 @@ namespace mutagen
         readIntSet (root, "creatures", creatureIds);
         readIntSet (root, "milestones", milestoneIds);
 
+        for (int i = 0; i < 5; ++i)
+        {
+            const auto key = "gameSkill" + juce::String (i);
+            gameSkillCounts[(size_t) i] = readInt (root, key.toRawUTF8());
+        }
+        gameSoundCount = readInt (root, "gameSounds");
+        specialOrbCount = readInt (root, "specialOrbs");
+        rainbowOrbCount = readInt (root, "rainbowOrbs");
+        glowingRainbowOrbCount = readInt (root, "glowingRainbowOrbs");
+        greenOrbCount = readInt (root, "greenOrbs");
+        redOrbCount = readInt (root, "redOrbs");
+        pinkOrbCount = readInt (root, "pinkOrbs");
+        snareSoundCount = readInt (root, "snareSounds");
+        tomSoundCount = readInt (root, "tomSounds");
+        bassDrumSoundCount = readInt (root, "bassDrumSounds");
+        pianoKeySoundCount = readInt (root, "pianoKeySounds");
+        stringSoundCount = readInt (root, "stringSounds");
+        tambourineSoundCount = readInt (root, "tambourineSounds");
+        bassDropCount = readInt (root, "bassDrops");
+        kazooSoundCount = readInt (root, "kazooSounds");
+        clapSoundCount = readInt (root, "clapSounds");
+        padSoundCount = readInt (root, "padSounds");
+        upSweepSoundCount = readInt (root, "upSweepSounds");
+
+        sideMutationUnlockedFlag = readInt (root, "sideMutationUnlocked") != 0;
+        petChoiceValue = juce::jlimit (0, 2, readInt (root, "petChoice"));
+        gatorUnlockedFlag = readInt (root, "gatorUnlocked") != 0;
+        gateShapesUnlockedFlag = readInt (root, "gateShapesUnlocked") != 0;
+        tripDelayUnlockedFlag = readInt (root, "tripDelayUnlocked") != 0;
+        reverseSkillUnlockedFlag = readInt (root, "reverseSkillUnlocked") != 0;
+        gamesCompletedCount = juce::jmax (0, readInt (root, "gamesCompleted"));
+        for (int i = 0; i < (int) exchangeEffects.size(); ++i)
+        {
+            const auto key = "exchangeEffect" + juce::String (i);
+            exchangeEffects[(size_t) i] = readInt (root, key.toRawUTF8()) != 0;
+        }
+
         // Sets are authoritative where available. Keep the legacy world count
         // so an older journal does not lose progression during migration.
         lifetime.anomaliesFound = (int) anomalyIds.size();
@@ -316,6 +353,197 @@ namespace mutagen
         return true;
     }
 
+    void ProgressionSystem::changeGameSkill (int index, int delta)
+    {
+        if (index < 0 || index >= 5 || delta == 0) return;
+        gameSkillCounts[(size_t) index] = juce::jmax (0, gameSkillCounts[(size_t) index] + delta);
+        markDirty();
+    }
+
+    int ProgressionSystem::removeRandomGameSkill (int selector)
+    {
+        std::array<int, 5> owned {};
+        int count = 0;
+        for (int i = 0; i < 5; ++i)
+            if (gameSkillCounts[(size_t) i] > 0)
+                owned[(size_t) count++] = i;
+        if (count == 0) return -1;
+        const int index = owned[(size_t) (std::abs (selector) % count)];
+        --gameSkillCounts[(size_t) index];
+        markDirty();
+        return index;
+    }
+
+    void ProgressionSystem::addGameSounds (int count)
+    {
+        gameSoundCount = juce::jmax (0, gameSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addSpecialOrbs (int count)
+    {
+        specialOrbCount = juce::jmax (0, specialOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addRainbowOrbs (int count, bool glowing)
+    {
+        if (glowing) glowingRainbowOrbCount = juce::jmax (0, glowingRainbowOrbCount + count);
+        else rainbowOrbCount = juce::jmax (0, rainbowOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addGreenOrbs (int count)
+    {
+        greenOrbCount = juce::jmax (0, greenOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addRedOrbs (int count)
+    {
+        redOrbCount = juce::jmax (0, redOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addPinkOrbs (int count)
+    {
+        pinkOrbCount = juce::jmax (0, pinkOrbCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addSnareSounds (int count)
+    {
+        snareSoundCount = juce::jmax (0, snareSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addTomSounds (int count)
+    {
+        tomSoundCount = juce::jmax (0, tomSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addPianoKeySounds (int count)
+    {
+        pianoKeySoundCount = juce::jmax (0, pianoKeySoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addBassDrumSounds (int count)
+    {
+        bassDrumSoundCount = juce::jmax (0, bassDrumSoundCount + count);
+        markDirty();
+    }
+
+    bool ProgressionSystem::tradeBassDrumsForPianoKey()
+    {
+        if (bassDrumSoundCount < 5) return false;
+        bassDrumSoundCount -= 5;
+        ++pianoKeySoundCount;
+        markDirty();
+        return true;
+    }
+
+    void ProgressionSystem::addStringSounds (int count)
+    {
+        stringSoundCount = juce::jmax (0, stringSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addTambourineSounds (int count)
+    {
+        tambourineSoundCount = juce::jmax (0, tambourineSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addBassDrops (int count)
+    {
+        bassDropCount = juce::jmax (0, bassDropCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addKazooSounds (int count)
+    {
+        kazooSoundCount = juce::jmax (0, kazooSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addClapSounds (int count)
+    {
+        clapSoundCount = juce::jmax (0, clapSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addPadSounds (int count)
+    {
+        padSoundCount = juce::jmax (0, padSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::addUpSweepSounds (int count)
+    {
+        upSweepSoundCount = juce::jmax (0, upSweepSoundCount + count);
+        markDirty();
+    }
+
+    void ProgressionSystem::unlockSideMutation()
+    {
+        if (sideMutationUnlockedFlag) return;
+        sideMutationUnlockedFlag = true;
+        markDirty ("SIDE MUTATION SLOTS UNLOCKED");
+    }
+
+    void ProgressionSystem::setPetChoice (int pet)
+    {
+        petChoiceValue = juce::jlimit (0, 2, pet);
+        markDirty (petChoiceValue == 1 ? "LAB CAT ADOPTED"
+                                      : petChoiceValue == 2 ? "LAB DOG ADOPTED" : juce::String());
+    }
+
+    void ProgressionSystem::unlockGator()
+    {
+        if (gatorUnlockedFlag) return;
+        gatorUnlockedFlag = true;
+        markDirty ("GATOR UNLOCKED");
+    }
+
+    void ProgressionSystem::unlockGateShapes()
+    {
+        if (gateShapesUnlockedFlag) return;
+        gateShapesUnlockedFlag = true;
+        markDirty ("GATOR SHAPES UNLOCKED");
+    }
+
+    void ProgressionSystem::unlockTripDelay()
+    {
+        if (tripDelayUnlockedFlag) return;
+        tripDelayUnlockedFlag = true;
+        markDirty ("TRIP DELAY UNLOCKED");
+    }
+
+    void ProgressionSystem::unlockReverseSkill()
+    {
+        if (reverseSkillUnlockedFlag) return;
+        reverseSkillUnlockedFlag = true;
+        markDirty ("REVERSE SKILL SOUND UNLOCKED");
+    }
+
+    void ProgressionSystem::recordGameCompleted()
+    {
+        ++gamesCompletedCount;
+        if (gamesCompletedCount == 10)
+            markDirty ("LAB EXCHANGE UNLOCKED");
+        else
+            markDirty();
+    }
+
+    void ProgressionSystem::unlockExchangeEffect (int index)
+    {
+        if (index < 0 || index >= (int) exchangeEffects.size()) return;
+        exchangeEffects[(size_t) index] = true;
+        markDirty();
+    }
+
     juce::String ProgressionSystem::consumeNotice()
     {
         auto result = pendingNotice;
@@ -330,7 +558,7 @@ namespace mutagen
 
         auto root = std::make_unique<juce::DynamicObject>();
         root->setProperty ("version", 1);
-        root->setProperty ("lifetimeScore", lifetime.lifetimeScore);
+        root->setProperty ("lifetimeScore", (juce::int64) lifetime.lifetimeScore);
         root->setProperty ("generationsObserved", lifetime.generationsObserved);
         root->setProperty ("lifetimeDiscoveries", lifetime.lifetimeDiscoveries);
         root->setProperty ("worldsVisited", lifetime.worldsVisited);
@@ -363,6 +591,37 @@ namespace mutagen
         juce::Array<juce::var> milestonesArray;
         for (const auto id : milestoneIds) milestonesArray.add (id);
         root->setProperty ("milestones", milestonesArray);
+
+        for (int i = 0; i < 5; ++i)
+            root->setProperty ("gameSkill" + juce::String (i), gameSkillCounts[(size_t) i]);
+        root->setProperty ("gameSounds", gameSoundCount);
+        root->setProperty ("specialOrbs", specialOrbCount);
+        root->setProperty ("rainbowOrbs", rainbowOrbCount);
+        root->setProperty ("glowingRainbowOrbs", glowingRainbowOrbCount);
+        root->setProperty ("greenOrbs", greenOrbCount);
+        root->setProperty ("redOrbs", redOrbCount);
+        root->setProperty ("pinkOrbs", pinkOrbCount);
+        root->setProperty ("snareSounds", snareSoundCount);
+        root->setProperty ("tomSounds", tomSoundCount);
+        root->setProperty ("bassDrumSounds", bassDrumSoundCount);
+        root->setProperty ("pianoKeySounds", pianoKeySoundCount);
+        root->setProperty ("stringSounds", stringSoundCount);
+        root->setProperty ("tambourineSounds", tambourineSoundCount);
+        root->setProperty ("bassDrops", bassDropCount);
+        root->setProperty ("kazooSounds", kazooSoundCount);
+        root->setProperty ("clapSounds", clapSoundCount);
+        root->setProperty ("padSounds", padSoundCount);
+        root->setProperty ("upSweepSounds", upSweepSoundCount);
+
+        root->setProperty ("sideMutationUnlocked", sideMutationUnlockedFlag ? 1 : 0);
+        root->setProperty ("petChoice", petChoiceValue);
+        root->setProperty ("gatorUnlocked", gatorUnlockedFlag ? 1 : 0);
+        root->setProperty ("gateShapesUnlocked", gateShapesUnlockedFlag ? 1 : 0);
+        root->setProperty ("tripDelayUnlocked", tripDelayUnlockedFlag ? 1 : 0);
+        root->setProperty ("reverseSkillUnlocked", reverseSkillUnlockedFlag ? 1 : 0);
+        root->setProperty ("gamesCompleted", gamesCompletedCount);
+        for (int i = 0; i < (int) exchangeEffects.size(); ++i)
+            root->setProperty ("exchangeEffect" + juce::String (i), exchangeEffects[(size_t) i] ? 1 : 0);
 
         const auto file = progressFile();
         file.getParentDirectory().createDirectory();
