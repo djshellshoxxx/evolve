@@ -132,7 +132,7 @@ namespace mutagen
         };
 
         const float intensity = juce::jlimit (
-            0.0f, 1.0f, *processor.apvts.getRawParameterValue (params::steerStrength));
+            0.0f, 1.0f, processor.apvts.getRawParameterValue (params::steerStrength)->load());
         const auto target = steering::scaledProfile (profile, intensity);
 
         setActual (params::selBrightness,  target.brightness);

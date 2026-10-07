@@ -251,7 +251,7 @@ namespace mutagen
     {
         const int recipe = 1000 + creatureId * 17;
         processor.triggerHauntedSound (recipe, newlyDiscovered ? 0.9f : 0.58f);
-        haunted::launchDesktopPhantom (creatureId, getScreenBounds(),
+        phantomManager.launch (creatureId, getScreenBounds(),
                                        creatureId * 13 + 7,
                                        newlyDiscovered ? 1.0f : 0.68f);
 
@@ -328,7 +328,7 @@ namespace mutagen
         for (int i = 0; i < (replay ? 1 : 3); ++i)
         {
             const int creatureId = (index * 29 + i * 31) % 100;
-            haunted::launchDesktopPhantom (creatureId, getScreenBounds(),
+            phantomManager.launch (creatureId, getScreenBounds(),
                                            artifact->animationRecipe + i * 17,
                                            replay ? 0.72f : 1.18f);
         }
@@ -751,7 +751,7 @@ namespace mutagen
             {
                 hiddenMicAwaitingReplay = false;
                 topBar.setStatus ("HIDDEN EVENT: YOUR FIVE SECONDS CAME BACK WRONG");
-                haunted::launchDesktopPhantom (38, getScreenBounds(), 3854, 1.0f);
+                phantomManager.launch (38, getScreenBounds(), 3854, 1.0f);
                 haunted::systemBeepAsync (185, 110);
             }
             else if (processor.pollMicAbort())

@@ -10,6 +10,8 @@ namespace mutagen::haunted
 {
     namespace
     {
+        void removePhantomLater (std::shared_ptr<PhantomRegistry> owner, const juce::Component* completed);
+
         class PhantomWindow final : public juce::Component,
                                     private juce::Timer
         {
@@ -36,8 +38,8 @@ namespace mutagen::haunted
                 const auto display = juce::Desktop::getInstance().getDisplays()
                     .getDisplayForRect (source);
                 const auto* primary = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
-                const auto work = display != nullptr ? display->userBounds.toNearestInt()
-                                : primary != nullptr ? primary->userBounds.toNearestInt()
+                const auto work = display != nullptr ? display->userArea
+                                : primary != nullptr ? primary->userArea
                                                      : source.expanded (900, 600);
 
                 const int lane = (id * 37 + recipe * 19) % 4;
@@ -124,16 +126,7 @@ namespace mutagen::haunted
                     stopTimer();
                     setVisible (false);
                     if (auto owner = registry.lock())
-                    {
-                        auto* completed = this;
-                        juce::MessageManager::callAsync ([owner = std::move (owner), completed]
-                        {
-                            auto& windows = owner->windows;
-                            windows.erase (std::remove_if (windows.begin(), windows.end(),
-                                [completed] (const auto& window) { return window.get() == completed; }),
-                                windows.end());
-                        });
-                    }
+                        removePhantomLater (std::move (owner), this);
                 }
             }
 
@@ -151,6 +144,20 @@ namespace mutagen::haunted
     {
         std::vector<std::unique_ptr<PhantomWindow>> windows;
     };
+
+    namespace
+    {
+        void removePhantomLater (std::shared_ptr<PhantomRegistry> owner, const juce::Component* completed)
+        {
+            juce::MessageManager::callAsync ([owner = std::move (owner), completed]
+            {
+                auto& windows = owner->windows;
+                windows.erase (std::remove_if (windows.begin(), windows.end(),
+                    [completed] (const auto& window) { return window.get() == completed; }),
+                    windows.end());
+            });
+        }
+    }
 
     DesktopPhantomManager::DesktopPhantomManager()
         : registry (std::make_shared<PhantomRegistry>())

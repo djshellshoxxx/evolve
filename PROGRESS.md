@@ -759,10 +759,12 @@ written, so the CI result still needs to be read before calling M11 fully verifi
 
 ## Integration session (claude/focused-dirac-wb88c7)
 
-Step 1 — DONE: merged open PR #5 (feature/lab-games-orbs) and PR #6
+Step 1 — DONE (builds on Linux, all tests pass): merged open PR #5 (feature/lab-games-orbs) and PR #6
 (fix/pinned-build-lifetime-audit) into this branch; resolved the
 Tests/ProgressionTest.cpp conflict (all checks use CHECK so they run in Release);
 added the missing Source/GUI/LabGameOverlay.cpp to CMakeLists.
+Also fixed compile errors: stale launchDesktopPhantom call sites, jlimit on
+std::atomic, Display::userBounds -> userArea, incomplete PhantomRegistry type.
 
 Remaining milestones (resume at the first unchecked):
 - [ ] S2 Story chapters: new levels/chapters, characters, twists, random events
