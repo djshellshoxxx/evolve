@@ -41,8 +41,25 @@ namespace mutagen
 
         /** Scores the player for engaging with the story (weight, label). */
         std::function<void (float, const juce::String&)> onReward;
+        std::function<void()> onIntro;
 
         const story::Progress& progress() const { return prog; }
+
+        /** Secrets, the intro and the odd visitors report back through these. */
+        void markSecret (int id) { prog.secrets |= (std::uint64_t) 1 << id; persist(); repaint(); }
+        void markIntroSeen() { prog.introSeen = true; persist(); }
+        void setPlayerName (const juce::String& name)
+        {
+            prog.playerName = name.toStdString();
+            persist();
+            say (story::Speaker::cadence, "Welcome to the lab, " + name + ". The colony has been waiting. Listen first, then touch the dish.");
+        }
+        double secondsSinceTwist() const { return runStory.twistRevealed ? clock - twistClock : 1.0e9; }
+        story::Speaker currentSpeaker() const { return speakerId; }
+        int act() const { return currentAct; }
+
+        /** Make the colony perform something (notes are offsets from the run's root). */
+        void perform (story::Effect, const std::array<int, 4>& notes, int param);
         const story::RunStory& run() const { return runStory; }
         SoundCollection& collection() { return jar; }
 
@@ -56,7 +73,6 @@ namespace mutagen
         void revealTwist();
         void askQuiz();
         void answer (int choice);
-        void perform (story::Effect, const std::array<int, 4>& notes, int param);
         void playNotes (const std::vector<int>& semis, double spacing, double hold);
         void releaseAll();
         void doCollect (const juce::String& label, float seconds);
@@ -83,11 +99,14 @@ namespace mutagen
         struct Capture { double at; juce::String label; float seconds; };
         std::vector<Capture> captures;
 
-        juce::TextButton collectButton { "COLLECT" }, exportButton { "EXPORT WAV" };
+        juce::TextButton collectButton { "COLLECT" }, exportButton { "EXPORT WAV" }, introButton { "INTRO" };
         juce::TextButton answerButtons[3];
         std::unique_ptr<juce::FileChooser> chooser;
         double lastManualCollect = -10.0;
         double keyIntroAt = 14.0;
+        double twistClock = 0.0;
+        double playClock = 0.0;     // unpaused play time towards the next 30-minute plot beat
+        story::Speaker speakerId = story::Speaker::cadence;
         bool keyIntroDone = false;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StoryPanel)

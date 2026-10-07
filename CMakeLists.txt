@@ -142,6 +142,8 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/HauntedOverlay.cpp
     Source/GUI/LabGameOverlay.cpp
     Source/GUI/StoryPanel.cpp
+    Source/GUI/SecretLayer.cpp
+    Source/GUI/IntroOverlay.cpp
     Source/GUI/DeviceSetupHook.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)
@@ -155,6 +157,11 @@ target_include_directories(MUTAGEN PRIVATE Source)
 if(MUTAGEN_BUILD_STANDALONE AND TARGET MUTAGEN_Standalone)
     target_sources(MUTAGEN_Standalone PRIVATE Source/Standalone/DeviceSetup.cpp)
     target_include_directories(MUTAGEN_Standalone PRIVATE Source)
+endif()
+
+option(MUTAGEN_TEST_HOOKS "Enable MUTAGEN_TEST_FATE / MUTAGEN_TEST_SECRET smoke-test hooks" OFF)
+if(MUTAGEN_TEST_HOOKS)
+    target_compile_definitions(MUTAGEN PRIVATE MUTAGEN_TEST_HOOKS=1)
 endif()
 
 target_compile_definitions(MUTAGEN PUBLIC
@@ -183,7 +190,8 @@ endif()
 # some toolchain versions and buys little here.
 
 if(MSVC)
-    target_compile_options(MUTAGEN PRIVATE /fp:fast)
+    # /utf-8: the polyglot events carry Japanese, Hindi, Korean and Icelandic text.
+    target_compile_options(MUTAGEN PRIVATE /fp:fast /utf-8)
 else()
     target_compile_options(MUTAGEN PRIVATE -ffast-math)
 endif()

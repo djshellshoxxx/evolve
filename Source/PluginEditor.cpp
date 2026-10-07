@@ -69,6 +69,45 @@ namespace mutagen
         addAndMakeVisible (chamber);
         addAndMakeVisible (storyPanel);
         wireLabGames();
+
+        addAndMakeVisible (secretLayer);
+        secretLayer.onReward = [this] (float w, const juce::String& label) { scoreSystem.registerInteraction (w, label); };
+        addChildComponent (introOverlay);
+        storyPanel.onIntro = [this] { introOverlay.open(); introOverlay.grabKeyboardFocus(); };
+        addChildComponent (nameOverlay);
+        nameOverlay.onName = [this] (const juce::String& n) { startGameAs (n); };
+        secretLayer.onPoints = [this] (juce::int64 pts, const juce::String& label) { scoreSystem.adjustScore (pts, label); };
+        secretLayer.onLoseSkills = [this]
+        {
+            for (int i = 0; i < 5; ++i)
+                progressionSystem.changeGameSkill (i, -progressionSystem.gameSkills()[(size_t) i]);
+        };
+        // Every new game starts by asking who is playing (after the intro, the first time).
+        introOverlay.onClosed = [this]
+        {
+            const bool first = ! storyPanel.progress().introSeen;
+            storyPanel.markIntroSeen();
+            if (first) askName();
+        };
+        juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<MutagenEditor> (this)]
+        {
+            if (safe == nullptr) return;
+
+           #if MUTAGEN_TEST_HOOKS
+            // Smoke-test hooks (test builds only): force a fate or a secret room.
+            const auto fate = juce::SystemStats::getEnvironmentVariable ("MUTAGEN_TEST_FATE", {});
+            const auto room = juce::SystemStats::getEnvironmentVariable ("MUTAGEN_TEST_SECRET", {});
+            if (fate.isNotEmpty() || room.isNotEmpty())
+            {
+                if (fate.isNotEmpty()) safe->secretLayer.playFate ((secrets::Fate) fate.getIntValue());
+                if (room.isNotEmpty()) safe->secretLayer.openSecretForTest (room.getIntValue());
+                return;
+            }
+           #endif
+
+            if (! safe->storyPanel.progress().introSeen) { safe->introOverlay.open(); safe->introOverlay.grabKeyboardFocus(); }
+            else safe->askName();
+        });
         storyPanel.onReward = [this] (float w, const juce::String& label)
         {
             scoreSystem.registerInteraction (w, label);
@@ -737,7 +776,13 @@ namespace mutagen
                                || helpView.isVisible() || labGameOverlay.isVisible());
         serviceHauntedMilestones (runScoreBefore, runScoreAfter);
         playSeconds += dt;
-        serviceLabGameSchedule (runScoreBefore, runScoreAfter);
+        secretLayer.update (dt, scoreSystem.score(), snapshot.generation, snapshot.population,
+                            introOverlay.isVisible() || nameOverlay.isVisible()
+                            || breedingLab.isVisible() || performance.isVisible());
+        // Compare against the score seen last tick, so bonuses applied between
+        // ticks (skills, fates, secrets) still count as crossings.
+        serviceLabGameSchedule (lastSeenScore, scoreSystem.score());
+        lastSeenScore = scoreSystem.score();
         scoreHud.setState (scoreSystem, snapshot);
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
@@ -860,6 +905,11 @@ namespace mutagen
         chamber.setBounds (mid);
         scoreHud.setBounds (chamber.getBounds());
         scoreHud.toFront (false);
+        secretLayer.setBounds (chamber.getBounds());
+        secretLayer.toFront (false);
+        // Whatever modal layer is open stays above the secret layer.
+        for (juce::Component* c : { (juce::Component*) &labGameOverlay, (juce::Component*) &introOverlay, (juce::Component*) &nameOverlay })
+            if (c->isVisible()) c->toFront (false);
     }
 
     void MutagenEditor::resized()
@@ -876,6 +926,8 @@ namespace mutagen
                                                    getHeight() - TopBar::totalHeight);
         breedingLab.setBounds (overlay.reduced (24));
         performance.setBounds (overlay.reduced (24));
+        introOverlay.setBounds (getLocalBounds());
+        nameOverlay.setBounds (getLocalBounds());
         labGameOverlay.setBounds (chamber.getBounds().withSizeKeepingCentre (juce::jmin (520, chamber.getWidth()), juce::jmin (300, chamber.getHeight())));
         fxRack.setBounds (overlay.reduced (16));
 
@@ -893,5 +945,28 @@ namespace mutagen
         helpView.setBounds (centred (980, 720));
         optionsView.setBounds (centred (980, 860));
         progressionView.setBounds (centred (1080, 900));
+    }
+
+    void MutagenEditor::askName()
+    {
+        nameOverlay.open (juce::String (juce::CharPointer_UTF8 (storyPanel.progress().playerName.c_str())));
+    }
+
+    void MutagenEditor::startGameAs (const juce::String& name)
+    {
+        storyPanel.setPlayerName (name);
+
+        // A name of exactly five letters: +3,904 points and three skills.
+        if (name.length() == 5 && name.containsOnly ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+        {
+            scoreSystem.adjustScore (3904, "FIVE-LETTER NAME");
+            for (int i = 0; i < 3; ++i) awardGameSkill (hauntedRng.rollInclusive (0, 4));
+        }
+        const auto fate = secrets::fateForName (name.toStdString(), (std::uint64_t) juce::Random::getSystemRandom().nextInt64());
+        if (fate != secrets::Fate::none)
+            juce::Timer::callAfterDelay (1200, [safe = juce::Component::SafePointer<MutagenEditor> (this), fate]
+            {
+                if (safe != nullptr) safe->secretLayer.playFate (fate);
+            });
     }
 }

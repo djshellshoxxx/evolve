@@ -54,6 +54,9 @@ namespace mutagen
         exportButton.onClick = [this] { exportAll(); };
         addAndMakeVisible (collectButton);
         addAndMakeVisible (exportButton);
+        introButton.setTooltip ("What everything is, and what MUTAGEN is for");
+        introButton.onClick = [this] { if (onIntro) onIntro(); };
+        addAndMakeVisible (introButton);
 
         for (int i = 0; i < 3; ++i)
         {
@@ -76,6 +79,7 @@ namespace mutagen
 
     void StoryPanel::say (story::Speaker s, const juce::String& text)
     {
+        speakerId = s;
         speaker = story::speakerName (s);
         role = story::speakerRole (s);
         speakerColour = colourFor (s);
@@ -112,6 +116,24 @@ namespace mutagen
         }
 
         if (paused || quizIndex >= 0) return;
+
+        // Every 30 minutes of play the plot moves on by itself: the next act
+        // opens, or, once the last act is open, a fresh twist lands.
+        if ((playClock += dt) >= 1800.0)
+        {
+            playClock = 0.0;
+            if (prog.plotFloor < story::actCount && story::actFor (prog) < story::actCount)
+            {
+                prog.plotFloor = story::actFor (prog) + 1;
+                persist();
+            }
+            else
+            {
+                runStory.twist = (runStory.twist + 1 + (int) (clock * 7.0) % 7) % (int) story::twists().size();
+                revealTwist();
+                return;
+            }
+        }
 
         const int act = story::actFor (prog);
         if (act != currentAct)
@@ -191,6 +213,7 @@ namespace mutagen
     void StoryPanel::revealTwist()
     {
         runStory.twistRevealed = true;
+        twistClock = clock;
         const auto& t = story::twists()[(std::size_t) runStory.twist];
         prog.twistsSeen |= 1u << runStory.twist;
         topic = juce::String ("TWIST: ") + t.name;
@@ -372,8 +395,10 @@ namespace mutagen
     {
         auto r = getLocalBounds().reduced (8, 6);
         auto right = r.removeFromRight (112);
-        collectButton.setBounds (right.removeFromTop (r.getHeight() / 2).reduced (0, 2));
-        exportButton.setBounds (right.reduced (0, 2));
+        const int third = r.getHeight() / 3;
+        collectButton.setBounds (right.removeFromTop (third).reduced (0, 2));
+        exportButton.setBounds (right.removeFromTop (third).reduced (0, 2));
+        introButton.setBounds (right.reduced (0, 2));
 
         if (quizIndex >= 0)
         {
@@ -399,7 +424,8 @@ namespace mutagen
         const auto status = juce::String (story::acts()[(std::size_t) (act - 1)].title)
                           + "  |  KEY " + juce::String (runStory.keyName())
                           + "  |  LEXICON " + juce::String (prog.lexiconCount()) + "/" + juce::String (story::lexiconSize)
-                          + "  |  JAR " + juce::String (jar.size());
+                          + "  |  JAR " + juce::String (jar.size())
+                          + "  |  SECRETS " + juce::String (prog.secretCount()) + "/39";
         g.setFont (theme::monoFont (9.5f));
         g.setColour (theme::textDim);
         g.drawText (status, area.removeFromTop (12), juce::Justification::centredLeft, true);

@@ -125,6 +125,13 @@ namespace mutagen
                 chamber.spawnMiniOrbs (o.miniOrbs);
             }
             if (o.orbInversionPenalty) chamber.setOrbInversion (20.0f);
+            // Three dice losses in a row cost 390,094 points.
+            diceLossStreak = o.won ? 0 : diceLossStreak + 1;
+            if (diceLossStreak >= 3)
+            {
+                diceLossStreak = 0;
+                scoreSystem.adjustScore (-390094, "THREE DICE LOSSES");
+            }
             labGameOverlay.resolve ("DICE", "You " + juce::String (mine) + "  /  Lab " + juce::String (lab),
                                     labgames::Game::dice,
                                     o.won ? labgames::SoundMoment::smallWin : labgames::SoundMoment::penalty, o.won);
@@ -154,6 +161,14 @@ namespace mutagen
             if (o.stringSounds > 0)     { progressionSystem.addStringSounds (o.stringSounds); rewardInstrument (strings, o.stringSounds); }
             if (o.tambourineSounds > 0) { progressionSystem.addTambourineSounds (o.tambourineSounds); rewardInstrument (tambourine, o.tambourineSounds); }
             const bool good = o.matchCount >= 3;
+            // Four winning cards in a row: four times in five, 495 orbs flood in and die fast.
+            scratchStreak = good ? scratchStreak + 1 : 0;
+            if (! good) scoreSystem.adjustScore (-494, "SCRATCH CARD LOST");
+            if (scratchStreak >= 4)
+            {
+                scratchStreak = 0;
+                if (hauntedRng.rollInclusive (1, 5) <= 4) chamber.spawnDoomedOrbs (495);
+            }
             labGameOverlay.resolve ("SCRATCH CARD", juce::String (o.matchCount) + " matching symbols",
                                     labgames::Game::scratch,
                                     good ? labgames::SoundMoment::bigWin : labgames::SoundMoment::appear, good);
@@ -179,6 +194,51 @@ namespace mutagen
             queueLabGame (PendingGame::scratch);
         }
 
+        // Score divisible by 12: half the time, orbs mutate into mice or squids.
+        // Divisible by 6: one time in seven, yellow mites evolve. The score lands
+        // on such numbers constantly, so each roll is spaced at least 25 s apart.
+        if (afterScore != beforeScore && afterScore > 0 && playSeconds - lastDivisibleEventSec > 25.0)
+        {
+            if (afterScore % 12 == 0)
+            {
+                lastDivisibleEventSec = playSeconds;
+                if (hauntedRng.rollInclusive (1, 2) == 1) chamber.mutateOrbsIntoCreatures (false);
+            }
+            else if (afterScore % 6 == 0)
+            {
+                lastDivisibleEventSec = playSeconds;
+                if (hauntedRng.rollInclusive (1, 7) == 1) chamber.mutateOrbsIntoCreatures (true);
+            }
+        }
+
+        // Crossing 3,048 points: one time in twelve, 345 orbs that turn into squids.
+        if (! squidsChecked && afterScore >= 3048)
+        {
+            squidsChecked = true;
+            if (hauntedRng.rollInclusive (1, 12) == 1)
+                chamber.spawnOrbsThatBecomeSquids (345);
+        }
+
+        // Past 49,940,949 points: four times in five, giants shrink and multiply.
+        if (! giantsChecked && afterScore > 49940949)
+        {
+            giantsChecked = true;
+            if (hauntedRng.rollInclusive (1, 5) <= 4)
+                chamber.spawnShrinkingGiants (24);
+        }
+
+        // Past a million points: three times in seven, a bonus and three
+        // roulette spins back to back. Once per game.
+        if (! millionChecked && afterScore > 1000000)
+        {
+            millionChecked = true;
+            if (hauntedRng.rollInclusive (1, 7) <= 3)
+            {
+                scoreSystem.adjustScore (930943, "MILLION CLUB");
+                for (int i = 0; i < 3; ++i) queueLabGame (PendingGame::roulette, true);
+            }
+        }
+
         const int minute = (int) (playSeconds / 60.0);
         if (minute == lastGameMinuteBucket) return;
         lastGameMinuteBucket = minute;
@@ -190,10 +250,10 @@ namespace mutagen
         if (labgames::shouldOfferDice (minute, hauntedRng.rollInclusive (1, 30)))        queueLabGame (PendingGame::dice);
     }
 
-    void MutagenEditor::queueLabGame (PendingGame g)
+    void MutagenEditor::queueLabGame (PendingGame g, bool allowRepeat)
     {
-        if (pendingGames.size() >= 3) return;
-        if (std::find (pendingGames.begin(), pendingGames.end(), g) != pendingGames.end()) return;
+        if (pendingGames.size() >= (allowRepeat ? 6u : 3u)) return;
+        if (! allowRepeat && std::find (pendingGames.begin(), pendingGames.end(), g) != pendingGames.end()) return;
         pendingGames.push_back (g);
         if (! labGameOverlay.isVisible()) presentNextLabGame();
     }
@@ -244,6 +304,10 @@ namespace mutagen
         const int before = progressionSystem.totalGameSkills();
         progressionSystem.changeGameSkill (juce::jlimit (0, 4, index), count);
         scoreSystem.adjustScore (labgames::skillDiscoveryPoints (count), "SKILL +" + juce::String (count));
+        // Every second skill earned is worth another 93 points.
+        for (int i = 0; i < count; ++i)
+            if (++skillsEarnedThisGame % 2 == 0)
+                scoreSystem.adjustScore (93, "EVERY SECOND SKILL");
         checkSkillRouletteTrigger (before, progressionSystem.totalGameSkills());
     }
 

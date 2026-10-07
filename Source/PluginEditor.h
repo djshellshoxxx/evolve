@@ -25,6 +25,8 @@
 #include "GUI/HauntedOverlay.h"
 #include "GUI/LabGameOverlay.h"
 #include "GUI/StoryPanel.h"
+#include "GUI/SecretLayer.h"
+#include "GUI/IntroOverlay.h"
 #include "Engine/ScoreSystem.h"
 #include "Engine/HauntedEvents.h"
 #include "Engine/HiddenDiscoveries.h"
@@ -71,7 +73,7 @@ namespace mutagen
         void wireLabGames();
         void rewardInstrument (int kind, int count);
         void serviceLabGameSchedule (juce::int64 beforeScore, juce::int64 afterScore);
-        void queueLabGame (PendingGame);
+        void queueLabGame (PendingGame, bool allowRepeat = false);
         void presentNextLabGame();
         void playLabSound (labgames::Game, labgames::SoundMoment, int variation = 0, float intensity = 0.8f);
         void awardGameSkill (int index, int count = 1);
@@ -95,6 +97,11 @@ namespace mutagen
         FxRackView        fxRack;
         LabGameOverlay    labGameOverlay;
         StoryPanel        storyPanel { processor };
+        SecretLayer       secretLayer { processor, chamber, storyPanel };
+        IntroOverlay      introOverlay;
+        NameOverlay       nameOverlay;
+        void askName();
+        void startGameAs (const juce::String& name);
 
         // ---- the chrome every plugin in the range carries ----
         HelpView          helpView;
@@ -133,6 +140,10 @@ namespace mutagen
         bool twentyOneActive = false;
         int twentyOnePlayerAces = 0, twentyOneHouseAces = 0;
         double playSeconds = 0.0;
+        juce::int64 lastSeenScore = 0;
+        int scratchStreak = 0, diceLossStreak = 0, skillsEarnedThisGame = 0;
+        double lastDivisibleEventSec = -100.0;
+        bool millionChecked = false, squidsChecked = false, giantsChecked = false;
 
         RenderEngine      renderEngine;
         std::unique_ptr<juce::FileChooser> chooser;

@@ -140,6 +140,115 @@ namespace mutagen
             addOrb (OrbKind::mini, 1.0f / 3.0f, 10.0f);
     }
 
+    void CultureChamber::setOrbSpeedBoost (float multiplier, float seconds)
+    {
+        // Never weaken a boost that is still running.
+        const float m = juce::jlimit (1.0f, 6.0f, multiplier);
+        orbSpeedMultiplier = orbSpeedBoostSeconds > 0.0f ? juce::jmax (orbSpeedMultiplier, m) : m;
+        orbSpeedBoostSeconds = juce::jmax (orbSpeedBoostSeconds, juce::jlimit (0.5f, 60.0f, seconds));
+    }
+
+    void CultureChamber::triggerSnowFireworks (float seconds)
+    {
+        celebrationSeconds = juce::jmax (celebrationSeconds, juce::jlimit (0.5f, 30.0f, seconds));
+    }
+
+    void CultureChamber::triggerSeizure()
+    {
+        if (gameOrbs.size() < 40) spawnSpecialOrbs (60);
+        seizureSeconds = 2.2f;
+    }
+
+    void CultureChamber::triggerTurbo()
+    {
+        if (gameOrbs.size() < 40) spawnSpecialOrbs (60);
+        const auto n = gameOrbs.size();
+        for (size_t i = 0; i < n; ++i)
+            for (int k = 1; k <= 2 && gameOrbs.size() < 2600; ++k)
+            {
+                auto twin = gameOrbs[i];
+                const float a = (float) k * juce::MathConstants<float>::twoPi / 3.0f;
+                twin.v = { twin.v.x * std::cos (a) - twin.v.y * std::sin (a), twin.v.x * std::sin (a) + twin.v.y * std::cos (a) };
+                gameOrbs.push_back (twin);
+            }
+        setOrbSpeedBoost (5.0f, 40.0f);
+    }
+
+    void CultureChamber::spawnGiantsThatBecomeMites (int count)
+    {
+        for (int i = 0; i < juce::jlimit (0, 64, count); ++i)
+        {
+            addOrb (OrbKind::giantRainbow, 0.6f, 2.0f);
+            if (! gameOrbs.empty()) gameOrbs.back().radius = 14.0f + rnd.nextFloat() * 10.0f;
+        }
+        giantSeconds = 3.0f;
+    }
+
+    void CultureChamber::spawnOrbsThatBecomeSquids (int count)
+    {
+        constexpr OrbKind kinds[] = { OrbKind::special, OrbKind::rainbow, OrbKind::green, OrbKind::red,
+                                      OrbKind::pink, OrbKind::yellow, OrbKind::white };
+        for (int i = 0; i < juce::jlimit (0, 600, count); ++i)
+        {
+            addOrb (kinds[rnd.nextInt (7)], 1.0f, 3.0f);
+            if (! gameOrbs.empty()) gameOrbs.back().squidSeed = true;
+        }
+        squidSeconds = 2.5f;
+    }
+
+    void CultureChamber::spawnShrinkingGiants (int count)
+    {
+        for (int i = 0; i < juce::jlimit (0, 64, count); ++i)
+        {
+            addOrb (OrbKind::giantRainbow, 0.4f, 4.0f);
+            if (! gameOrbs.empty()) { gameOrbs.back().radius = 34.0f; gameOrbs.back().shrinker = true; }
+        }
+        shrinkSeconds = 3.5f;
+    }
+
+    void CultureChamber::spawnDoomedOrbs (int count)
+    {
+        constexpr OrbKind kinds[] = { OrbKind::special, OrbKind::rainbow, OrbKind::yellow, OrbKind::white, OrbKind::pink };
+        for (int i = 0; i < juce::jlimit (0, 600, count); ++i)
+            addOrb (kinds[rnd.nextInt (5)], 1.4f, 0.15f + rnd.nextFloat() * 0.25f);
+    }
+
+    void CultureChamber::spawnYellowOrbs (int count)
+    {
+        for (int i = 0; i < juce::jlimit (0, 600, count); ++i)
+            addOrb (OrbKind::yellow, 1.0f, 2.5f);
+    }
+
+    void CultureChamber::mutateOrbsIntoCreatures (bool yellowMites)
+    {
+        if (gameOrbs.size() < 12)
+            for (int i = 0; i < 24; ++i) addOrb (OrbKind::special, 1.0f, 2.0f);
+        for (auto& o : gameOrbs)
+        {
+            if (rnd.nextInt (3) != 0) continue;
+            o.kind = yellowMites ? OrbKind::yellowMite : (rnd.nextBool() ? OrbKind::mouse : OrbKind::squid);
+            o.radius = o.kind == OrbKind::squid ? 6.5f : o.kind == OrbKind::mouse ? 5.0f : 2.6f;
+            o.life = o.maxLife = juce::jmax (o.life, 12.0f);
+        }
+    }
+
+    void CultureChamber::triggerHail (float seconds)
+    {
+        hailSeconds = juce::jmax (hailSeconds, juce::jlimit (0.5f, 30.0f, seconds));
+    }
+
+    void CultureChamber::spawnPinkMutants (int count)
+    {
+        for (int i = 0; i < juce::jlimit (0, 600, count); ++i)
+            addOrb (OrbKind::pink, 1.0f, 3.0f);
+        mutantSeconds = 2.0f;
+    }
+
+    void CultureChamber::setLabPet (int pet)
+    {
+        labPet = juce::jlimit (0, 2, pet);
+    }
+
     void CultureChamber::setOrbInversion (float seconds)
     {
         orbInversionSeconds = juce::jmax (orbInversionSeconds, juce::jlimit (1.0f, 60.0f, seconds));
@@ -162,6 +271,10 @@ namespace mutagen
             case OrbKind::green: return juce::Colour (0xff52ff79);
             case OrbKind::red: return juce::Colour (0xffff465f);
             case OrbKind::pink: return juce::Colour (0xffff70c8);
+            case OrbKind::squid: return juce::Colour (0xff9b6bff);
+            case OrbKind::mite: return juce::Colour (0xffc9a36b);
+            case OrbKind::mouse: return juce::Colour (0xffb0b0bc);
+            case OrbKind::yellowMite: return juce::Colour (0xfff2e94e);
         }
         return juce::Colours::white;
     }
@@ -171,6 +284,134 @@ namespace mutagen
         const float dt = (float) juce::jlimit (0.0, 0.1, dtSeconds);
         orbInversionSeconds = juce::jmax (0.0f, orbInversionSeconds - dt);
         orbCollisionClock += dt;
+        orbSpeedBoostSeconds = juce::jmax (0.0f, orbSpeedBoostSeconds - dt);
+        const float speed = orbSpeedBoostSeconds > 0.0f ? orbSpeedMultiplier : 1.0f;
+
+        // The convulsion: orbs shake in place, then every one of them splits
+        // and the whole population runs at triple speed.
+        if (seizureSeconds > 0.0f)
+        {
+            seizureSeconds -= dt;
+            for (auto& o : gameOrbs)
+                o.p += juce::Point<float> ((rnd.nextFloat() - 0.5f) * 0.02f, (rnd.nextFloat() - 0.5f) * 0.02f);
+            if (seizureSeconds <= 0.0f)
+            {
+                const auto n = gameOrbs.size();
+                for (size_t i = 0; i < n && gameOrbs.size() < 2600; ++i)
+                {
+                    auto twin = gameOrbs[i];
+                    twin.v = { -twin.v.y, twin.v.x };
+                    gameOrbs.push_back (twin);
+                }
+                setOrbSpeedBoost (3.0f, 30.0f);
+            }
+        }
+
+        // Pink orbs mutate into squids and mites once they have spread out.
+        if (mutantSeconds > 0.0f && (mutantSeconds -= dt) <= 0.0f)
+            for (auto& o : gameOrbs)
+                if (o.kind == OrbKind::pink)
+                {
+                    o.kind = rnd.nextBool() ? OrbKind::squid : OrbKind::mite;
+                    o.radius = o.kind == OrbKind::squid ? 6.5f : 2.6f;
+                    o.life = o.maxLife = 20.0f;
+                }
+
+        // Giants shrink to ordinary size, then each one splits into four.
+        if (shrinkSeconds > 0.0f)
+        {
+            shrinkSeconds -= dt;
+            std::vector<Orb> kids;
+            for (auto& o : gameOrbs)
+                if (o.shrinker)
+                {
+                    o.radius = juce::jmax (4.5f, o.radius - dt * 9.0f);
+                    if (shrinkSeconds <= 0.0f)
+                    {
+                        o.shrinker = false;
+                        for (int k = 0; k < 3; ++k)
+                        {
+                            auto kid = o;
+                            const float a = (float) (k + 1) * juce::MathConstants<float>::halfPi;
+                            kid.v = { o.v.x * std::cos (a) - o.v.y * std::sin (a), o.v.x * std::sin (a) + o.v.y * std::cos (a) };
+                            kids.push_back (kid);
+                        }
+                    }
+                }
+            for (auto& k : kids) if (gameOrbs.size() < 2600) gameOrbs.push_back (k);
+        }
+
+        // Seeded orbs multiply into squids: each becomes two.
+        if (squidSeconds > 0.0f && (squidSeconds -= dt) <= 0.0f)
+        {
+            std::vector<Orb> twins;
+            for (auto& o : gameOrbs)
+                if (o.squidSeed)
+                {
+                    o.squidSeed = false;
+                    o.kind = OrbKind::squid;
+                    o.radius = 6.5f;
+                    o.life = o.maxLife = 18.0f;
+                    auto t = o;
+                    t.v = { -o.v.x, o.v.y };
+                    twins.push_back (t);
+                }
+            for (auto& t : twins) if (gameOrbs.size() < 2600) gameOrbs.push_back (t);
+        }
+
+        // Giants burst into a swarm of mites.
+        if (giantSeconds > 0.0f && (giantSeconds -= dt) <= 0.0f)
+        {
+            std::vector<Orb> mites;
+            for (auto& o : gameOrbs)
+                if (o.kind == OrbKind::giantRainbow && o.radius >= 14.0f)
+                {
+                    o.life = 0.0f;
+                    for (int k = 0; k < 12; ++k)
+                    {
+                        Orb m = o;
+                        const float a = rnd.nextFloat() * juce::MathConstants<float>::twoPi;
+                        m.v = { std::cos (a) * 0.25f, std::sin (a) * 0.25f };
+                        m.kind = OrbKind::mite;
+                        m.radius = 2.6f;
+                        m.life = m.maxLife = 14.0f;
+                        mites.push_back (m);
+                    }
+                }
+            for (auto& m : mites) if (gameOrbs.size() < 2600) gameOrbs.push_back (m);
+        }
+
+        // Hail: hard, fast red and white pellets.
+        if (hailSeconds > 0.0f)
+        {
+            hailSeconds = juce::jmax (0.0f, hailSeconds - dt);
+            const auto b = getLocalBounds().toFloat();
+            for (int i = 0; i < 8 && sprinkles.size() < 700; ++i)
+            {
+                Sprinkle sp;
+                sp.p = { b.getX() + rnd.nextFloat() * b.getWidth(), b.getY() };
+                sp.v = { (rnd.nextFloat() - 0.5f) * 30.0f, 220.0f + rnd.nextFloat() * 160.0f };
+                sp.life = 1.2f;
+                sp.c = rnd.nextBool() ? juce::Colour (0xffe04b4b) : juce::Colours::white;
+                sprinkles.push_back (sp);
+            }
+        }
+
+        // Snow fireworks: white sparks shower down from the top while it lasts.
+        if (celebrationSeconds > 0.0f)
+        {
+            celebrationSeconds = juce::jmax (0.0f, celebrationSeconds - dt);
+            const auto b = getLocalBounds().toFloat();
+            for (int i = 0; i < 6 && sprinkles.size() < 700; ++i)
+            {
+                Sprinkle sp;
+                sp.p = { b.getX() + rnd.nextFloat() * b.getWidth(), b.getY() + rnd.nextFloat() * 8.0f };
+                sp.v = { (rnd.nextFloat() - 0.5f) * 40.0f, 30.0f + rnd.nextFloat() * 70.0f };
+                sp.life = 1.0f + rnd.nextFloat() * 1.5f;
+                sp.c = juce::Colour::fromHSV (rnd.nextFloat(), 0.15f, 1.0f, 1.0f);
+                sprinkles.push_back (sp);
+            }
+        }
 
         int greenBorn = 0;
         int cornerEvents = 0;
@@ -183,7 +424,7 @@ namespace mutagen
             o.pulse += dt * (o.kind == OrbKind::monster ? 11.0f : o.kind == OrbKind::mini ? 0.7f : 3.0f);
 
             const auto before = o.p;
-            o.p += o.v * dt;
+            o.p += o.v * (dt * speed);
 
             const bool hitX = o.p.x < 0.0f || o.p.x > 1.0f;
             const bool hitY = o.p.y < 0.0f || o.p.y > 1.0f;
@@ -288,11 +529,42 @@ namespace mutagen
                 g.fillEllipse (p.x - radius * 2.2f, p.y - radius * 2.2f,
                                radius * 4.4f, radius * 4.4f);
             }
+            // Quiet bloom: five petals grow out of every orb (the first 400).
+            if (flowers && &o - gameOrbs.data() < 400)
+            {
+                const float grow = juce::jlimit (0.0f, 1.0f, (o.maxLife - o.life) / 2.0f);
+                const float pr = radius * (1.0f + 1.6f * grow);
+                g.setColour (juce::Colour::fromHSV (std::fmod (huePhase + 0.5f, 1.0f), 0.55f, 1.0f, 0.75f));
+                for (int k = 0; k < 5; ++k)
+                {
+                    const float ang = (float) k * juce::MathConstants<float>::twoPi / 5.0f + o.pulse * 0.1f;
+                    g.fillEllipse (p.x + std::cos (ang) * pr - pr * 0.45f, p.y + std::sin (ang) * pr - pr * 0.45f, pr * 0.9f, pr * 0.9f);
+                }
+                g.setColour (juce::Colour (0xff3a7d2c));
+                g.drawLine (p.x, p.y + radius, p.x, p.y + radius + pr * 1.6f, 1.5f);
+            }
+
             g.setColour (colour.withAlpha (0.88f));
             g.fillEllipse (p.x - radius, p.y - radius, radius * 2.0f, radius * 2.0f);
             g.setColour (juce::Colours::white.withAlpha (0.45f));
             g.fillEllipse (p.x - radius * 0.42f, p.y - radius * 0.48f,
                            radius * 0.54f, radius * 0.54f);
+
+            // Creatures get bodies: tentacles, legs, a tail.
+            g.setColour (colour);
+            if (o.kind == OrbKind::squid)
+                for (int k = -1; k <= 1; ++k)
+                    g.drawLine (p.x + k * radius * 0.5f, p.y + radius, p.x + k * radius * 0.8f + std::sin (o.pulse + k) * 3.0f,
+                                p.y + radius * 2.6f, 1.4f);
+            else if (o.kind == OrbKind::mite || o.kind == OrbKind::yellowMite)
+                for (int k = -1; k <= 1; ++k)
+                    g.drawLine (p.x - radius * 2.2f, p.y + k * radius, p.x + radius * 2.2f, p.y + k * radius + std::sin (o.pulse * 3.0f + k), 0.9f);
+            else if (o.kind == OrbKind::mouse)
+            {
+                const auto dir = o.v.getDistanceFromOrigin() > 0.0f ? o.v / o.v.getDistanceFromOrigin() : juce::Point<float> (1.0f, 0.0f);
+                g.drawLine (p.x - dir.x * radius, p.y - dir.y * radius, p.x - dir.x * radius * 3.2f, p.y - dir.y * radius * 3.2f + std::sin (o.pulse) * 2.0f, 1.0f);
+                g.fillEllipse (p.x + dir.x * radius * 0.6f - 2.0f, p.y + dir.y * radius * 0.6f - radius - 1.0f, 4.0f, 4.0f);   // ear
+            }
         }
 
         for (const auto& s : sprinkles)

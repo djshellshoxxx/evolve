@@ -83,6 +83,19 @@ namespace mutagen
         void setOrbInversion (float seconds);
         void setOrbSpeedBoost (float multiplier, float seconds);
         void setLabPet (int pet); // 0 none, 1 cat, 2 dog
+
+        // ---- name fates ----
+        void setFlowers (bool on) { flowers = on; }
+        void triggerSeizure();                    // convulse, then multiply and run 3x
+        void triggerHail (float seconds);         // red and white hail
+        void spawnPinkMutants (int count);        // pink orbs that turn into squids and mites
+        void triggerTurbo();
+        void spawnGiantsThatBecomeMites (int count);
+        void spawnOrbsThatBecomeSquids (int count);
+        void spawnShrinkingGiants (int count);
+        void spawnDoomedOrbs (int count);
+        void spawnYellowOrbs (int count);
+        void mutateOrbsIntoCreatures (bool yellowMites);   // mice/squids, or yellow mites       // appear all at once, die within seconds                      // every orb multiplies 3x and runs 5x
         void triggerSnowFireworks (float seconds = 8.0f);
 
         std::function<void(int)> onGreenOrbsBorn;
@@ -101,7 +114,7 @@ namespace mutagen
         {
             special, rainbow, glowingRainbow, giantRainbow,
             monster, mini, green, red, pink, yellow, white, blackVirus,
-            squid, mite, spider
+            squid, mite, spider, mouse, yellowMite
         };
         struct Orb
         {
@@ -112,6 +125,8 @@ namespace mutagen
             OrbKind kind { OrbKind::special };
             float pulse = 0.0f;
             bool multiplied = false;
+            bool squidSeed = false;
+            bool shrinker = false;
         };
         struct Sprinkle
         {
@@ -157,6 +172,13 @@ namespace mutagen
         float orbSpeedMultiplier = 1.0f;
         float orbSpeedBoostSeconds = 0.0f;
         float celebrationSeconds = 0.0f;
+        float hailSeconds = 0.0f;
+        float seizureSeconds = 0.0f;
+        float mutantSeconds = 0.0f;
+        float giantSeconds = 0.0f;
+        float squidSeconds = 0.0f;
+        float shrinkSeconds = 0.0f;
+        bool flowers = false;
         int giantRainbowBreedRatio = 1;
         int labPet = 0;
         juce::Point<float> petPos { 0.5f, 0.5f };
