@@ -225,7 +225,7 @@ namespace mutagen::story
             const auto& a = acts()[(std::size_t) i];
             if (lex >= a.lexiconNeeded && p.collected >= a.collectedNeeded
                 && p.quizzesCorrect >= a.quizzesNeeded)
-                act = i + 1;
+                act = std::max (act, i + 1);
         }
         return act;
     }

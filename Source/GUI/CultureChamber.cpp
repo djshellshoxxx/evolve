@@ -142,7 +142,9 @@ namespace mutagen
 
     void CultureChamber::setOrbSpeedBoost (float multiplier, float seconds)
     {
-        orbSpeedMultiplier = juce::jlimit (1.0f, 6.0f, multiplier);
+        // Never weaken a boost that is still running.
+        const float m = juce::jlimit (1.0f, 6.0f, multiplier);
+        orbSpeedMultiplier = orbSpeedBoostSeconds > 0.0f ? juce::jmax (orbSpeedMultiplier, m) : m;
         orbSpeedBoostSeconds = juce::jmax (orbSpeedBoostSeconds, juce::jlimit (0.5f, 60.0f, seconds));
     }
 

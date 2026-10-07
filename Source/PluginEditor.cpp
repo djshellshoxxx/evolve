@@ -93,7 +93,8 @@ namespace mutagen
         {
             if (safe == nullptr) return;
 
-            // Smoke-test hooks for CI and development: force a fate or a secret room.
+           #if MUTAGEN_TEST_HOOKS
+            // Smoke-test hooks (test builds only): force a fate or a secret room.
             const auto fate = juce::SystemStats::getEnvironmentVariable ("MUTAGEN_TEST_FATE", {});
             const auto room = juce::SystemStats::getEnvironmentVariable ("MUTAGEN_TEST_SECRET", {});
             if (fate.isNotEmpty() || room.isNotEmpty())
@@ -102,8 +103,9 @@ namespace mutagen
                 if (room.isNotEmpty()) safe->secretLayer.openSecretForTest (room.getIntValue());
                 return;
             }
+           #endif
 
-            if (! safe->storyPanel.progress().introSeen) safe->introOverlay.open();
+            if (! safe->storyPanel.progress().introSeen) { safe->introOverlay.open(); safe->introOverlay.grabKeyboardFocus(); }
             else safe->askName();
         });
         storyPanel.onReward = [this] (float w, const juce::String& label)
@@ -777,7 +779,10 @@ namespace mutagen
         secretLayer.update (dt, scoreSystem.score(), snapshot.generation, snapshot.population,
                             introOverlay.isVisible() || nameOverlay.isVisible()
                             || breedingLab.isVisible() || performance.isVisible());
-        serviceLabGameSchedule (runScoreBefore, runScoreAfter);
+        // Compare against the score seen last tick, so bonuses applied between
+        // ticks (skills, fates, secrets) still count as crossings.
+        serviceLabGameSchedule (lastSeenScore, scoreSystem.score());
+        lastSeenScore = scoreSystem.score();
         scoreHud.setState (scoreSystem, snapshot);
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
@@ -902,6 +907,9 @@ namespace mutagen
         scoreHud.toFront (false);
         secretLayer.setBounds (chamber.getBounds());
         secretLayer.toFront (false);
+        // Whatever modal layer is open stays above the secret layer.
+        for (juce::Component* c : { (juce::Component*) &labGameOverlay, (juce::Component*) &introOverlay, (juce::Component*) &nameOverlay })
+            if (c->isVisible()) c->toFront (false);
     }
 
     void MutagenEditor::resized()

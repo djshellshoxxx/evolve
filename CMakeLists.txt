@@ -159,6 +159,11 @@ if(MUTAGEN_BUILD_STANDALONE AND TARGET MUTAGEN_Standalone)
     target_include_directories(MUTAGEN_Standalone PRIVATE Source)
 endif()
 
+option(MUTAGEN_TEST_HOOKS "Enable MUTAGEN_TEST_FATE / MUTAGEN_TEST_SECRET smoke-test hooks" OFF)
+if(MUTAGEN_TEST_HOOKS)
+    target_compile_definitions(MUTAGEN PRIVATE MUTAGEN_TEST_HOOKS=1)
+endif()
+
 target_compile_definitions(MUTAGEN PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0

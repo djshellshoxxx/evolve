@@ -140,6 +140,7 @@ namespace mutagen
         bool twentyOneActive = false;
         int twentyOnePlayerAces = 0, twentyOneHouseAces = 0;
         double playSeconds = 0.0;
+        juce::int64 lastSeenScore = 0;
         int scratchStreak = 0, diceLossStreak = 0, skillsEarnedThisGame = 0;
         double lastDivisibleEventSec = -100.0;
         bool millionChecked = false, squidsChecked = false, giantsChecked = false;

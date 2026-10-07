@@ -212,7 +212,7 @@ namespace mutagen
         }
 
         // Crossing 3,048 points: one time in twelve, 345 orbs that turn into squids.
-        if (! squidsChecked && beforeScore < 3048 && afterScore >= 3048)
+        if (! squidsChecked && afterScore >= 3048)
         {
             squidsChecked = true;
             if (hauntedRng.rollInclusive (1, 12) == 1)

@@ -111,9 +111,13 @@ namespace mutagen
                 if (id == secrets::secretCount - 1 || rng.nextInt (3) == 0) roomVisitors.push_back (i);
 
         story.markSecret (id);
-        processor.triggerSkillSound (52000 + id * 173);   // every room has its own voice
         applySkill (s.skill, s.skillParam);
         applyBurst (s.burst, s.burstCount);
+        // Every room has its own voice. The haunted/skill voice is a single
+        // mailbox, so the room's sound is sent after the skill's, a beat later.
+        juce::Timer::callAfterDelay (s.skill == secrets::Skill::haunted ? 1600 : 0,
+            [safe = juce::Component::SafePointer<SecretLayer> (this), id]
+            { if (safe != nullptr) safe->processor.triggerSkillSound (52000 + id * 173); });
         story.collectSoon (juce::String ("secret ") + s.name, 0.4, 3.0f);
 
         const float weight = s.tier == secrets::Tier::easy ? 0.5f
@@ -211,7 +215,7 @@ namespace mutagen
         polyAge = 0.0f;
         applySkill (p.skill, p.param);
         applyBurst (p.burst, p.count);
-        processor.triggerSkillSound (57000 + which * 131);
+        if (p.skill != secrets::Skill::haunted) processor.triggerSkillSound (57000 + which * 131);
         if (onReward) onReward (0.3f, juce::String (p.language).toUpperCase() + ": " + juce::String (p.meaning).toUpperCase());
         ensureAnimating();
     }
@@ -472,7 +476,7 @@ namespace mutagen
         if (dotsToSpawn > 0 || ! dots.empty())
         {
             const float w = (float) getWidth(), h = (float) getHeight();
-            for (int i = 0; i < 1600 && dotsToSpawn > 0; ++i, --dotsToSpawn)
+            for (int i = 0; i < 1600 && dotsToSpawn > 0 && dots.size() < 24000; ++i, --dotsToSpawn)
             {
                 const float a = rng.nextFloat() * juce::MathConstants<float>::twoPi, sp = 180.0f + rng.nextFloat() * 520.0f;
                 dots.push_back ({ w * 0.5f, h * 0.5f, std::cos (a) * sp, std::sin (a) * sp,
