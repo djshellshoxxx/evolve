@@ -1,7 +1,10 @@
 #include "HauntedOverlay.h"
 #include "MutagenLookAndFeel.h"
 #include "../Engine/HiddenDiscoveries.h"
+#include <algorithm>
 #include <cmath>
+#include <memory>
+#include <vector>
 
 namespace mutagen::haunted
 {
@@ -11,9 +14,10 @@ namespace mutagen::haunted
                                     private juce::Timer
         {
         public:
-            PhantomWindow (int id, juce::Rectangle<int> source, int recipe, float amount)
+            PhantomWindow (int id, juce::Rectangle<int> source, int recipe, float amount,
+                           std::weak_ptr<PhantomRegistry> owner)
                 : creatureId (id), animationRecipe (recipe),
-                  intensity (juce::jlimit (0.2f, 1.5f, amount))
+                  intensity (juce::jlimit (0.2f, 1.5f, amount)), registry (std::move (owner))
             {
                 setInterceptsMouseClicks (false, false);
                 setOpaque (false);
@@ -119,7 +123,17 @@ namespace mutagen::haunted
                 {
                     stopTimer();
                     setVisible (false);
-                    juce::MessageManager::callAsync ([this] { delete this; });
+                    if (auto owner = registry.lock())
+                    {
+                        auto* completed = this;
+                        juce::MessageManager::callAsync ([owner = std::move (owner), completed]
+                        {
+                            auto& windows = owner->windows;
+                            windows.erase (std::remove_if (windows.begin(), windows.end(),
+                                [completed] (const auto& window) { return window.get() == completed; }),
+                                windows.end());
+                        });
+                    }
                 }
             }
 
@@ -129,15 +143,37 @@ namespace mutagen::haunted
             float age = 0.0f, duration = 2.0f;
             juce::Point<float> startCentre;
             juce::Point<int> target;
+            std::weak_ptr<PhantomRegistry> registry;
         };
     }
 
-    void launchDesktopPhantom (int creatureId, juce::Rectangle<int> sourceGlobal,
-                               int animationRecipe, float intensity)
+    struct PhantomRegistry
     {
-        auto* p = new PhantomWindow (juce::jlimit (0, 99, creatureId),
-                                     sourceGlobal, animationRecipe, intensity);
-        p->setVisible (true);
-        p->toFront (false);
+        std::vector<std::unique_ptr<PhantomWindow>> windows;
+    };
+
+    DesktopPhantomManager::DesktopPhantomManager()
+        : registry (std::make_shared<PhantomRegistry>())
+    {
+    }
+
+    DesktopPhantomManager::~DesktopPhantomManager()
+    {
+        clear();
+    }
+
+    void DesktopPhantomManager::clear()
+    {
+        registry->windows.clear();
+    }
+
+    void DesktopPhantomManager::launch (int creatureId, juce::Rectangle<int> sourceGlobal,
+                                        int animationRecipe, float intensity)
+    {
+        auto window = std::make_unique<PhantomWindow> (
+            juce::jlimit (0, 99, creatureId), sourceGlobal, animationRecipe, intensity, registry);
+        window->setVisible (true);
+        window->toFront (false);
+        registry->windows.push_back (std::move (window));
     }
 }
