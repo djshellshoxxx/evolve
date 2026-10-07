@@ -230,7 +230,7 @@ namespace mutagen
             lastHiddenEffectSec = now;
             topBar.setStatus (text);
             processor.triggerHauntedSound (recipe, 0.82f);
-            haunted::launchDesktopPhantom (phantomId, getScreenBounds(), recipe, 0.82f);
+            phantomManager.launch (phantomId, getScreenBounds(), recipe, 0.82f);
             if (hauntedRng.rollInclusive (1, 4) == 1)
                 haunted::systemBeepAsync (120 + (recipe * 37) % 880, 70 + recipe % 180);
         };
