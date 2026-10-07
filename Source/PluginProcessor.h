@@ -187,9 +187,17 @@ namespace mutagen
         std::atomic<uint64_t> fullStateStamp { 0 };
 
         // ---- live capture ring ---------------------------------
-        juce::AudioBuffer<float> captureRing;
-        int  captureWritePos = 0;
-        bool captureRingFilled = false;
+        // Two rings: the input (for CAPTURE LIVE) and the final output (for
+        // COLLECT, sound export and offline render). They are only resized in
+        // prepareToPlay, under ringLock, which the message/render threads hold
+        // while copying - so a host re-prepare can never free memory mid-read.
+        // Write heads are published once per block.
+        juce::AudioBuffer<float> captureRing, outputRing;
+        std::atomic<int> captureWritePos { 0 }, outputWritePos { 0 };
+        mutable juce::SpinLock ringLock;
+        static void writeRing (juce::AudioBuffer<float>&, std::atomic<int>&, const float*, int);
+        void readRing (const juce::AudioBuffer<float>&, const std::atomic<int>&,
+                       juce::AudioBuffer<float>& dst, float seconds, int minSamples) const;
 
         std::atomic<bool> exploringFlag { true };
 
@@ -301,6 +309,7 @@ namespace mutagen
         int64_t tripDelaySamplesLeft = 0;
         juce::AudioBuffer<float> tripDelayBuffer;
         int tripDelayWrite = 0;
+        int64_t tripDelayAge = 0;
         double tripDelayReadPhase = 0.0;
 
         double hostTimeSeconds = 0.0;

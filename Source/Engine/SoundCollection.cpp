@@ -59,7 +59,7 @@ namespace mutagen
         }
 
         const float peak = b.getMagnitude (0, n);
-        if (! (peak > 1.0e-4f)) return 0.0f;   // silence (or NaN) is not a specimen
+        if (! (peak > 0.003f)) return 0.0f;    // below -50 dBFS (or NaN) is not a specimen
 
         b.applyGain (juce::Decibels::decibelsToGain (-1.0f) / peak);
 
@@ -98,8 +98,14 @@ namespace mutagen
         juce::AudioBuffer<float> copy (source);
         if (prepare (copy, sampleRate) <= 0.0f) return false;
 
-        const auto name = juce::String (nextIndex).paddedLeft ('0', 4) + "-" + safeName (label) + ".wav";
-        const auto file = collectionFolder().getChildFile (name);
+        // Another instance may share the folder: never overwrite a specimen.
+        juce::File file;
+        do
+        {
+            file = collectionFolder().getChildFile (juce::String (nextIndex).paddedLeft ('0', 4)
+                                                    + "-" + safeName (label) + ".wav");
+            if (file.exists()) ++nextIndex;
+        } while (file.exists());
         if (! writeWav (copy, sampleRate, file)) return false;
 
         ++nextIndex;
@@ -138,8 +144,20 @@ namespace mutagen
             return p;
         }
 
-        void save (const story::Progress& p)
+        void save (const story::Progress& mine)
         {
+            // Merge with what is on disk, so two open instances never erase
+            // each other's progress.
+            const auto disk = load();
+            story::Progress p = mine;
+            p.lexicon |= disk.lexicon;
+            p.twistsSeen |= disk.twistsSeen;
+            p.collected = juce::jmax (p.collected, disk.collected);
+            p.quizzesCorrect = juce::jmax (p.quizzesCorrect, disk.quizzesCorrect);
+            p.quizzesAsked = juce::jmax (p.quizzesAsked, disk.quizzesAsked);
+            p.highestActSeen = juce::jmax (p.highestActSeen, disk.highestActSeen);
+            p.runsPlayed = juce::jmax (p.runsPlayed, disk.runsPlayed);
+
             auto* o = new juce::DynamicObject();
             // 64-bit mask as a string: JSON numbers are doubles and would lose bits.
             o->setProperty ("lexicon", juce::String ((juce::int64) p.lexicon));

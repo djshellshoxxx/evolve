@@ -44,13 +44,16 @@ namespace mutagen
 
         labGameOverlay.onDecline = [this] { presentNextLabGame(); };
 
+        chamber.onGreenOrbsBorn = [this] (int n) { progressionSystem.addGreenOrbs (n); };
+        chamber.onTemporaryGator = [this] (int bpm) { processor.triggerTemporaryGator (bpm, 20); };
+
         labGameOverlay.onRouletteSpin = [this]
         {
             const auto o = labgames::rouletteOutcome (scoreSystem.score(), hauntedRng.rollInclusive (1, 12));
             if (o.points != 0) scoreSystem.adjustScore (o.points, "ROULETTE");
             if (o.skillDelta > 0) awardGameSkill ((int) o.kind % 5, o.skillDelta);
             if (o.skillDelta < 0) progressionSystem.removeRandomGameSkill (hauntedRng.rollInclusive (0, 99));
-            if (o.specialOrbs > 0) progressionSystem.addSpecialOrbs (o.specialOrbs);
+            if (o.specialOrbs > 0) { progressionSystem.addSpecialOrbs (o.specialOrbs); chamber.spawnSpecialOrbs (o.specialOrbs); }
             if (o.soundUnlocks > 0) rewardInstrument (genericSound, o.soundUnlocks);
             const bool good = o.points >= 0 && o.skillDelta >= 0;
             labGameOverlay.resolve ("ROULETTE", labgames::roulettePrizeName (o.kind),
@@ -65,7 +68,7 @@ namespace mutagen
             const auto o = labgames::skillRouletteOutcome (hauntedRng.rollInclusive (1, 8));
             if (o.points != 0) scoreSystem.adjustScore (o.points, "SKILL ROULETTE");
             if (o.skillDelta < 0) progressionSystem.removeRandomGameSkill (hauntedRng.rollInclusive (0, 99));
-            if (o.pianoKeys > 0)   rewardInstrument (pianoKey, o.pianoKeys);
+            if (o.pianoKeys > 0)   { progressionSystem.addPianoKeySounds (o.pianoKeys); rewardInstrument (pianoKey, o.pianoKeys); }
             if (o.snareSounds > 0) { progressionSystem.addSnareSounds (o.snareSounds); rewardInstrument (snare, o.snareSounds); }
             if (o.claps > 0)       { progressionSystem.addClapSounds (o.claps); rewardInstrument (clap, o.claps); }
             if (o.pads > 0)        { progressionSystem.addPadSounds (o.pads); rewardInstrument (pad, o.pads); }
@@ -84,7 +87,7 @@ namespace mutagen
             const bool won = card == monteWinningCard;
             const auto o = labgames::monteOutcome (won, hauntedRng.rollInclusive (1, 2));
             if (o.points != 0) scoreSystem.adjustScore (o.points, "THREE-CARD MONTE");
-            if (o.rainbowOrbs > 0) progressionSystem.addRainbowOrbs (o.rainbowOrbs);
+            if (o.rainbowOrbs > 0) { progressionSystem.addRainbowOrbs (o.rainbowOrbs); chamber.spawnRainbowOrbs (o.rainbowOrbs, false); }
             if (o.skillDelta > 0) awardGameSkill (hauntedRng.rollInclusive (0, 4), o.skillDelta);
             if (o.soundUnlocks > 0) rewardInstrument (genericSound, o.soundUnlocks);
             labGameOverlay.resolve ("THREE-CARD MONTE",
@@ -99,8 +102,8 @@ namespace mutagen
         {
             const auto o = labgames::slotOutcome (hauntedRng.rollInclusive (0, 999));
             if (o.points != 0) scoreSystem.adjustScore (o.points, "SLOTS");
-            if (o.specialOrbs > 0) progressionSystem.addSpecialOrbs (o.specialOrbs);
-            if (o.glowingRainbowOrbs > 0) progressionSystem.addRainbowOrbs (o.glowingRainbowOrbs, true);
+            if (o.specialOrbs > 0) { progressionSystem.addSpecialOrbs (o.specialOrbs); chamber.spawnSpecialOrbs (o.specialOrbs); }
+            if (o.glowingRainbowOrbs > 0) { progressionSystem.addRainbowOrbs (o.glowingRainbowOrbs, true); chamber.spawnRainbowOrbs (o.glowingRainbowOrbs, true, o.rainbowMultiplier); }
             if (o.skillDelta > 0) awardGameSkill (hauntedRng.rollInclusive (0, 4), o.skillDelta);
             if (o.soundUnlocks > 0) rewardInstrument (genericSound, o.soundUnlocks);
             const auto moment = o.jackpot ? labgames::SoundMoment::jackpot : labgames::SoundMoment::smallWin;
@@ -115,7 +118,13 @@ namespace mutagen
         {
             const int mine = hauntedRng.rollInclusive (1, 6), lab = hauntedRng.rollInclusive (1, 6);
             const auto o = labgames::diceOutcome (mine, lab);
-            if (o.won) progressionSystem.addSpecialOrbs (o.monsterOrbs + o.miniOrbs);
+            if (o.won)
+            {
+                progressionSystem.addSpecialOrbs (o.monsterOrbs + o.miniOrbs);
+                chamber.spawnMonsterOrbs (o.monsterOrbs);
+                chamber.spawnMiniOrbs (o.miniOrbs);
+            }
+            if (o.orbInversionPenalty) chamber.setOrbInversion (20.0f);
             labGameOverlay.resolve ("DICE", "You " + juce::String (mine) + "  /  Lab " + juce::String (lab),
                                     labgames::Game::dice,
                                     o.won ? labgames::SoundMoment::smallWin : labgames::SoundMoment::penalty, o.won);
@@ -125,7 +134,7 @@ namespace mutagen
 
         labGameOverlay.onTwentyOneHit = [this]
         {
-            twentyOnePlayer += drawCardValue();
+            dealCard (twentyOnePlayer, twentyOnePlayerAces);
             if (twentyOnePlayer >= 21) resolveTwentyOne();
             else labGameOverlay.showTwentyOne (twentyOnePlayer, true);
         };
@@ -212,8 +221,12 @@ namespace mutagen
             case PendingGame::scratch:       labGameOverlay.showScratch (scratchTickets); break;
             case PendingGame::twentyOne:
                 twentyOneActive = true;
-                twentyOnePlayer = drawCardValue() + drawCardValue();
-                twentyOneHouse = drawCardValue() + drawCardValue();
+                twentyOnePlayer = twentyOneHouse = twentyOnePlayerAces = twentyOneHouseAces = 0;
+                for (int i = 0; i < 2; ++i)
+                {
+                    dealCard (twentyOnePlayer, twentyOnePlayerAces);
+                    dealCard (twentyOneHouse, twentyOneHouseAces);
+                }
                 labGameOverlay.showTwentyOne (twentyOnePlayer, twentyOnePlayer < 21);
                 break;
         }
@@ -246,6 +259,15 @@ namespace mutagen
         return r == 1 ? 11 : juce::jmin (10, r);
     }
 
+    void MutagenEditor::dealCard (int& total, int& softAces)
+    {
+        const int v = drawCardValue();
+        total += v;
+        if (v == 11) ++softAces;
+        // An ace counts 11 until that would bust the hand, then 1.
+        while (total > 21 && softAces > 0) { total -= 10; --softAces; }
+    }
+
     void MutagenEditor::resolveTwentyOne()
     {
         if (! twentyOneActive) return;
@@ -253,7 +275,7 @@ namespace mutagen
 
         // The house draws to 17, like a casino dealer.
         while (twentyOnePlayer <= 21 && twentyOneHouse < 17)
-            twentyOneHouse += drawCardValue();
+            dealCard (twentyOneHouse, twentyOneHouseAces);
 
         const auto o = labgames::twentyOneOutcome (twentyOnePlayer, twentyOneHouse);
         if (o.points != 0) scoreSystem.adjustScore (o.points, "TWENTY-ONE");

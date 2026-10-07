@@ -78,6 +78,7 @@ namespace mutagen
         void checkSkillRouletteTrigger (int skillsBefore, int skillsAfter);
         void resolveTwentyOne();
         int drawCardValue();
+        void dealCard (int& total, int& softAces);
 
         MutagenProcessor& processor;
         haunted::DesktopPhantomManager phantomManager;
@@ -130,6 +131,7 @@ namespace mutagen
         int twentyOnePlayer = 0;
         int twentyOneHouse = 0;
         bool twentyOneActive = false;
+        int twentyOnePlayerAces = 0, twentyOneHouseAces = 0;
         double playSeconds = 0.0;
 
         RenderEngine      renderEngine;

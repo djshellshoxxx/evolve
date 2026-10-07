@@ -9,6 +9,11 @@
 
 **Fixed**
 - Integrated the open lab-games and pinned-build branches. Fixed the five errors that stopped the merged code from building (a missing source file, stale phantom-window calls, an atomic passed to `jlimit`, a JUCE 8 display API change, an incomplete type).
+- COLLECT, export and render now record the final output (previously the dry input whenever an input bus existed); the capture rings can no longer be freed mid-read when the host re-prepares
+- Closing the editor no longer disarms your microphone or cancels your capture
+- Trip delay: removed a ~1.5 kHz buzz and stale audio replay from earlier activations
+- Lab-game orb prizes now actually appear in the chamber; aces are soft in twenty-one; piano-key prizes are saved
+- Two open instances can no longer overwrite each other's collected WAVs or story progress
 - Story demonstrations release their notes (new `noteRelease` command), so nothing is left droning.
 
 **Downloads**

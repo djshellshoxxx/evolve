@@ -773,7 +773,7 @@ Remaining milestones (resume at the first unchecked):
       filters, Nyquist, dB, phase, reverb, scales, rhythm).
 - [x] S3 Sound collection + WAV export: capture collected sounds (orb/game
       rewards, colony snapshots) and export them as 24-bit WAV files.
-- [ ] S4 Audit + bug fix pass; S5 optimisation + tests (ctest all green).
+- [x] S4 Audit + bug fix pass; S5 optimisation + tests (ctest all green).
 - [ ] S6 CLAP via clap-juce-extensions; CI release job builds Windows
       standalone .exe + VST3 + CLAP, Linux standalone + VST3 + CLAP, and
       publishes a GitHub release.
@@ -789,3 +789,10 @@ Source/Engine/SoundCollection.* (DC-remove, -1 dBFS normalise, 10 ms fades,
 declared but never wired: now wired in Source/LabGameFlow.cpp, each instrument
 reward is collected as a WAV and comes with a fact. New CommandType::noteRelease.
 Tests: MutagenSoundCollectionTest + story checks in MutagenProgressionTest.
+
+S4 audit fixes: capture ring use-after-free/race (lock-guarded rings, atomic
+heads) and a separate output ring so COLLECT/render record what is heard;
+closing the editor no longer disarms the user's mic; trip-delay 1.5 kHz buzz
+and stale-tail replay; orbs now spawn for lab-game prizes; soft aces in 21;
+piano keys persisted; no WAV overwrite / progress loss across instances;
+duplicate story notes; overlay button layout; -50 dBFS collect gate.

@@ -423,6 +423,12 @@ namespace mutagen
         markDirty();
     }
 
+    void ProgressionSystem::addPianoKeySounds (int count)
+    {
+        pianoKeySoundCount = juce::jmax (0, pianoKeySoundCount + count);
+        markDirty();
+    }
+
     void ProgressionSystem::addBassDrumSounds (int count)
     {
         bassDrumSoundCount = juce::jmax (0, bassDrumSoundCount + count);

@@ -92,6 +92,7 @@ namespace mutagen
         void addTomSounds (int count);
         void addBassDrumSounds (int count);
         bool tradeBassDrumsForPianoKey();
+        void addPianoKeySounds (int count);
         void addStringSounds (int count);
         void addTambourineSounds (int count);
         void addBassDrops (int count);

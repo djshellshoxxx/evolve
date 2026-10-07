@@ -279,9 +279,17 @@ namespace mutagen
         const bool sustainAll = spacing * 2.0 >= hold || spacing <= 0.0;
         double t = clock + 0.05;
         const double end = t + spacing * (double) semis.size() + hold;
+        std::vector<int> used;
         for (auto s : semis)
         {
             const int note = juce::jlimit (12, 108, runStory.root + s);
+            // One voice group per pitch in the colony: skip a pitch that is
+            // repeated or still sounding from an earlier demonstration.
+            const bool busy = std::find (used.begin(), used.end(), note) != used.end()
+                           || std::any_of (noteQueue.begin(), noteQueue.end(),
+                                           [note] (const NoteEvent& e) { return e.note == note; });
+            if (busy) { t += spacing; continue; }
+            used.push_back (note);
             noteQueue.push_back ({ t, note, true });
             noteQueue.push_back ({ sustainAll ? end : t + hold, note, false });
             t += spacing;

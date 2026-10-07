@@ -159,6 +159,8 @@ namespace mutagen
         c.setVisible (false);
         decline.setButtonText ("NO THANKS");
         decline.setVisible (true);
+        juce::Component::SafePointer<LabGameOverlay> self (this);
+        juce::MessageManager::callAsync ([self] { if (self != nullptr) self->resized(); });
 
         if (mode == Mode::roulette)
         {
@@ -240,6 +242,7 @@ namespace mutagen
         b.setVisible (false);
         c.setVisible (false);
         decline.setButtonText ("CLOSE");
+        resized();
         decline.setVisible (true);
         repaint();
     }
@@ -429,8 +432,9 @@ namespace mutagen
         auto r = getLocalBounds().reduced (24);
         auto buttons = r.removeFromBottom (44);
         decline.setBounds (buttons.removeFromRight (110).reduced (4));
-        if (c.isVisible()) c.setBounds (buttons.removeFromRight (100).reduced (4));
-        if (b.isVisible()) b.setBounds (buttons.removeFromRight (100).reduced (4));
-        if (a.isVisible()) a.setBounds (buttons.removeFromRight (100).reduced (4));
+        // Fixed slots, laid out right-to-left over the visible buttons only, and
+        // recomputed every time the visible set changes (configureButtons/resolve).
+        for (auto* btn : { &c, &b, &a })
+            if (btn->isVisible()) btn->setBounds (buttons.removeFromRight (100).reduced (4));
     }
 }
