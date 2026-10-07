@@ -67,6 +67,12 @@ namespace mutagen
         addAndMakeVisible (germination);
         addAndMakeVisible (environment);
         addAndMakeVisible (chamber);
+        addAndMakeVisible (storyPanel);
+        wireLabGames();
+        storyPanel.onReward = [this] (float w, const juce::String& label)
+        {
+            scoreSystem.registerInteraction (w, label);
+        };
         addAndMakeVisible (inspector);
         addAndMakeVisible (timeline);
         addChildComponent (breedingLab);
@@ -251,6 +257,8 @@ namespace mutagen
     {
         const int recipe = 1000 + creatureId * 17;
         processor.triggerHauntedSound (recipe, newlyDiscovered ? 0.9f : 0.58f);
+        if (newlyDiscovered)
+            storyPanel.collectSoon ("creature " + juce::String (creatureId), 0.3, 3.0f);
         phantomManager.launch (creatureId, getScreenBounds(),
                                        creatureId * 13 + 7,
                                        newlyDiscovered ? 1.0f : 0.68f);
@@ -725,7 +733,11 @@ namespace mutagen
         scoreSystem.update (snapshot, dt);
         const auto runScoreAfter = scoreSystem.score();
         progressionSystem.observe (snapshot, scoreSystem);
+        storyPanel.tick (dt, breedingLab.isVisible() || performance.isVisible()
+                               || helpView.isVisible() || labGameOverlay.isVisible());
         serviceHauntedMilestones (runScoreBefore, runScoreAfter);
+        playSeconds += dt;
+        serviceLabGameSchedule (runScoreBefore, runScoreAfter);
         scoreHud.setState (scoreSystem, snapshot);
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
@@ -840,6 +852,11 @@ namespace mutagen
             mid.removeFromRight (8);
         }
 
+        // The narrator strip sits under the chamber rather than over it, so it
+        // never steals a click meant for the colony.
+        storyPanel.setBounds (mid.removeFromBottom (100));
+        mid.removeFromBottom (6);
+
         chamber.setBounds (mid);
         scoreHud.setBounds (chamber.getBounds());
         scoreHud.toFront (false);
@@ -859,6 +876,7 @@ namespace mutagen
                                                    getHeight() - TopBar::totalHeight);
         breedingLab.setBounds (overlay.reduced (24));
         performance.setBounds (overlay.reduced (24));
+        labGameOverlay.setBounds (chamber.getBounds().withSizeKeepingCentre (juce::jmin (520, chamber.getWidth()), juce::jmin (300, chamber.getHeight())));
         fxRack.setBounds (overlay.reduced (16));
 
         // Help and options are read, not played with, so they are narrower

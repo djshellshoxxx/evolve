@@ -71,6 +71,7 @@ juce_generate_juce_header(MUTAGEN)
 target_sources(MUTAGEN PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/LabGameFlow.cpp
     Source/Parameters.cpp
     Source/ParamHelp.cpp
 
@@ -90,6 +91,7 @@ target_sources(MUTAGEN PRIVATE
     Source/Engine/PhysicalOddities.cpp
     Source/Engine/Ingest.cpp
     Source/Engine/PresetManager.cpp
+    Source/Engine/SoundCollection.cpp
 
     Source/GUI/MutagenLookAndFeel.cpp
     Source/GUI/Widgets.cpp
@@ -111,6 +113,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/ProgressionView.cpp
     Source/GUI/HauntedOverlay.cpp
     Source/GUI/LabGameOverlay.cpp
+    Source/GUI/StoryPanel.cpp
     Source/GUI/DeviceSetupHook.cpp)
 
 target_include_directories(MUTAGEN PRIVATE Source)
@@ -233,6 +236,23 @@ if(MUTAGEN_BUILD_TESTS)
         juce::juce_recommended_config_flags)
 
     add_test(NAME MutagenGuiSmokeTest COMMAND MutagenGuiSmokeTest)
+
+    juce_add_console_app(MutagenSoundCollectionTest PRODUCT_NAME "MutagenSoundCollectionTest")
+    target_sources(MutagenSoundCollectionTest PRIVATE
+        Tests/SoundCollectionTest.cpp
+        Source/Engine/SoundCollection.cpp)
+    target_include_directories(MutagenSoundCollectionTest PRIVATE Source)
+    target_compile_definitions(MutagenSoundCollectionTest PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_REPORT_APP_USAGE=0
+        _CRT_SECURE_NO_WARNINGS=1)
+    target_link_libraries(MutagenSoundCollectionTest PRIVATE
+        juce::juce_audio_formats
+        PUBLIC
+        juce::juce_recommended_config_flags)
+    add_test(NAME MutagenSoundCollectionTest COMMAND MutagenSoundCollectionTest)
 
     add_executable(MutagenProgressionTest Tests/ProgressionTest.cpp)
     target_include_directories(MutagenProgressionTest PRIVATE Source)

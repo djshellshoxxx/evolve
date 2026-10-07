@@ -534,6 +534,10 @@ void MutagenProcessor::applyCommand (const EngineCommand& c)
             colony.noteOn (c.ia, c.fa > 0.0f ? c.fa : 0.8f);
             break;
 
+        case CommandType::noteRelease:
+            colony.noteOff (c.ia);
+            break;
+
         case CommandType::hardReset:
             colony.allNotesOff();
             colony.clearAll();

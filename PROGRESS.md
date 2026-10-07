@@ -767,11 +767,11 @@ Also fixed compile errors: stale launchDesktopPhantom call sites, jlimit on
 std::atomic, Display::userBounds -> userArea, incomplete PhantomRegistry type.
 
 Remaining milestones (resume at the first unchecked):
-- [ ] S2 Story chapters: new levels/chapters, characters, twists, random events
+- [x] S2 Story chapters: new levels/chapters, characters, twists, random events
       (seeded per run so no two games match). Every beat teaches an audio /
       music-theory fact woven into dialogue (intervals, harmonic series, ADSR,
       filters, Nyquist, dB, phase, reverb, scales, rhythm).
-- [ ] S3 Sound collection + WAV export: capture collected sounds (orb/game
+- [x] S3 Sound collection + WAV export: capture collected sounds (orb/game
       rewards, colony snapshots) and export them as 24-bit WAV files.
 - [ ] S4 Audit + bug fix pass; S5 optimisation + tests (ctest all green).
 - [ ] S6 CLAP via clap-juce-extensions; CI release job builds Windows
@@ -780,3 +780,12 @@ Remaining milestones (resume at the first unchecked):
 - [ ] S7 PR to main, green CI, merge.
 
 Local build: cmake -B build -G Ninja -DJUCE_SOURCE_DIR=<JUCE 8.0.6 checkout>
+
+S2/S3 notes: Source/Engine/Storyline.h (8 Resonance Acts, 7 new characters,
+60 lexicon events, 16 ear checks, 10 modes x 12 keys, 8 twists, seeded per run),
+Source/GUI/StoryPanel.* (narrator strip + director + COLLECT/EXPORT WAV),
+Source/Engine/SoundCollection.* (DC-remove, -1 dBFS normalise, 10 ms fades,
+24-bit WAV in <appdata>/MUTAGEN/Collected Sounds). Lab games from PR #5 were
+declared but never wired: now wired in Source/LabGameFlow.cpp, each instrument
+reward is collected as a WAV and comes with a fact. New CommandType::noteRelease.
+Tests: MutagenSoundCollectionTest + story checks in MutagenProgressionTest.

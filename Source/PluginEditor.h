@@ -24,6 +24,7 @@
 #include "GUI/ProgressionView.h"
 #include "GUI/HauntedOverlay.h"
 #include "GUI/LabGameOverlay.h"
+#include "GUI/StoryPanel.h"
 #include "Engine/ScoreSystem.h"
 #include "Engine/HauntedEvents.h"
 #include "Engine/HiddenDiscoveries.h"
@@ -67,6 +68,8 @@ namespace mutagen
         void serviceSpontaneousPhantom();
 
         enum class PendingGame { roulette, monte, slots, dice, twentyOne, scratch, skillRoulette };
+        void wireLabGames();
+        void rewardInstrument (int kind, int count);
         void serviceLabGameSchedule (juce::int64 beforeScore, juce::int64 afterScore);
         void queueLabGame (PendingGame);
         void presentNextLabGame();
@@ -90,6 +93,7 @@ namespace mutagen
         PerformanceView   performance;
         FxRackView        fxRack;
         LabGameOverlay    labGameOverlay;
+        StoryPanel        storyPanel { processor };
 
         // ---- the chrome every plugin in the range carries ----
         HelpView          helpView;
@@ -126,6 +130,7 @@ namespace mutagen
         int twentyOnePlayer = 0;
         int twentyOneHouse = 0;
         bool twentyOneActive = false;
+        double playSeconds = 0.0;
 
         RenderEngine      renderEngine;
         std::unique_ptr<juce::FileChooser> chooser;

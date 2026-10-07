@@ -2,6 +2,7 @@
 #include "../Source/Engine/HauntedEvents.h"
 #include "../Source/Engine/HiddenDiscoveries.h"
 #include "../Source/Engine/LabGames.h"
+#include "../Source/Engine/Storyline.h"
 #include <cstdlib>
 #include <iostream>
 #include <set>
@@ -368,6 +369,64 @@ int main()
         for (int result = 0; result < 8; ++result)
             soundRecipes.insert (soundRecipe ((Game) game, (SoundMoment) result, 11));
     CHECK (soundRecipes.size() >= 20);
+
+    // ---- Resonance Acts -------------------------------------------------
+    {
+        using namespace mutagen::story;
+        Progress p;
+        CHECK (actFor (p) == 1);
+        CHECK (p.lexiconCount() == 0);
+        for (int i = 0; i < lexiconSize; ++i) p.markHeard (i);
+        CHECK (p.lexiconCount() == lexiconSize);
+        p.collected = 100; p.quizzesCorrect = 100;
+        CHECK (actFor (p) == actCount);
+
+        // Act thresholds must be reachable and monotonic.
+        for (int i = 1; i < actCount; ++i)
+        {
+            CHECK (acts()[(std::size_t) i].lexiconNeeded >= acts()[(std::size_t) i - 1].lexiconNeeded);
+            CHECK (acts()[(std::size_t) i].lexiconNeeded <= lexiconSize);
+        }
+
+        // Every act has at least three events of its own, and every quiz has a valid answer.
+        for (int a = 1; a <= actCount; ++a)
+        {
+            int n = 0;
+            for (const auto& e : events()) n += e.minAct <= a ? 1 : 0;
+            CHECK (n >= 3);
+        }
+        for (const auto& q : quizzes()) CHECK (q.correct >= 0 && q.correct < 3 && q.minAct <= actCount);
+        for (const auto& e : events()) for (auto n : e.notes) CHECK (n == kNo || (n >= -36 && n <= 36));
+
+        // No two runs alike: different seeds give different keys/twists/orders.
+        std::set<std::string> fingerprints;
+        for (std::uint64_t seed = 1; seed <= 40; ++seed)
+        {
+            RunStory r (seed * 7919);
+            CHECK (r.root >= 48 && r.root <= 59);
+            Progress fresh;
+            std::string fp = r.keyName() + "/" + std::to_string (r.twist);
+            for (int k = 0; k < 4; ++k) fp += "/" + std::to_string (r.drawEvent (1, fresh));
+            fingerprints.insert (fp);
+            CHECK (r.scaleNotes (-1).size() >= 6);
+        }
+        CHECK (fingerprints.size() >= 38);
+
+        // Unheard events are preferred, and a run never runs dry.
+        RunStory r (99);
+        Progress fresh;
+        std::set<int> seen;
+        for (int k = 0; k < 200; ++k)
+        {
+            const int id = r.drawEvent (actCount, fresh);
+            CHECK (id >= 0 && id < lexiconSize);
+            if (seen.size() < (std::size_t) lexiconSize) CHECK (! fresh.heard (id));
+            fresh.markHeard (id);
+            seen.insert (id);
+        }
+        CHECK ((int) seen.size() == lexiconSize);
+        CHECK (r.drawQuiz (1) >= 0);
+    }
 
     std::cout << "Progression rules: PASS\n";
     return 0;
