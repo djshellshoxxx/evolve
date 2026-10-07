@@ -77,6 +77,7 @@ namespace mutagen
         int drawCardValue();
 
         MutagenProcessor& processor;
+        haunted::DesktopPhantomManager phantomManager;
         MutagenLookAndFeel lnf;
 
         TopBar            topBar;

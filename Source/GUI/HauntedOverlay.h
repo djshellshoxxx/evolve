@@ -1,14 +1,27 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <memory>
 
 namespace mutagen::haunted
 {
-    /** Fire-and-forget transparent desktop animation. The object owns itself
-        and disappears after the animation. Best-effort: hosts/OSes may choose
-        to constrain plugin-created desktop windows. */
-    void launchDesktopPhantom (int creatureId,
-                               juce::Rectangle<int> sourceGlobal,
-                               int animationRecipe,
-                               float intensity = 1.0f);
+    struct PhantomRegistry;
+
+    /** Owns any desktop phantom windows created by this editor. */
+    class DesktopPhantomManager
+    {
+    public:
+        DesktopPhantomManager();
+        ~DesktopPhantomManager();
+
+        DesktopPhantomManager (const DesktopPhantomManager&) = delete;
+        DesktopPhantomManager& operator= (const DesktopPhantomManager&) = delete;
+
+        void launch (int creatureId, juce::Rectangle<int> sourceGlobal,
+                     int animationRecipe, float intensity = 1.0f);
+        void clear();
+
+    private:
+        std::shared_ptr<PhantomRegistry> registry;
+    };
 }

@@ -746,3 +746,11 @@ written, so the CI result still needs to be read before calling M11 fully verifi
 - Replaced detached hardware threads with editor-owned timer/state logic so no worker can outlive a plugin DLL.
 - Added regression coverage for exact score crossings, winning rolls, deterministic discovery, all 100 unique creature names/lore entries, hidden patterns, randomized roll bounds and unique consecutive million-point artifacts.
 - Full design notes live in docs/haunted-lab-spec.md.
+
+
+### 2026-10-07 — Build and lifetime audit
+
+- Fixed JUCE `var` integer conversions that failed on Linux with the pinned JUCE build.
+- Scoped desktop phantom windows to the editor lifetime; timed-out windows remove themselves through the owning registry.
+- Replaced assertion-only progression checks so the test remains active in Release builds.
+- Limited CI build parallelism and run the full CTest suite on each platform.

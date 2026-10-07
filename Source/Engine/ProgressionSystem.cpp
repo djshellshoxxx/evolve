@@ -552,7 +552,7 @@ namespace mutagen
 
         auto root = std::make_unique<juce::DynamicObject>();
         root->setProperty ("version", 1);
-        root->setProperty ("lifetimeScore", lifetime.lifetimeScore);
+        root->setProperty ("lifetimeScore", (juce::int64) lifetime.lifetimeScore);
         root->setProperty ("generationsObserved", lifetime.generationsObserved);
         root->setProperty ("lifetimeDiscoveries", lifetime.lifetimeDiscoveries);
         root->setProperty ("worldsVisited", lifetime.worldsVisited);

@@ -162,7 +162,7 @@ namespace mutagen
     {
         const auto v = c.getProperties()["tint"];
         if (v.isVoid()) return fallback;
-        return juce::Colour ((juce::uint32) (int64_t) v);
+        return juce::Colour ((juce::uint32) (juce::int64) v);
     }
 
     juce::Font MutagenLookAndFeel::getLabelFont (juce::Label& l)
