@@ -303,6 +303,7 @@ namespace mutagen
     {
         const int before = progressionSystem.totalGameSkills();
         progressionSystem.changeGameSkill (juce::jlimit (0, 4, index), count);
+        if (count > 0) storyPanel.grantFactReward();
         scoreSystem.adjustScore (labgames::skillDiscoveryPoints (count), "SKILL +" + juce::String (count));
         // Every second skill earned is worth another 93 points.
         for (int i = 0; i < count; ++i)

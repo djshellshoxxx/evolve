@@ -54,6 +54,9 @@ namespace mutagen
 
         void setState (const ScoreSystem& score, const EngineSnapshot& snap);
 
+        /** The second score: knowledge points from facts. Shown under the main score. */
+        void setKnowledge (juce::int64 points) { if (points != knowledge) { knowledge = points; repaint(); } }
+
         void paint (juce::Graphics&) override;
         void mouseDown (const juce::MouseEvent&) override;
         bool hitTest (int x, int y) override;
@@ -76,6 +79,7 @@ namespace mutagen
 
         juce::int64 displayedScore = 0;     // eased toward the real one
         juce::int64 targetScore = 0;
+        juce::int64 knowledge = 0;
         float  multiplier = 1.0f;
         int    combo = 0;
         bool   frozen = false;

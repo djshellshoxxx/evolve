@@ -104,6 +104,7 @@ target_sources(MUTAGEN PRIVATE
     Source/ParamHelp.cpp
 
     Source/Engine/Entropy.cpp
+    Source/Engine/MusicFacts.cpp
     Source/Engine/Descriptors.cpp
     Source/Engine/Genome.cpp
     Source/Engine/Cells.cpp

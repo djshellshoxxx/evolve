@@ -13,6 +13,7 @@ namespace mutagen
         constexpr float kPi = juce::MathConstants<float>::pi;
         constexpr float kFrame = 1.0f / 30.0f;
         constexpr float kBannerLife = 4.2f;
+        constexpr float kToastLife = 7.0f;
 
         /** Deterministic 0..1 hash of (seed, index, channel). */
         float rnd (std::uint32_t seed, int i, int k = 0)
@@ -67,6 +68,14 @@ namespace mutagen
         startTimerHz (30);
     }
 
+    void StoryFx::factToast (const juce::String& category, const juce::String& text,
+                             int knowledgePoints, int demoBonus, juce::Colour c)
+    {
+        if (toasts.size() >= 2) toasts.erase (toasts.begin());
+        toasts.push_back ({ category, text, knowledgePoints, demoBonus, c, 0.0f });
+        startTimerHz (30);
+    }
+
     void StoryFx::banner (const juce::String& title, const juce::String& subtitle, juce::Colour c)
     {
         if (banners.size() >= 2) banners.erase (banners.begin());
@@ -85,6 +94,9 @@ namespace mutagen
     {
         for (auto& f : fx) f.age += dt;
         for (auto& b : banners) b.age += dt;
+        for (auto& t : toasts) t.age += dt;
+        toasts.erase (std::remove_if (toasts.begin(), toasts.end(),
+                                      [] (const Toast& t) { return t.age >= kToastLife; }), toasts.end());
         fx.erase (std::remove_if (fx.begin(), fx.end(), [] (const Fx& f) { return f.age >= f.life; }), fx.end());
         banners.erase (std::remove_if (banners.begin(), banners.end(),
                                        [] (const Banner& b) { return b.age >= kBannerLife; }), banners.end());
@@ -95,6 +107,7 @@ namespace mutagen
         const auto area = getLocalBounds().toFloat();
         for (const auto& f : fx) drawFx (g, f, area);
         for (const auto& b : banners) drawBanner (g, b, area);
+        for (const auto& t : toasts) drawToast (g, t, area);
     }
 
     // ---- chance animations --------------------------------------------------
@@ -340,5 +353,46 @@ namespace mutagen
         g.setFont (theme::uiFont (11.5f));
         g.setColour (theme::text.withAlpha (alpha * tIn));
         g.drawText (b.subtitle, text, juce::Justification::centred, true);
+    }
+
+    // ---- fact card ------------------------------------------------------------
+
+    void StoryFx::drawToast (juce::Graphics& g, const Toast& t, juce::Rectangle<float> a) const
+    {
+        const float in = juce::jlimit (0.0f, 1.0f, t.age / 0.4f);
+        const float out = juce::jlimit (0.0f, 1.0f, (kToastLife - t.age) / 1.0f);
+        const float alpha = juce::jmin (in, out);
+        const float w = juce::jmin (a.getWidth() - 40.0f, 640.0f);
+        const float h = t.bonus > 0 ? 100.0f : 84.0f;
+        const float slide = (1.0f - in) * -14.0f;
+        auto card = juce::Rectangle<float> (a.getCentreX() - w * 0.5f, a.getY() + 76.0f + slide, w, h);
+
+        g.setColour (juce::Colours::black.withAlpha (0.66f * alpha));
+        g.fillRoundedRectangle (card, 8.0f);
+        g.setColour (t.colour.withAlpha (0.8f * alpha));
+        g.drawRoundedRectangle (card.reduced (0.5f), 8.0f, 1.2f);
+
+        auto inner = card.reduced (14.0f, 9.0f);
+        auto head = inner.removeFromTop (14.0f);
+        g.setFont (theme::monoFont (9.5f));
+        g.setColour (t.colour.brighter (0.2f).withAlpha (alpha));
+        g.drawText ("DID YOU KNOW  /  " + t.category.toUpperCase(), head, juce::Justification::centredLeft, true);
+        g.setColour (theme::text.withAlpha (0.9f * alpha));
+        g.drawText ("+" + juce::String (t.points) + " KNOWLEDGE", head, juce::Justification::centredRight, true);
+
+        const int chars = (int) juce::jmin ((float) t.text.length(), t.age * 55.0f);
+        auto body = inner.removeFromTop (t.bonus > 0 ? 50.0f : 56.0f);
+        g.setFont (theme::uiFont (13.0f));
+        g.setColour (theme::text.withAlpha (alpha));
+        g.drawFittedText (t.text.substring (0, chars), body.toNearestInt(), juce::Justification::topLeft, 3, 0.95f);
+
+        if (t.bonus > 0)
+        {
+            juce::String s (t.bonus);
+            for (int i = s.length() - 3; i > 0; i -= 3) s = s.substring (0, i) + "," + s.substring (i);
+            g.setFont (theme::uiFont (11.5f, true));
+            g.setColour (juce::Colour (0xffffd36b).withAlpha (alpha));
+            g.drawText ("HEARD IT?  +" + s + " POINTS", inner, juce::Justification::centredRight, true);
+        }
     }
 }

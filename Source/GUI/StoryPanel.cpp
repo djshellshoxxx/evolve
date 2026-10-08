@@ -30,18 +30,28 @@ namespace mutagen
             return theme::text;
         }
 
+        std::uint64_t factSeedFor (story::Progress& p);
+
         std::uint64_t freshSeed()
         {
             return (std::uint64_t) juce::Random::getSystemRandom().nextInt64()
                  ^ (std::uint64_t) juce::Time::currentTimeMillis() * 0x9e3779b97f4a7c15ull;
         }
+
+        std::uint64_t factSeedFor (story::Progress& p)
+        {
+            if (p.factSeed == 0) p.factSeed = freshSeed() | 1ull;
+            return p.factSeed;
+        }
     }
 
     StoryPanel::StoryPanel (MutagenProcessor& p)
-        : processor (p), prog (storyio::load()), runStory (freshSeed()), chanceDir (freshSeed())
+        : processor (p), prog (storyio::load()), runStory (freshSeed()), chanceDir (freshSeed()),
+          factDeck (factSeedFor (prog), prog.factCounter)
     {
         setOpaque (false);
         ++prog.runsPlayed;
+        factSeen = facts::SeenSet::fromBase64 (prog.factSeen);
 
         collectButton.setTooltip ("Record the last 3 seconds of the colony into your sound collection");
         exportButton.setTooltip ("Copy every collected sound to a folder as 24-bit WAV files");
@@ -155,6 +165,18 @@ namespace mutagen
             return;
         }
 
+        // Every five minutes of unpaused play one fact is shown; a won game or an
+        // unlocked skill brings an extra one a few seconds later.
+        factClock += dt;
+        sinceLastFact += dt;
+        if (factClock >= 300.0 || (pendingFactRewards > 0 && sinceLastFact >= 8.0))
+        {
+            if (pendingFactRewards > 0 && factClock < 300.0) --pendingFactRewards;
+            else factClock = 0.0;
+            presentFact (true);
+            return;
+        }
+
         // Once the act has opened, Lyra names this run's key - different every run.
         if (! keyIntroDone && clock >= keyIntroAt)
         {
@@ -261,6 +283,88 @@ namespace mutagen
         collectSoon (juce::String ("twist ") + t.name, 0.7, 3.0f);
         runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 40.0);
         persist();
+    }
+
+    // ---- facts ------------------------------------------------------------------
+
+    void StoryPanel::presentFact (bool bonus)
+    {
+        const int slotCounter = (int) factDeck.counter();
+        const int id = factDeck.next();
+        const auto f = facts::factAt (id);
+        const int points = facts::knowledgePoints (prog.factSeed, (uint32_t) slotCounter);
+
+        factSeen.mark (id);
+        prog.knowledge += (std::uint64_t) points;
+        prog.factCounter = factDeck.counter();
+        prog.factSeen = factSeen.toBase64();
+        sinceLastFact = 0.0;
+
+        const int bonusScore = f.demonstrable ? facts::kDemoBonusScore : 0;
+        if (onFact) onFact (f.category, f.text, points, bonusScore, bonus ? theme::resonator : theme::spectralV);
+        if (f.demonstrable)
+        {
+            playDemo (f.demo);
+            if (onPoints) onPoints (bonusScore, "FACT DEMONSTRATION");
+        }
+        else
+        {
+            // a small two-note chime in tonight's key, so every fact is heard as well as read
+            const auto sc = runStory.scaleNotes (-1);
+            if (sc.size() >= 5) playNotes ({ sc[0], sc[4] }, 0.22, 0.5);
+        }
+        persist();
+    }
+
+    void StoryPanel::playDemo (const facts::Demo& d)
+    {
+        using K = facts::Demo::Kind;
+        std::vector<int> semis;
+        for (int i = 0; i < d.noteCount && i < (int) d.notes.size(); ++i)
+            if (d.notes[(std::size_t) i] >= 0) semis.push_back (d.notes[(std::size_t) i] - runStory.root);
+        if (semis.empty()) return;
+
+        const double hold = juce::jlimit (0.8, 3.0, d.durationMs / 1000.0);
+        switch (d.kind)
+        {
+            case K::none: break;
+            case K::note: case K::pianoKey: case K::ghostNote: case K::instrumentColour:
+                playNotes ({ semis[0] }, 0.0, hold); break;
+            case K::keySound:
+                if (semis.size() > 1) playNotes (semis, 0.28, 0.4); else playNotes ({ semis[0] }, 0.0, 2.5);
+                break;
+            case K::interval:      playNotes (semis, 0.55, 1.6); break;
+            case K::chord:         playNotes (semis, 0.0, 2.4); break;
+            case K::octavePair:    playNotes (semis, 0.7, 1.2); break;
+            case K::scale:
+            {
+                std::vector<int> run;
+                for (auto s : facts::scaleSemitones (d.fxId)) run.push_back (semis[0] + s);
+                run.push_back (semis[0] + 12);
+                playNotes (run, 0.26, 0.4);
+                break;
+            }
+            case K::circleOfFifths:
+            {
+                std::vector<int> run;
+                int s = semis[0];
+                for (int i = 0; i < 6; ++i) { run.push_back (s); s += 7; if (s - semis[0] > 12) s -= 12; }
+                playNotes (run, 0.4, 0.5);
+                break;
+            }
+            case K::dopplerPass:   playNotes (semis, 0.35, 1.2); break;
+            case K::beats:         playNotes (semis, 0.0, 2.5); break;
+            case K::effect:
+                switch (d.fxId % 4)
+                {
+                    case 0: processor.triggerTemporaryGator (120, 8, 4); break;
+                    case 1: processor.triggerTripDelay (20); break;
+                    case 2: { EngineCommand c; c.type = CommandType::mutateNow; processor.pushCommand (c); break; }
+                    default: processor.triggerTemporaryGator (90, 8, 4); break;
+                }
+                break;
+            case K::songMotif:     playNotes (semis, 0.4, 0.5); break;
+        }
     }
 
     // ---- chance events, banter, endings ---------------------------------------

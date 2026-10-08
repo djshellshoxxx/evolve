@@ -75,6 +75,10 @@ namespace mutagen
         storyPanel.onAnim   = [this] (chance::Anim a, juce::Colour c, float i) { storyFx.play (a, c, i); };
         storyPanel.onBanner = [this] (const juce::String& t, const juce::String& s, juce::Colour c) { storyFx.banner (t, s, c); };
         storyPanel.onGlitch = [this] (juce::Colour c) { storyFx.glitch (c); };
+        storyPanel.onFact = [this] (const juce::String& cat, const juce::String& text, int pts, int bonus, juce::Colour c)
+                            { storyFx.factToast (cat, text, pts, bonus, c); };
+        storyPanel.onPoints = [this] (juce::int64 pts, const juce::String& label) { scoreSystem.adjustScore (pts, label); };
+        labGameOverlay.onWin = [this] { storyPanel.grantFactReward(); };
         secretLayer.onReward = [this] (float w, const juce::String& label) { scoreSystem.registerInteraction (w, label); };
         addChildComponent (introOverlay);
         storyPanel.onIntro = [this] { introOverlay.open(); introOverlay.grabKeyboardFocus(); };
@@ -777,7 +781,8 @@ namespace mutagen
         const auto runScoreAfter = scoreSystem.score();
         progressionSystem.observe (snapshot, scoreSystem);
         storyPanel.tick (dt, breedingLab.isVisible() || performance.isVisible()
-                               || helpView.isVisible() || labGameOverlay.isVisible());
+                               || helpView.isVisible() || labGameOverlay.isVisible()
+                               || introOverlay.isVisible() || nameOverlay.isVisible());
         serviceHauntedMilestones (runScoreBefore, runScoreAfter);
         playSeconds += dt;
         secretLayer.update (dt, scoreSystem.score(), snapshot.generation, snapshot.population,
@@ -788,6 +793,7 @@ namespace mutagen
         serviceLabGameSchedule (lastSeenScore, scoreSystem.score());
         lastSeenScore = scoreSystem.score();
         scoreHud.setState (scoreSystem, snapshot);
+        scoreHud.setKnowledge ((juce::int64) storyPanel.progress().knowledge);
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
                            processor.micLevel(), processor.entropyTapLevel(),

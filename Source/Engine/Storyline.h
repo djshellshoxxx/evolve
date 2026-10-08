@@ -203,6 +203,10 @@ namespace mutagen::story
         bool introSeen = false;
         std::string playerName;
         int plotFloor = 1;          // acts opened by time alone (one per 30 minutes of play)
+        std::uint64_t knowledge = 0;    // knowledge points from facts, lifetime
+        std::uint64_t factSeed = 0;     // seeds the fact deck's permutation (0 = not yet drawn)
+        std::uint32_t factCounter = 0;  // facts drawn from the deck so far
+        std::string factSeen;           // base64 bitset of fact ids shown
         std::uint32_t chanceSeen = 0;   // bit per chance event witnessed
         std::uint32_t endingsSeen = 0;  // bit per ending reached
 
