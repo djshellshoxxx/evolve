@@ -30,7 +30,9 @@ namespace
     int mod12 (int x) { return ((x % 12) + 12) % 12; }
     int mod7 (int x)  { return ((x % 7) + 7) % 7; }
 
+#if defined(__GNUC__) || defined(__clang__)
     std::string fmt (const char* pattern, ...) __attribute__ ((format (printf, 1, 2)));
+#endif
     std::string fmt (const char* pattern, ...)
     {
         char buffer[512];
