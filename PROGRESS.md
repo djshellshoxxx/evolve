@@ -796,3 +796,15 @@ closing the editor no longer disarms the user's mic; trip-delay 1.5 kHz buzz
 and stale-tail replay; orbs now spawn for lab-game prizes; soft aces in 21;
 piano keys persisted; no WAV overwrite / progress loss across instances;
 duplicate story notes; overlay button layout; -50 dBFS collect gate.
+
+
+### 2026-10-08 - 0.3.0 beta 1: chance, conversation, coda
+
+- Orphan branches (deep-progression, haunted-lab-secrets, evolution-steering-play, steering-intensity)
+  were compared line by line against main: all are already merged (later edits only), nothing to merge.
+- Source/Engine/ChanceEvents.h: 24 chance events in 4 rarities, seeded director with pity counter.
+- Source/GUI/StoryFx.*: stateless animation layer (12 effects, banners, glitch) over the chamber.
+- Storyline.h: Act IX coda, lexicon 64, 12 twists, 14 banters, 4 endings. StoryPanel: sigils, chance,
+  banter queue, finale. Progress persists chanceSeen / endingsSeen.
+- Tests: chance distribution/gating, banter, endings; GuiSmokeTest renders every animation.
+- Release workflow: tag v*-beta.N gives a prerelease named from the tag.

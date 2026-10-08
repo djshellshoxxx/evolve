@@ -38,7 +38,7 @@ namespace mutagen
     }
 
     StoryPanel::StoryPanel (MutagenProcessor& p)
-        : processor (p), prog (storyio::load()), runStory (freshSeed())
+        : processor (p), prog (storyio::load()), runStory (freshSeed()), chanceDir (freshSeed())
     {
         setOpaque (false);
         ++prog.runsPlayed;
@@ -142,6 +142,19 @@ namespace mutagen
             return;
         }
 
+        // The second half of an exchange, or the closing lines of an ending.
+        if (! lineQueue.empty())
+        {
+            if (clock >= lineQueue.front().at)
+            {
+                const auto q = lineQueue.front();
+                lineQueue.erase (lineQueue.begin());
+                say (q.who, q.text);
+                perform (q.fx, q.notes, q.param);
+            }
+            return;
+        }
+
         // Once the act has opened, Lyra names this run's key - different every run.
         if (! keyIntroDone && clock >= keyIntroAt)
         {
@@ -160,9 +173,27 @@ namespace mutagen
             return;
         }
 
+        if (finaleAt > 0.0 && ! runStory.finaleDone && clock >= finaleAt)
+        {
+            playFinale();
+            return;
+        }
+
         if (clock >= runStory.nextQuizSec)
         {
             askQuiz();
+            return;
+        }
+
+        if (clock >= chanceDir.nextAtSec)
+        {
+            fireChance();
+            return;
+        }
+
+        if (clock >= runStory.nextBanterSec)
+        {
+            fireBanter();
             return;
         }
 
@@ -187,6 +218,11 @@ namespace mutagen
 
         // Give the opening line room to breathe before the next event.
         runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 30.0);
+
+        if (act == story::actCount && ! runStory.finaleDone) finaleAt = clock + 80.0;
+        if (act > 1 && onBanner)
+            onBanner (juce::String (a.title).upToFirstOccurrenceOf ("  ", false, false),
+                      juce::String (a.title).fromFirstOccurrenceOf ("  ", false, false), colourFor (a.speaker));
 
         if (firstTime && act > 1)
         {
@@ -219,9 +255,139 @@ namespace mutagen
         topic = juce::String ("TWIST: ") + t.name;
         say (t.speaker, t.reveal);
         perform (t.effect, t.notes, t.param);
+        if (onGlitch) onGlitch (colourFor (t.speaker));
+        if (onBanner) onBanner ("TWIST", t.name, colourFor (t.speaker));
         if (onReward) onReward (0.8f, juce::String ("TWIST  ") + t.name);
         collectSoon (juce::String ("twist ") + t.name, 0.7, 3.0f);
         runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 40.0);
+        persist();
+    }
+
+    // ---- chance events, banter, endings ---------------------------------------
+
+    void StoryPanel::fireChance (int forced)
+    {
+        chanceDir.nextAtSec = clock + chanceDir.gap();
+        const int id = forced >= 0 ? forced : chanceDir.draw (currentAct);
+        if (id < 0) return;
+
+        const auto& c = chance::all()[(std::size_t) id];
+        const bool fresh = ((prog.chanceSeen >> id) & 1u) == 0;
+        prog.chanceSeen |= 1u << id;
+
+        using R = chance::Rarity;
+        const juce::Colour colour = c.rarity == R::common   ? theme::spectralV
+                                  : c.rarity == R::uncommon ? theme::resonator
+                                  : c.rarity == R::rare     ? theme::warning
+                                                            : juce::Colour (0xffffd36b);
+        const float intensity = c.rarity == R::common ? 0.8f : c.rarity == R::uncommon ? 1.0f
+                              : c.rarity == R::rare ? 1.3f : 1.7f;
+
+        topic = juce::String ("CHANCE  ") + chance::rarityName (c.rarity) + "  " + c.name;
+        say (story::Speaker::moth, c.text);
+        if (onAnim) onAnim (c.anim, colour, intensity);
+        if (c.rarity >= R::rare && onBanner)
+            onBanner (juce::String (chance::rarityName (c.rarity)) + " EVENT", c.name, colour);
+
+        applyChance (c);
+        if (onReward) onReward (c.reward, juce::String ("CHANCE  ") + c.name + (fresh ? "  (NEW)" : ""));
+        if (c.rarity >= R::rare && c.kind != chance::Kind::collect)
+            collectSoon (juce::String ("chance ") + c.name, 1.0, 4.0f);
+
+        runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 14.0);
+        persist();
+    }
+
+    void StoryPanel::applyChance (const chance::Chance& c)
+    {
+        using K = chance::Kind;
+        auto push = [this] (CommandType t, float a = 0.0f, float b = 0.0f, float r = 0.0f, float s = 0.0f)
+        {
+            EngineCommand cmd;
+            cmd.type = t; cmd.fa = a; cmd.fb = b; cmd.fc = r; cmd.fd = s;
+            processor.pushCommand (cmd);
+        };
+        auto rand01 = [] { return juce::Random::getSystemRandom().nextFloat(); };
+
+        switch (c.kind)
+        {
+            case K::none: break;
+            case K::mutate:   push (CommandType::mutateNow); break;
+            case K::meteor:
+                for (int i = 0; i < c.param; ++i)
+                    push (CommandType::mutateAt, 0.1f + 0.8f * rand01(), 0.1f + 0.8f * rand01(), 0.13f, 0.8f);
+                break;
+            case K::sweep:
+                for (int i = 0; i < 8; ++i)
+                    push (CommandType::mutateAt, (float) i / 7.0f, 0.5f + 0.25f * std::sin ((float) i * 0.9f), 0.22f, 0.6f);
+                break;
+            case K::prune:
+                push (CommandType::apoptosis, (float) c.param / 100.0f);
+                push (CommandType::cure);
+                break;
+            case K::enzyme:   push (CommandType::addEnzyme); break;
+            case K::catalyst: push (CommandType::addCatalyst); break;
+            case K::warm:     push (CommandType::addHeat, 1.0f); break;
+            case K::cool:     push (CommandType::addHeat, -1.0f); break;
+            case K::cure:
+                push (CommandType::cure);
+                push (CommandType::addEnzyme);
+                break;
+            case K::notes:
+            {
+                std::vector<int> semis;
+                for (auto n : c.notes) if (n != story::kNo) semis.push_back (n);
+                playNotes (semis, 0.18, 2.2);
+                break;
+            }
+            case K::scale:    playNotes (runStory.scaleNotes (-1), 0.24, 0.35); break;
+            case K::haunted:  processor.triggerHauntedSound (c.param, 0.6f); break;
+            case K::gate:     processor.triggerTemporaryGator (c.param, 8, 4); break;
+            case K::delay:    processor.triggerTripDelay (c.param); break;
+            case K::collect:
+                push (CommandType::mutateNow);
+                collectSoon (juce::String ("chance ") + c.name, 0.4, 4.0f);
+                break;
+        }
+    }
+
+    void StoryPanel::fireBanter()
+    {
+        const int id = runStory.drawBanter (currentAct);
+        runStory.nextBanterSec = clock + runStory.gapAfterBanter();
+        if (id < 0) return;
+
+        const auto& b = story::banters()[(std::size_t) id];
+        topic = "CONVERSATION";
+        say (b.a, b.lineA);
+        lineQueue.push_back ({ clock + 7.5, b.b, b.lineB, b.effect, b.notes, b.param });
+        runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 20.0);
+    }
+
+    void StoryPanel::playFinale()
+    {
+        runStory.finaleDone = true;
+        const int idx = story::endingFor (prog);
+        const auto& e = story::endings()[(std::size_t) idx];
+        const bool fresh = ((prog.endingsSeen >> idx) & 1u) == 0;
+        prog.endingsSeen |= 1u << idx;
+
+        topic = juce::String ("ENDING: ") + e.name;
+        say (e.speaker, e.text);
+        static const std::array<std::array<int, 4>, 4> chords {{
+            { 0, 4, 7, 12 }, { 0, 3, 6, 9 }, { 0, 7, 12, 16 }, { 7, 11, 14, 17 } }};
+        perform (story::Effect::chord, chords[(std::size_t) idx], 0);
+        if (onAnim) onAnim (chance::Anim::goldDust, colourFor (e.speaker), 1.5f);
+        if (onBanner) onBanner ("ENDING", e.name, colourFor (e.speaker));
+        if (onReward) onReward (fresh ? 2.5f : 1.0f, juce::String ("ENDING  ") + e.name);
+        collectSoon (juce::String ("ending ") + e.name, 1.0, 5.0f);
+
+        const juce::String who = prog.playerName.empty()
+            ? juce::String ("listener") : juce::String (juce::CharPointer_UTF8 (prog.playerName.c_str()));
+        lineQueue.push_back ({ clock + 12.0, story::Speaker::lyra,
+                               "Thank you for listening, " + who + ". The colony will still be here when you come back. It never learned how to leave.",
+                               story::Effect::none, { story::kNo, story::kNo, story::kNo, story::kNo }, 0 });
+        runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 30.0);
         persist();
     }
 
@@ -386,6 +552,8 @@ namespace mutagen
     void StoryPanel::timerCallback()
     {
         bool dirty = false;
+        sigilPhase += 1.0f / 30.0f;
+        repaint (sigilBounds());
         if (typed < (float) line.length()) { typed += 2.2f; dirty = true; }
         if (flash > 0.0f) { flash = juce::jmax (0.0f, flash - 0.04f); dirty = true; }
         if (dirty) repaint();
@@ -419,13 +587,17 @@ namespace mutagen
         auto area = getLocalBounds().reduced (10, 6);
         area.removeFromRight (120);
         if (quizIndex >= 0) area.removeFromBottom (26);
+        drawSigil (g, sigilBounds().toFloat());
+        area.removeFromLeft (52);
 
         const int act = juce::jmax (1, currentAct);
         const auto status = juce::String (story::acts()[(std::size_t) (act - 1)].title)
                           + "  |  KEY " + juce::String (runStory.keyName())
                           + "  |  LEXICON " + juce::String (prog.lexiconCount()) + "/" + juce::String (story::lexiconSize)
                           + "  |  JAR " + juce::String (jar.size())
-                          + "  |  SECRETS " + juce::String (prog.secretCount()) + "/39";
+                          + "  |  SECRETS " + juce::String (prog.secretCount()) + "/39"
+                          + "  |  EVENTS " + juce::String (prog.chanceCount()) + "/" + juce::String (chance::count)
+                          + "  |  ENDINGS " + juce::String (prog.endingCount()) + "/4";
         g.setFont (theme::monoFont (9.5f));
         g.setColour (theme::textDim);
         g.drawText (status, area.removeFromTop (12), juce::Justification::centredLeft, true);
@@ -443,5 +615,133 @@ namespace mutagen
         g.setColour (theme::text);
         g.drawFittedText (line.substring (0, (int) typed), area.reduced (0, 2),
                           juce::Justification::topLeft, 3, 0.9f);
+    }
+
+    // ---- the speaker's animated sigil ----------------------------------------
+
+    juce::Rectangle<int> StoryPanel::sigilBounds() const
+    {
+        return { 12, 22, 40, 40 };
+    }
+
+    void StoryPanel::drawSigil (juce::Graphics& g, juce::Rectangle<float> r) const
+    {
+        const float ph = sigilPhase;
+        const auto c = speakerColour;
+        const auto mid = r.getCentre();
+        const float R = r.getWidth() * 0.5f;
+        const float amp = typed < (float) line.length() ? 1.0f : 0.35f;   // livelier while speaking
+
+        g.setColour (c.withAlpha (0.10f + 0.22f * flash));
+        g.fillEllipse (r);
+        g.setColour (c.withAlpha (0.55f));
+        g.drawEllipse (r.reduced (1.0f), 1.2f);
+        g.setColour (c);
+
+        juce::Path p;
+        switch (speakerId)
+        {
+            case story::Speaker::cadence:      // a tuning fork, prongs ringing
+            {
+                const float v = std::sin (ph * 52.0f) * 1.6f * amp;
+                p.startNewSubPath (mid.x - 5.0f - v, mid.y - 13.0f);
+                p.lineTo (mid.x - 5.0f, mid.y + 1.0f);
+                p.quadraticTo (mid.x, mid.y + 7.0f, mid.x + 5.0f, mid.y + 1.0f);
+                p.lineTo (mid.x + 5.0f + v, mid.y - 13.0f);
+                p.startNewSubPath (mid.x, mid.y + 5.0f);
+                p.lineTo (mid.x, mid.y + 14.0f);
+                g.strokePath (p, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+                break;
+            }
+            case story::Speaker::fourier:      // three stacked sines, scrolling
+                for (int k = 1; k <= 3; ++k)
+                {
+                    juce::Path w;
+                    for (int i = 0; i <= 16; ++i)
+                    {
+                        const float u = i / 16.0f;
+                        const float x = r.getX() + 6.0f + u * (r.getWidth() - 12.0f);
+                        const float y = mid.y + (k - 2) * 9.0f + std::sin (u * 6.2832f * k + ph * 3.0f * k) * 3.2f * amp;
+                        if (i == 0) w.startNewSubPath (x, y); else w.lineTo (x, y);
+                    }
+                    g.setColour (c.withAlpha (0.45f + 0.18f * k));
+                    g.strokePath (w, juce::PathStrokeType (1.3f));
+                }
+                break;
+            case story::Speaker::lyra:         // a staff and a bobbing note
+                for (int i = 0; i < 5; ++i)
+                    g.drawLine (r.getX() + 6.0f, mid.y - 8.0f + i * 4.0f, r.getRight() - 6.0f, mid.y - 8.0f + i * 4.0f, 0.7f);
+                {
+                    const float ny = mid.y - 8.0f + (1.0f + 0.5f * std::sin (ph * 2.2f)) * 4.0f * (1.0f + amp) * 0.8f;
+                    g.fillEllipse (mid.x - 3.5f, ny - 2.5f, 7.0f, 5.0f);
+                    g.drawLine (mid.x + 3.3f, ny, mid.x + 3.3f, ny - 11.0f, 1.3f);
+                }
+                break;
+            case story::Speaker::tuner:        // a needle that cannot settle
+            {
+                g.drawEllipse (mid.x - 11.0f, mid.y - 11.0f, 22.0f, 22.0f, 1.0f);
+                g.drawLine (mid.x - 14.0f, mid.y, mid.x + 14.0f, mid.y, 0.6f);
+                g.drawLine (mid.x, mid.y - 14.0f, mid.x, mid.y + 14.0f, 0.6f);
+                const float a = std::sin (ph * 5.0f) * 0.45f * amp + std::sin (ph * 17.0f) * 0.06f;
+                g.drawLine (mid.x, mid.y + 9.0f, mid.x + std::sin (a) * 17.0f, mid.y + 9.0f - std::cos (a) * 17.0f, 1.8f);
+                break;
+            }
+            case story::Speaker::sub:          // slow rings you feel more than see
+                for (int i = 0; i < 3; ++i)
+                {
+                    const float u = std::fmod (ph * 0.45f + i / 3.0f, 1.0f);
+                    g.setColour (c.withAlpha ((1.0f - u) * 0.8f));
+                    const float rr = u * R * 0.95f;
+                    g.drawEllipse (mid.x - rr, mid.y - rr, rr * 2.0f, rr * 2.0f, 1.6f);
+                }
+                break;
+            case story::Speaker::echo:         // one dot and its late copies
+                for (int i = 0; i < 5; ++i)
+                {
+                    g.setColour (c.withAlpha (1.0f - i * 0.2f));
+                    const float x = mid.x - 12.0f + i * 6.0f, y = mid.y + std::sin (ph * 2.5f - i * 0.6f) * 8.0f * (0.5f + amp);
+                    g.fillEllipse (x - 2.5f + i * 0.0f, y - 2.5f, 5.0f - i * 0.5f, 5.0f - i * 0.5f);
+                }
+                break;
+            case story::Speaker::nyquist:      // a wave folding at the gate
+                g.drawLine (mid.x, r.getY() + 5.0f, mid.x, r.getBottom() - 5.0f, 1.0f);
+                for (int side = 0; side < 2; ++side)
+                {
+                    juce::Path w;
+                    for (int i = 0; i <= 10; ++i)
+                    {
+                        const float u = i / 10.0f;
+                        const float x = side == 0 ? r.getX() + 5.0f + u * (R - 5.0f) : r.getRight() - 5.0f - u * (R - 5.0f);
+                        const float y = mid.y + std::sin (u * 9.0f + ph * 4.0f) * 7.0f * amp * (0.4f + u * 0.6f);
+                        if (i == 0) w.startNewSubPath (x, y); else w.lineTo (x, y);
+                    }
+                    g.setColour (c.withAlpha (side == 0 ? 0.95f : 0.45f));
+                    g.strokePath (w, juce::PathStrokeType (1.4f));
+                }
+                break;
+            case story::Speaker::moth:         // wings, flapping
+            {
+                const float flap = 0.35f + 0.65f * std::abs (std::sin (ph * (3.0f + 6.0f * amp)));
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    g.fillEllipse (mid.x + (side > 0 ? 1.0f : -1.0f - 12.0f * flap), mid.y - 10.0f, 12.0f * flap, 12.0f);
+                    g.fillEllipse (mid.x + (side > 0 ? 1.0f : -1.0f - 9.0f * flap), mid.y + 1.0f, 9.0f * flap, 9.0f);
+                }
+                g.setColour (theme::text);
+                g.drawLine (mid.x, mid.y - 8.0f, mid.x, mid.y + 10.0f, 1.8f);
+                break;
+            }
+            case story::Speaker::visitor:      // an eye, blinking now and then
+            {
+                const float blink = std::fmod (ph, 4.0f) > 3.85f ? 0.15f : 1.0f;
+                p.startNewSubPath (r.getX() + 4.0f, mid.y);
+                p.quadraticTo (mid.x, mid.y - 15.0f * blink, r.getRight() - 4.0f, mid.y);
+                p.quadraticTo (mid.x, mid.y + 15.0f * blink, r.getX() + 4.0f, mid.y);
+                g.strokePath (p, juce::PathStrokeType (1.5f));
+                g.fillEllipse (mid.x - 4.0f + std::sin (ph * 0.9f) * 4.0f, mid.y - 4.0f * blink, 8.0f, 8.0f * blink);
+                break;
+            }
+            case story::Speaker::count: break;
+        }
     }
 }

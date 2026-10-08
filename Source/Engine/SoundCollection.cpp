@@ -143,6 +143,8 @@ namespace mutagen
                 p.secrets = (std::uint64_t) o->getProperty ("secrets").toString().getLargeIntValue();
                 p.introSeen = (bool) o->getProperty ("introSeen");
                 p.plotFloor = juce::jlimit (1, story::actCount, (int) o->getProperty ("plotFloor"));
+                p.chanceSeen = (std::uint32_t) (juce::int64) o->getProperty ("chanceSeen");
+                p.endingsSeen = (std::uint32_t) (juce::int64) o->getProperty ("endingsSeen");
                 p.playerName = o->getProperty ("playerName").toString().substring (0, 40).toStdString();
             }
             return p;
@@ -157,6 +159,8 @@ namespace mutagen
             p.lexicon |= disk.lexicon;
             p.twistsSeen |= disk.twistsSeen;
             p.secrets |= disk.secrets;
+            p.chanceSeen |= disk.chanceSeen;
+            p.endingsSeen |= disk.endingsSeen;
             p.introSeen = p.introSeen || disk.introSeen;
             p.plotFloor = juce::jmax (p.plotFloor, disk.plotFloor);
             if (p.playerName.empty()) p.playerName = disk.playerName;
@@ -176,6 +180,8 @@ namespace mutagen
             o->setProperty ("runsPlayed", p.runsPlayed);
             o->setProperty ("twistsSeen", (int) p.twistsSeen);
             o->setProperty ("secrets", juce::String ((juce::int64) p.secrets));
+            o->setProperty ("chanceSeen", (juce::int64) p.chanceSeen);
+            o->setProperty ("endingsSeen", (juce::int64) p.endingsSeen);
             o->setProperty ("introSeen", p.introSeen);
             o->setProperty ("plotFloor", p.plotFloor);
             o->setProperty ("playerName", juce::String (juce::CharPointer_UTF8 (p.playerName.c_str())));

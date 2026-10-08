@@ -68,9 +68,9 @@ namespace mutagen::story
     constexpr int kNo = -99;   // unused note slot
 
     // Every line is one lexicon entry. Index = lexicon id (stable: append only).
-    inline const std::array<Event, 60>& events()
+    inline const std::array<Event, 64>& events()
     {
-        static const std::array<Event, 60> e {{
+        static const std::array<Event, 64> e {{
             { Speaker::lyra, "Intervals", "An octave is a 2:1 ratio - 220 Hz to 440 Hz. The cells hear it as the same note, only higher.", Effect::interval, { 0, 12, kNo, kNo }, 0, 1 },
             { Speaker::lyra, "Intervals", "Seven semitones: a perfect fifth, close to a 3:2 ratio. A power chord is nothing but root and fifth.", Effect::interval, { 0, 7, kNo, kNo }, 0, 1 },
             { Speaker::lyra, "Intervals", "Four semitones, a major third. In equal temperament it sits about 14 cents sharp of the pure 5:4.", Effect::interval, { 0, 4, kNo, kNo }, 0, 3 },
@@ -130,12 +130,16 @@ namespace mutagen::story
             { Speaker::lyra, "Composition", "A leitmotif is a short theme tied to a character. Hear it again and you know who is coming. Listen for mine.", Effect::interval, { 0, 4, kNo, kNo }, 0, 5 },
             { Speaker::cadence, "Harmony", "Simple ratios like 2:1 and 3:2 sound stable; complex ones sound tense. Tension wants resolution.", Effect::chord, { 0, 6, 11, kNo }, 0, 7 },
             { Speaker::cadence, "Harmony", "A perfect cadence moves dominant to tonic, five to one: the musical full stop. My name is a promise of resolution.", Effect::chord, { 7, 11, 14, 17 }, 0, 7 },
-            { Speaker::sub, "Hearing", "The hum under everything is mains: 50 Hz in Europe, 60 in America. Engineers notch it out. I keep it as a pet.", Effect::interval, { -24, kNo, kNo, kNo }, 0, 4 }
+            { Speaker::sub, "Hearing", "The hum under everything is mains: 50 Hz in Europe, 60 in America. Engineers notch it out. I keep it as a pet.", Effect::interval, { -24, kNo, kNo, kNo }, 0, 4 },
+            { Speaker::sub, "Acoustics", "In a small room, a bass note whose half-wavelength fits between the walls piles up: a room mode. Walk one metre and the note disappears.", Effect::interval, { -24, -12, kNo, kNo }, 0, 4 },
+            { Speaker::echo, "Delay", "Tempo-sync a delay: at 120 BPM a dotted eighth is 375 milliseconds. Set it by the clock and the repeats lock into the groove.", Effect::delay, { kNo, kNo, kNo, kNo }, 60, 5 },
+            { Speaker::nyquist, "Digital audio", "Oversample before you distort. Clip at four times the sample rate and the new harmonics land under the gate instead of folding back as aliasing.", Effect::radiate, { kNo, kNo, kNo, kNo }, 0, 6 },
+            { Speaker::lyra, "Harmony", "A deceptive cadence goes five to six instead of five to one. You were promised the full stop and got a question mark.", Effect::chord, { 9, 12, 16, kNo }, 0, 7 }
         }};
         return e;
     }
 
-    constexpr int lexiconSize = 60;
+    constexpr int lexiconSize = 64;
 
     // ---- acts ------------------------------------------------------------
 
@@ -150,7 +154,7 @@ namespace mutagen::story
         int quizzesNeeded;
     };
 
-    constexpr int actCount = 8;
+    constexpr int actCount = 9;
 
     inline const std::array<Act, actCount>& acts()
     {
@@ -178,7 +182,10 @@ namespace mutagen::story
               { 0, 6, kNo, kNo }, 35, 12, 7 },
             { "ACT VIII  PERFECT CADENCE", Speaker::cadence,
               "Dominant to tonic. Tension to rest. The colony has learned every interval you have. Play it home.",
-              { 7, 11, 14, 17 }, 44, 16, 10 }
+              { 7, 11, 14, 17 }, 44, 16, 10 },
+            { "ACT IX  CODA: THE LISTENER", Speaker::moth,
+              "ALL INSTRUMENTS NOMINAL. The experiment had one unknown left, and it was never the colony. Everything in this lab was built to find out what you would do with a room full of sound. Keep listening.",
+              { 0, 4, 7, 12 }, 54, 22, 13 }
         }};
         return a;
     }
@@ -196,6 +203,8 @@ namespace mutagen::story
         bool introSeen = false;
         std::string playerName;
         int plotFloor = 1;          // acts opened by time alone (one per 30 minutes of play)
+        std::uint32_t chanceSeen = 0;   // bit per chance event witnessed
+        std::uint32_t endingsSeen = 0;  // bit per ending reached
 
         int secretCount() const
         {
@@ -210,6 +219,10 @@ namespace mutagen::story
             for (auto v = lexicon; v != 0; v &= v - 1) ++n;
             return n;
         }
+
+        static int bits (std::uint32_t v) { int n = 0; for (; v != 0; v &= v - 1) ++n; return n; }
+        int chanceCount() const { return bits (chanceSeen); }
+        int endingCount() const { return bits (endingsSeen); }
 
         bool heard (int id) const { return id >= 0 && id < 64 && ((lexicon >> id) & 1u) != 0; }
         void markHeard (int id) { if (id >= 0 && id < 64) lexicon |= (std::uint64_t) 1 << id; }
@@ -307,9 +320,9 @@ namespace mutagen::story
         int param;
     };
 
-    inline const std::array<Twist, 8>& twists()
+    inline const std::array<Twist, 12>& twists()
     {
-        static const std::array<Twist, 8> t {{
+        static const std::array<Twist, 12> t {{
             { "THE TUNER WEARS A LAB COAT", Speaker::cadence,
               "...my tuning fork reads 440.000 Hz exactly. Real forks drift with temperature. Mine never has. Cadence and the Tuner have been the same voice all along.",
               Effect::interval, { 0, 0, kNo, kNo }, 0 },
@@ -333,9 +346,89 @@ namespace mutagen::story
               Effect::interval, { 0, -1, kNo, kNo }, 0 },
             { "SILENCE WAS THE INSTRUMENT", Speaker::moth,
               "PERFORMANCE NOTE: In 1952 a pianist sat at a piano for 4'33\" and played nothing. The audience was the music. You are the audience.",
-              Effect::none, { kNo, kNo, kNo, kNo }, 0 }
+              Effect::none, { kNo, kNo, kNo, kNo }, 0 },
+            { "MOTH WAS LISTENING BACK", Speaker::moth,
+              "MIC CHECK: the colony's input has been open since boot. I was not recording you. I was measuring the room: RT60 of 0.4 seconds, about a carpeted bedroom.",
+              Effect::delay, { kNo, kNo, kNo, kNo }, 30 },
+            { "LYRA WROTE THE TUNER", Speaker::lyra,
+              "Every note the Tuner removed, I hummed first. He is my rejected drafts, quantised until nothing was left. An editor is a composer with the courage to cut.",
+              Effect::scale, { kNo, kNo, kNo, kNo }, 0 },
+            { "THE LAB IS A RESONATOR", Speaker::cadence,
+              "Walk the room and count: 41 Hz, 82, 123 - the lab's own modes, evenly spaced. We have been inside an instrument all along. You are the string.",
+              Effect::interval, { -24, -12, kNo, kNo }, 0 },
+            { "A CLAP CONTAINS EVERYTHING", Speaker::fourier,
+              "An impulse holds every frequency at once. One click, one clap, one pop: the whole spectrum in a single instant. Nothing here was ever quiet.",
+              Effect::radiate, { kNo, kNo, kNo, kNo }, 0 }
         }};
         return t;
+    }
+
+    // ---- banter: two voices, one exchange ------------------------------------
+
+    struct Banter
+    {
+        Speaker a;
+        const char* lineA;
+        Speaker b;
+        const char* lineB;
+        Effect effect;              // performed with the second line
+        std::array<int, 4> notes;
+        int param;
+        int minAct;
+    };
+
+    inline const std::array<Banter, 14>& banters()
+    {
+        static const std::array<Banter, 14> b {{
+            { Speaker::lyra, "Cadence, why is the colony humming A?", Speaker::cadence, "Because 440 Hz is the reference. Orchestras tune to it before they play a note of music.", Effect::interval, { 0, 12, kNo, kNo }, 0, 1 },
+            { Speaker::fourier, "Your tuning fork has no harmonics.", Speaker::cadence, "That is the point. A near-pure sine is the one voice in this room that never argues.", Effect::none, { kNo, kNo, kNo, kNo }, 0, 1 },
+            { Speaker::lyra, "Major or minor, Fourier?", Speaker::fourier, "I do not hear moods. I hear the third harmonic. Four semitones, or three. You decide what it means.", Effect::chord, { 0, 4, 7, kNo }, 0, 2 },
+            { Speaker::cadence, "Moth, is the lab humming?", Speaker::moth, "AFFIRMATIVE. 50 OR 60 HZ DEPENDING ON THE GRID. SUB HAS NAMED IT. DO NOT ASK WHAT.", Effect::interval, { -24, kNo, kNo, kNo }, 0, 2 },
+            { Speaker::lyra, "Echo, finish my sentence.", Speaker::echo, "Finish my sentence. Finish my sentence. Delay is a copy of you, a little late.", Effect::delay, { kNo, kNo, kNo, kNo }, 30, 3 },
+            { Speaker::sub, "...", Speaker::fourier, "Sub is below my window. At 16 Hz one cycle takes 62.5 milliseconds. I need a long frame to see it.", Effect::haunted, { kNo, kNo, kNo, kNo }, 2011, 3 },
+            { Speaker::tuner, "Your fifth is 2 cents flat, Lyra.", Speaker::lyra, "Equal temperament flattens it on purpose, Tuner. A pure 3:2 is 702 cents. Twelve equal steps give 700.", Effect::interval, { 0, 7, kNo, kNo }, 0, 3 },
+            { Speaker::nyquist, "Fourier, show me a frequency above my gate.", Speaker::fourier, "Playing 30 kHz at 48 kHz sampling. It folds to 18 kHz. A mirror image, and I cannot tell it from the original.", Effect::radiate, { kNo, kNo, kNo, kNo }, 0, 4 },
+            { Speaker::echo, "Sub, say something.", Speaker::sub, "...felt that? A 30 Hz wave is 11 metres long. It crossed the room before you heard it.", Effect::interval, { -24, -12, kNo, kNo }, 0, 4 },
+            { Speaker::cadence, "Nyquist, you are supposed to be neutral.", Speaker::nyquist, "I am a threshold. Neutral is a position, and I stand in it at half the sample rate.", Effect::none, { kNo, kNo, kNo, kNo }, 0, 5 },
+            { Speaker::lyra, "Tuner, play me something that is not 440.", Speaker::tuner, "432. It is 31.77 cents flat. There. Do you feel healed? ... I thought not.", Effect::interval, { 0, -1, kNo, kNo }, 0, 5 },
+            { Speaker::fourier, "Moth, what is the loudest thing you have logged?", Speaker::moth, "LOGGED: A PISTOL SHOT, ROUGHLY 160 DB SPL. LOGGED: A WHISPER, ROUGHLY 30. THE COLONY PREFERS THE WHISPER.", Effect::none, { kNo, kNo, kNo, kNo }, 0, 6 },
+            { Speaker::cadence, "Tuner. Why are you still here?", Speaker::tuner, "Because tension needs somebody to want it gone. Every cadence needs a voice that fears the resolution.", Effect::chord, { 7, 11, 14, kNo }, 0, 7 },
+            { Speaker::moth, "ALL VOICES PRESENT. NO NEW MEASUREMENTS REQUIRED.", Speaker::lyra, "Then we only listen. That was always the last movement.", Effect::chord, { 0, 4, 7, 12 }, 0, 8 }
+        }};
+        return b;
+    }
+
+    // ---- endings: what Act IX makes of how you played ----------------------
+
+    struct Ending
+    {
+        const char* name;
+        Speaker speaker;
+        const char* text;
+    };
+
+    inline const std::array<Ending, 4>& endings()
+    {
+        static const std::array<Ending, 4> e {{
+            { "RESOLVED", Speaker::cadence,
+              "Dominant to tonic. You answered the lab's questions the way a good ear does, and every voice has somewhere to rest. The colony holds the last chord for as long as you let it." },
+            { "THE HAUNTED SCORE", Speaker::moth,
+              "SECRETS FOUND: ENOUGH. THE ROOMS BEHIND THE ROOMS WERE PART OF THE COMPOSITION. THE VISITOR SENDS ITS REGARDS, BACKWARDS." },
+            { "THE ARCHIVE", Speaker::lyra,
+              "You kept so many sounds that the jar has become a record of the whole season. Play them in any order. They will still sound like one piece." },
+            { "OPEN CADENCE", Speaker::echo,
+              "The ending is not an ending. It resolves to the dominant and waits. Come back. Come back. Come back." }
+        }};
+        return e;
+    }
+
+    inline int endingFor (const Progress& p)
+    {
+        const float accuracy = p.quizzesAsked > 0 ? (float) p.quizzesCorrect / (float) p.quizzesAsked : 0.0f;
+        if (p.secretCount() >= 20) return 1;
+        if (p.quizzesAsked >= 10 && accuracy >= 0.8f) return 0;
+        if (p.collected >= 30) return 2;
+        return 3;
     }
 
     /** SplitMix64 - small, seedable, identical everywhere. */
@@ -366,6 +459,7 @@ namespace mutagen::story
             twistAtSec = 150.0 + rng.unit() * 330.0;
             nextEventSec = 20.0 + rng.unit() * 25.0;
             nextQuizSec = 120.0 + rng.unit() * 120.0;
+            nextBanterSec = 75.0 + rng.unit() * 90.0;
 
             for (int i = 0; i < lexiconSize; ++i) deck.push_back (i);
             for (int i = lexiconSize - 1; i > 0; --i)
@@ -374,7 +468,9 @@ namespace mutagen::story
 
         int root = 60, mode = 0, twist = 0;
         double twistAtSec = 300.0, nextEventSec = 30.0, nextQuizSec = 180.0;
+        double nextBanterSec = 120.0;
         bool twistRevealed = false;
+        bool finaleDone = false;
 
         /** Next event for this act. Unheard lines first, so the lexicon grows,
             but heard ones still return so a run never falls silent. */
@@ -393,6 +489,19 @@ namespace mutagen::story
             cursor = (std::size_t) fallback + 1;
             return deck[(std::size_t) fallback];
         }
+
+        /** An exchange that suits the act; never the same one twice in a row. */
+        int drawBanter (int act)
+        {
+            std::vector<int> pool;
+            for (int i = 0; i < (int) banters().size(); ++i)
+                if (banters()[(std::size_t) i].minAct <= act && i != lastBanter) pool.push_back (i);
+            if (pool.empty()) return -1;
+            lastBanter = pool[(std::size_t) rng.range (0, (int) pool.size() - 1)];
+            return lastBanter;
+        }
+
+        double gapAfterBanter() { return 130.0 + rng.unit() * 150.0; }
 
         int drawQuiz (int act)
         {
@@ -434,5 +543,6 @@ namespace mutagen::story
         std::vector<int> deck;
         std::size_t cursor = 0;
         int lastQuiz = -1;
+        int lastBanter = -1;
     };
 }

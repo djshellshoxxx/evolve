@@ -1,3 +1,23 @@
+## MUTAGEN 0.3.0 beta 1: Chance, Conversation and Coda
+
+This is a **beta**. The new story, animations and events are covered by automated tests and render checks, but they have not yet been heard on a wide range of hosts. Please report anything odd.
+
+**New**
+- **Chance events**: 24 random happenings (common, uncommon, rare, mythic) such as a meteor shower, a golden spore, a total eclipse and the colony singing back. Each one changes the colony, plays a sound, scores a little and has its own animation. A pity counter makes rare events likelier over a long session.
+- **Animations**: twelve effects over the culture chamber (comets, spore rain, aurora, eclipse, gold dust, lightning, static, bubbles, fireflies, falling sine waves, heartbeat, ripples), title banners for acts, twists, rare events and endings, a glitch flash for twists, and an animated sigil for each of the nine speakers.
+- **Story**: Act IX, *Coda: The Listener*; four more lexicon facts (64 in all); four more twists (12 in all); fourteen two-voice conversations that end in something the colony plays; four endings chosen by how you played.
+- Field Journal status line now tracks chance events and endings found.
+
+**Carried from earlier**
+- All open feature branches (deep progression, haunted lab, steering, steering intensity) were checked and are already part of this build.
+
+**Downloads**
+- Windows x64: standalone `.exe`, VST3, CLAP
+- Linux x64: standalone, VST3, CLAP (`.tar.gz`)
+- macOS universal: app, AU, VST3, CLAP (unsigned; right-click, then Open the first time)
+
+---
+
 ## MUTAGEN 0.2.0: The Resonance Acts
 
 **New**

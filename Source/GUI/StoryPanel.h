@@ -7,6 +7,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Engine/Storyline.h"
+#include "../Engine/ChanceEvents.h"
 #include "../Engine/SoundCollection.h"
 #include <functional>
 #include <vector>
@@ -43,6 +44,11 @@ namespace mutagen
         std::function<void (float, const juce::String&)> onReward;
         std::function<void()> onIntro;
 
+        /** Animation hooks: the editor routes these to the StoryFx layer over the dish. */
+        std::function<void (chance::Anim, juce::Colour, float)> onAnim;
+        std::function<void (const juce::String&, const juce::String&, juce::Colour)> onBanner;
+        std::function<void (juce::Colour)> onGlitch;
+
         const story::Progress& progress() const { return prog; }
 
         /** Secrets, the intro and the odd visitors report back through these. */
@@ -57,6 +63,9 @@ namespace mutagen
         double secondsSinceTwist() const { return runStory.twistRevealed ? clock - twistClock : 1.0e9; }
         story::Speaker currentSpeaker() const { return speakerId; }
         int act() const { return currentAct; }
+
+        /** Test hook: fire a specific chance event now. */
+        void fireChanceForTest (int id) { if (id >= 0 && id < chance::count) fireChance (id); }
 
         /** Make the colony perform something (notes are offsets from the run's root). */
         void perform (story::Effect, const std::array<int, 4>& notes, int param);
@@ -75,6 +84,12 @@ namespace mutagen
         void answer (int choice);
         void playNotes (const std::vector<int>& semis, double spacing, double hold);
         void releaseAll();
+        void fireChance (int id = -1);
+        void applyChance (const chance::Chance&);
+        void fireBanter();
+        void playFinale();
+        void drawSigil (juce::Graphics&, juce::Rectangle<float>) const;
+        juce::Rectangle<int> sigilBounds() const;
         void doCollect (const juce::String& label, float seconds);
         void exportAll();
         void persist();
@@ -82,7 +97,13 @@ namespace mutagen
         MutagenProcessor& processor;
         story::Progress prog;
         story::RunStory runStory;
+        chance::Director chanceDir;
         SoundCollection jar;
+
+        struct QueuedLine { double at; story::Speaker who; juce::String text; story::Effect fx; std::array<int, 4> notes; int param; };
+        std::vector<QueuedLine> lineQueue;
+        double finaleAt = -1.0;
+        float sigilPhase = 0.0f;
 
         double clock = 0.0;
         int currentAct = 0;

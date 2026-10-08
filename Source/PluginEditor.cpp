@@ -71,6 +71,10 @@ namespace mutagen
         wireLabGames();
 
         addAndMakeVisible (secretLayer);
+        addAndMakeVisible (storyFx);
+        storyPanel.onAnim   = [this] (chance::Anim a, juce::Colour c, float i) { storyFx.play (a, c, i); };
+        storyPanel.onBanner = [this] (const juce::String& t, const juce::String& s, juce::Colour c) { storyFx.banner (t, s, c); };
+        storyPanel.onGlitch = [this] (juce::Colour c) { storyFx.glitch (c); };
         secretLayer.onReward = [this] (float w, const juce::String& label) { scoreSystem.registerInteraction (w, label); };
         addChildComponent (introOverlay);
         storyPanel.onIntro = [this] { introOverlay.open(); introOverlay.grabKeyboardFocus(); };
@@ -907,6 +911,8 @@ namespace mutagen
         scoreHud.toFront (false);
         secretLayer.setBounds (chamber.getBounds());
         secretLayer.toFront (false);
+        storyFx.setBounds (chamber.getBounds());
+        storyFx.toFront (false);
         // Whatever modal layer is open stays above the secret layer.
         for (juce::Component* c : { (juce::Component*) &labGameOverlay, (juce::Component*) &introOverlay, (juce::Component*) &nameOverlay })
             if (c->isVisible()) c->toFront (false);

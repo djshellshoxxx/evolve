@@ -11,6 +11,10 @@ on:
         description: "Publish a GitHub release from this build"
         type: boolean
         default: false
+      suffix:
+        description: "Pre-release suffix for a manual release, e.g. beta.1 gives v0.3.0-beta.1"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -48,7 +52,7 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release "$extra"
 
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel 4
 
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
@@ -58,6 +62,9 @@ jobs:
         run: |
           set -e
           ver=$(sed -n 's/^project(MUTAGEN VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          # A tag such as v0.3.0-beta.1 names the package; otherwise use the CMake version.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then ver="${GITHUB_REF_NAME#v}"; fi
+          if [ -n "${{ inputs.suffix }}" ]; then ver="$ver-${{ inputs.suffix }}"; fi
           art=build/MUTAGEN_artefacts/Release
           out=MUTAGEN-$ver-${{ matrix.name }}
           mkdir -p "$out"
@@ -90,11 +97,17 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Version
-        run: echo "VERSION=$(sed -n 's/^project(MUTAGEN VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)" >> "$GITHUB_ENV"
+        run: |
+          ver="$(sed -n 's/^project(MUTAGEN VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then ver="${GITHUB_REF_NAME#v}"; fi
+          if [ -n "${{ inputs.suffix }}" ]; then ver="$ver-${{ inputs.suffix }}"; fi
+          echo "VERSION=$ver" >> "$GITHUB_ENV"
+          case "$ver" in *-*) echo "PRERELEASE=true" >> "$GITHUB_ENV" ;; *) echo "PRERELEASE=false" >> "$GITHUB_ENV" ;; esac
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', env.VERSION) }}
           name: MUTAGEN ${{ env.VERSION }}
+          prerelease: ${{ env.PRERELEASE == 'true' }}
           target_commitish: ${{ github.sha }}
           body_path: docs/RELEASE_NOTES.md
           files: dist/*

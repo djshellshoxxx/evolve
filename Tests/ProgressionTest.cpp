@@ -3,6 +3,7 @@
 #include "../Source/Engine/HiddenDiscoveries.h"
 #include "../Source/Engine/LabGames.h"
 #include "../Source/Engine/Storyline.h"
+#include "../Source/Engine/ChanceEvents.h"
 #include "../Source/Engine/Secrets.h"
 #include <cstdlib>
 #include <iostream>
@@ -427,6 +428,76 @@ int main()
         }
         CHECK ((int) seen.size() == lexiconSize);
         CHECK (r.drawQuiz (1) >= 0);
+    }
+
+    // ---- chance events, banter, endings -----------------------------------
+    {
+        using namespace mutagen;
+        CHECK ((int) chance::all().size() == chance::count && chance::count <= 32);
+        int tiers[4] {};
+        for (const auto& c : chance::all())
+        {
+            ++tiers[(int) c.rarity];
+            CHECK (c.minAct >= 1 && c.minAct <= story::actCount && c.reward > 0.0f);
+            if (c.kind == chance::Kind::notes) CHECK (c.notes[0] != chance::kNo);
+            if (c.kind == chance::Kind::meteor || c.kind == chance::Kind::prune || c.kind == chance::Kind::gate)
+                CHECK (c.param > 0);
+        }
+        CHECK (tiers[0] >= 6 && tiers[1] >= 6 && tiers[2] >= 4 && tiers[3] >= 2);
+
+        // Common beats uncommon beats rare beats mythic, but every event can land.
+        chance::Director d (7);
+        int seen[4] {};
+        std::set<int> ids;
+        int prev = -1;
+        for (int i = 0; i < 4000; ++i)
+        {
+            const int id = d.draw (story::actCount);
+            CHECK (id >= 0);
+            CHECK (id != prev);
+            prev = id;
+            ++seen[(int) chance::all()[(std::size_t) id].rarity];
+            ids.insert (id);
+        }
+        CHECK (seen[0] > seen[1] && seen[1] > seen[2] && seen[2] > seen[3] && seen[3] > 0);
+        CHECK ((int) ids.size() == chance::count);
+
+        // Events stay locked until their act.
+        chance::Director early (9);
+        for (int i = 0; i < 300; ++i)
+        {
+            const int id = early.draw (1);
+            CHECK (id >= 0 && chance::all()[(std::size_t) id].minAct <= 1);
+        }
+        chance::Director gap (11);
+        for (int i = 0; i < 50; ++i) CHECK (gap.gap() >= 55.0 && gap.gap() <= 135.0);
+
+        // Banter exists for every act, and never repeats back to back.
+        for (int a = 1; a <= story::actCount; ++a)
+        {
+            story::RunStory r (100 + (std::uint64_t) a);
+            int last = -1;
+            for (int k = 0; k < 20; ++k)
+            {
+                const int b = r.drawBanter (a);
+                CHECK (b >= 0 && b != last && story::banters()[(std::size_t) b].minAct <= a);
+                last = b;
+            }
+        }
+
+        // Every ending is reachable and chosen by how the game was played.
+        story::Progress p;
+        CHECK (story::endingFor (p) == 3);
+        p.collected = 40;                          CHECK (story::endingFor (p) == 2);
+        p.quizzesAsked = 10; p.quizzesCorrect = 9; CHECK (story::endingFor (p) == 0);
+        p.secrets = (1ull << 20) - 1;              CHECK (story::endingFor (p) == 1);
+        p.chanceSeen = 0b1011; p.endingsSeen = 0b11;
+        CHECK (p.chanceCount() == 3 && p.endingCount() == 2);
+
+        // The lexicon fits its 64-bit mask, and the coda is reachable.
+        CHECK (story::lexiconSize <= 64 && story::actCount == 9);
+        CHECK (story::acts()[8].lexiconNeeded <= story::lexiconSize);
+        CHECK (story::twists().size() == 12);
     }
 
     // ---- secrets, visitors, polyglots, name fates ------------------------
