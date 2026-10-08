@@ -1,3 +1,25 @@
+## MUTAGEN 0.3.0 beta 2: Music Facts
+
+This is a **beta**. The facts are verified by automated tests and an independent checker, but the demonstrations have not yet been heard on a wide range of hosts. Please report anything odd.
+
+**New**
+- **Music Facts**: 30,000 educational facts about pitch, intervals, chords, scales, rhythm, tuning, acoustics and hearing. One appears every 5 minutes of play as a card over the dish, and a won lab game or an unlocked skill brings a bonus fact.
+- **Demonstrations**: 1 in 5 facts is demonstrable. The colony plays the note, interval, chord, scale or circle-of-fifths steps as the text appears, and a demonstrable fact adds **+9,344** to your score. Other facts get a short chime in the run's key.
+- **KNOWLEDGE score**: a second score under the main score. Every fact is worth 1 to 4 points.
+- Facts never repeat before every fact of their kind has been shown, and your progress is saved.
+- **Verification**: the computed facts were re-derived by an independent script (zero mismatches across about 30,000 facts). The 89 hand-written facts each cite two sources and were reviewed before being included (they are not in this build yet).
+
+**Fixed**
+- Windows build error in the facts code (a compiler-specific annotation).
+- CI builds no longer run out of memory on Linux and macOS (build parallelism is capped).
+
+**Downloads**
+- Windows x64: standalone `.exe`, VST3, CLAP
+- Linux x64: standalone, VST3, CLAP (`.tar.gz`)
+- macOS universal: app, AU, VST3, CLAP (unsigned; right-click, then Open the first time)
+
+---
+
 ## MUTAGEN 0.3.0 beta 1: Chance, Conversation and Coda
 
 This is a **beta**. The new story, animations and events are covered by automated tests and render checks, but they have not yet been heard on a wide range of hosts. Please report anything odd.
