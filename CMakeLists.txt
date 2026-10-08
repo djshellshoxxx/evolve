@@ -296,4 +296,8 @@ if(MUTAGEN_BUILD_TESTS)
     add_executable(MutagenProgressionTest Tests/ProgressionTest.cpp)
     target_include_directories(MutagenProgressionTest PRIVATE Source)
     add_test(NAME MutagenProgressionTest COMMAND MutagenProgressionTest)
+
+    add_executable(MutagenMusicFactsTest Tests/MusicFactsTest.cpp Source/Engine/MusicFacts.cpp)
+    target_include_directories(MutagenMusicFactsTest PRIVATE Source)
+    add_test(NAME MutagenMusicFactsTest COMMAND MutagenMusicFactsTest)
 endif()

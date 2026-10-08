@@ -38,3 +38,10 @@ Status: planned (implementation starts now, with cheap-model helpers). Pure C++ 
 
 ## Risks
 Repetitive feel from templated facts (mitigated by varied phrasings per template, interleaving categories, and curated growth), copyright (public-domain only), false claims (two-source rule, computed proofs, myth-busting framing), audio overlap (demos queue behind active encounters and defer while a quiz or idea encounter is active).
+
+## As built (2026-10-08, phase F core)
+- `Source/Engine/MusicFacts.h/.cpp`, `Tests/MusicFactsTest.cpp` (CTest target `MutagenMusicFactsTest`), `tools/factcheck.py`, `docs/data/curated_facts.json` (89 reviewed facts, not yet embedded).
+- 30,000 unique facts; 8,480 (28%) are demonstrable. Real mix: about 6,000 computed Tier A, about 6,700 Tier C drills, about 9,200 octave-placed variants, about 7,100 ear-training pair drills; slots 27,000 to 29,999 are reserved for curated facts through `curatedText()` (currently empty, so filler is used).
+- `tools/factcheck.py` independently recomputes 16 fact families (about 30,000 ids): zero mismatches. It caught and led to fixes of three real bugs in the C++ (scale spelling, interval drill spelling, trumpet concert-pitch offset).
+- **No-repeat rule, as built**: the exact 1-in-5 demo cadence always holds, and a fact never repeats before every fact of its own kind has been shown. Because 28% of facts are demonstrable, non-demo facts run out first (after about 26,900 draws, roughly 2,240 hours at one fact per 5 minutes) and then start a new pass on their own; the cadence is never broken.
+- Scale demos carry the first six tones; playback calls `scaleSemitones(fxId)` for the whole scale.
