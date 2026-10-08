@@ -143,6 +143,10 @@ namespace mutagen
                 p.secrets = (std::uint64_t) o->getProperty ("secrets").toString().getLargeIntValue();
                 p.introSeen = (bool) o->getProperty ("introSeen");
                 p.plotFloor = juce::jlimit (1, story::actCount, (int) o->getProperty ("plotFloor"));
+                p.knowledge = (std::uint64_t) (juce::int64) o->getProperty ("knowledge");
+                p.factSeed = (std::uint64_t) o->getProperty ("factSeed").toString().getLargeIntValue();
+                p.factCounter = (std::uint32_t) (juce::int64) o->getProperty ("factCounter");
+                p.factSeen = o->getProperty ("factSeen").toString().toStdString();
                 p.chanceSeen = (std::uint32_t) (juce::int64) o->getProperty ("chanceSeen");
                 p.endingsSeen = (std::uint32_t) (juce::int64) o->getProperty ("endingsSeen");
                 p.playerName = o->getProperty ("playerName").toString().substring (0, 40).toStdString();
@@ -160,6 +164,8 @@ namespace mutagen
             p.twistsSeen |= disk.twistsSeen;
             p.secrets |= disk.secrets;
             p.chanceSeen |= disk.chanceSeen;
+            p.knowledge = juce::jmax (p.knowledge, disk.knowledge);
+            if (p.factSeed == 0) { p.factSeed = disk.factSeed; p.factCounter = disk.factCounter; p.factSeen = disk.factSeen; }
             p.endingsSeen |= disk.endingsSeen;
             p.introSeen = p.introSeen || disk.introSeen;
             p.plotFloor = juce::jmax (p.plotFloor, disk.plotFloor);
@@ -180,6 +186,10 @@ namespace mutagen
             o->setProperty ("runsPlayed", p.runsPlayed);
             o->setProperty ("twistsSeen", (int) p.twistsSeen);
             o->setProperty ("secrets", juce::String ((juce::int64) p.secrets));
+            o->setProperty ("knowledge", (juce::int64) p.knowledge);
+            o->setProperty ("factSeed", juce::String ((juce::int64) p.factSeed));
+            o->setProperty ("factCounter", (juce::int64) p.factCounter);
+            o->setProperty ("factSeen", juce::String (p.factSeen));
             o->setProperty ("chanceSeen", (juce::int64) p.chanceSeen);
             o->setProperty ("endingsSeen", (juce::int64) p.endingsSeen);
             o->setProperty ("introSeen", p.introSeen);

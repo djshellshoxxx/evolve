@@ -104,6 +104,7 @@ target_sources(MUTAGEN PRIVATE
     Source/ParamHelp.cpp
 
     Source/Engine/Entropy.cpp
+    Source/Engine/MusicFacts.cpp
     Source/Engine/Descriptors.cpp
     Source/Engine/Genome.cpp
     Source/Engine/Cells.cpp
@@ -296,4 +297,8 @@ if(MUTAGEN_BUILD_TESTS)
     add_executable(MutagenProgressionTest Tests/ProgressionTest.cpp)
     target_include_directories(MutagenProgressionTest PRIVATE Source)
     add_test(NAME MutagenProgressionTest COMMAND MutagenProgressionTest)
+
+    add_executable(MutagenMusicFactsTest Tests/MusicFactsTest.cpp Source/Engine/MusicFacts.cpp)
+    target_include_directories(MutagenMusicFactsTest PRIVATE Source)
+    add_test(NAME MutagenMusicFactsTest COMMAND MutagenMusicFactsTest)
 endif()

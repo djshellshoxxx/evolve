@@ -8,6 +8,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Engine/Storyline.h"
 #include "../Engine/ChanceEvents.h"
+#include "../Engine/MusicFacts.h"
 #include "../Engine/SoundCollection.h"
 #include <functional>
 #include <vector>
@@ -49,6 +50,18 @@ namespace mutagen
         std::function<void (const juce::String&, const juce::String&, juce::Colour)> onBanner;
         std::function<void (juce::Colour)> onGlitch;
 
+        /** A fact is shown (category, text, knowledge points, demo bonus or 0). */
+        std::function<void (const juce::String&, const juce::String&, int, int, juce::Colour)> onFact;
+
+        /** Main-score points (the demonstration bonus). */
+        std::function<void (juce::int64, const juce::String&)> onPoints;
+
+        /** A game was won or a skill unlocked: a bonus fact follows shortly. */
+        void grantFactReward() { if (pendingFactRewards < 2) ++pendingFactRewards; }
+
+        /** Test hook: present the next fact now. */
+        void presentFactForTest() { presentFact (false); }
+
         const story::Progress& progress() const { return prog; }
 
         /** Secrets, the intro and the odd visitors report back through these. */
@@ -85,6 +98,8 @@ namespace mutagen
         void playNotes (const std::vector<int>& semis, double spacing, double hold);
         void releaseAll();
         void fireChance (int id = -1);
+        void presentFact (bool bonus);
+        void playDemo (const facts::Demo&);
         void applyChance (const chance::Chance&);
         void fireBanter();
         void playFinale();
@@ -98,6 +113,11 @@ namespace mutagen
         story::Progress prog;
         story::RunStory runStory;
         chance::Director chanceDir;
+        facts::Deck factDeck;
+        facts::SeenSet factSeen;
+        double factClock = 0.0;          // unpaused seconds since the last fact
+        double sinceLastFact = 1.0e9;
+        int pendingFactRewards = 0;
         SoundCollection jar;
 
         struct QueuedLine { double at; story::Speaker who; juce::String text; story::Effect fx; std::array<int, 4> notes; int param; };

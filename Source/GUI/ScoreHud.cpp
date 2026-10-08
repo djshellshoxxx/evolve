@@ -157,7 +157,7 @@ namespace mutagen
         auto b = getLocalBounds().toFloat();
 
         // ---- the score panel ----------------------------------------------
-        auto card = b.removeFromTop (92.0f).removeFromRight (330.0f).reduced (10.0f, 8.0f);
+        auto card = b.removeFromTop (106.0f).removeFromRight (330.0f).reduced (10.0f, 8.0f);
         scoreArea = card;
 
         g.setColour (bg0.withAlpha (0.72f));
@@ -187,6 +187,16 @@ namespace mutagen
                                 : accent.brighter (pulsing ? 0.15f * std::sin (flashPhase * 4.0f) + 0.15f : 0.0f));
             g.setFont (juce::Font (juce::FontOptions (30.0f).withStyle ("Bold")));
             g.drawText (s, scoreRow, juce::Justification::centredRight);
+        }
+
+        // the second score: knowledge from facts
+        {
+            auto kRow = inner.removeFromTop (14.0f);
+            juce::String k (knowledge);
+            for (int i = k.length() - 3; i > 0; i -= 3) k = k.substring (0, i) + "," + k.substring (i);
+            g.setFont (juce::Font (juce::FontOptions (11.5f).withStyle ("Bold")));
+            g.setColour (juce::Colour (0xff7ee0c3).withAlpha (0.9f));
+            g.drawText ("KNOWLEDGE  " + k, kRow, juce::Justification::centredRight);
         }
 
         // multiplier + combo

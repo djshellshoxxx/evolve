@@ -232,6 +232,7 @@ namespace mutagen
                                   bool positive)
     {
         mode = Mode::result;
+        if (positive && onWin) onWin();
         currentGame = game;
         currentMoment = moment;
         title = t;

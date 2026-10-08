@@ -37,6 +37,9 @@ namespace mutagen
         std::function<void()> onSideMutationSpin;
         std::function<void(bool cat)> onPetChosen;
 
+        /** Fires when a game resolves in the player's favour. */
+        std::function<void()> onWin;
+
         void resolve (const juce::String& title, const juce::String& detail,
                       labgames::Game game, labgames::SoundMoment moment,
                       bool positive);

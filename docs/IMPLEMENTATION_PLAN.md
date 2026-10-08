@@ -60,3 +60,34 @@ Done when: both ideas playable with a microphone and with mouse/MIDI fallbacks, 
 - Test logic in pure headers (fast, no JUCE) before touching GUI code.
 - Verify visuals by rendering frames from the smoke test, not by launching the app.
 - Batch edits per file with scripted replacements; run CI only per phase, not per commit.
+
+
+---
+
+# Addendum (2026-10-08): ideas A and B, the Idea Scheduler and the Music Facts engine
+
+New specs: `idea-a-room-remembers-spec.md`, `idea-b-choir-of-one-spec.md`, `idea-scheduler-spec.md`, `music-facts-spec.md`.
+Order changes: the Music Facts engine is self-contained, so it starts immediately and runs beside Phase 1. The Idea Scheduler lands right after Phase 1 so each later idea ships already wired into it.
+
+## Delegation and model policy (token efficiency)
+- Well-specified, mechanical, self-checking work goes to the cheapest model (Haiku): pure C++ headers with tests, data tables, generators, scripts, research and verification of curated facts. Anything with design judgement, audio-thread safety or cross-file integration stays with the main model.
+- Every delegated task gets: the spec path, exact file list, the test that must pass, and a rule to report only a short summary. The main model builds and runs the tests itself before accepting the work.
+- One warm build directory; delegated agents must not run full builds, only the pure-header test targets.
+
+## Phase F: Music Facts engine (starts now)
+1. `Source/Engine/MusicFacts.h/.cpp` generators for Tier A and C, the 30,000-slot ID map, affine permutation, scheduler of 1-in-5 demos, knowledge points. `Tests/MusicFactsTest.cpp` (new CTest target, pure C++).
+2. `tools/factcheck.py` independent verifier; `tools/gen_facts.py` curated blob generator; `docs/data/curated_facts.json` seeded with researched, two-source-verified facts.
+3. GUI: `FactToast`, second score in `ScoreHud`, demo playback via `StoryPanel`, 5-minute timer, win and skill-unlock bonuses, journal counters, persistence of the seen bitset and permutation counter.
+4. Release as part of the next beta.
+
+## Phase S: Idea Scheduler (after Phase 1)
+1. `Source/Engine/IdeaScheduler.h` with genomes, operators, distance, rewards, timed and milestone modes, persistence struct; `Tests/IdeaSchedulerTest.cpp` including the 10-hour virtual session and 500-level mutation checks.
+2. Journal scratch-off list UI and presentation banner ("A NEW PHENOMENON").
+3. Wire the encounter mutex (one encounter at a time) across Phantom, quiz, banter, ideas, facts.
+4. Ideas P and T get registered first; D, A and B register as they are built, with placeholders that present a short "coming soon" encounter disabled until their phase ships.
+
+## Phases 2 to 4
+Unchanged (Tuner Duels, Dream Rooms, microphone ideas), except each idea registers with the scheduler, implements `presentAtLevel(genome)` and `reward(level)`, and its mutation axes map to the genome fields.
+
+## Order of work
+F (parallel) and 1 Phantom, then S, then 2 Duels, 3 Dream Rooms, 4a `LiveAnalyser`, 4b Idea B, 4c Idea A, then a polish pass (balancing probabilities with the simulation, accessibility, docs).

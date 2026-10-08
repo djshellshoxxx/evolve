@@ -77,6 +77,28 @@ int main()
         }
     }
 
+    // The fact card draws, shows the demo bonus line, and clears itself.
+    bool factToastDraws = false;
+    {
+        StoryFx toastLayer;
+        toastLayer.setBounds (0, 0, 900, 520);
+        toastLayer.factToast ("Acoustics", "Doubling your distance from a source drops its level by about 6 dB.", 3, 9344, juce::Colour (0xff7ee0c3));
+        toastLayer.advance (3.0f);
+        juce::Image frame (juce::Image::ARGB, 900, 520, true);
+        { juce::Graphics fg (frame); toastLayer.paint (fg); }
+        int lit = 0;
+        for (int y = 60; y < 220; y += 4)
+            for (int x = 120; x < 780; x += 4)
+                if (frame.getPixelAt (x, y).getAlpha() > 8) ++lit;
+        toastLayer.advance (30.0f);
+        factToastDraws = lit > 300 && ! toastLayer.isPlaying();
+        if (const char* dump = std::getenv ("MUTAGEN_FX_DUMP"))
+        {
+            juce::FileOutputStream out (juce::File (dump).getChildFile ("toast.png"));
+            if (out.openedOk()) { out.setPosition (0); out.truncate(); juce::PNGImageFormat().writeImageToStream (frame, out); }
+        }
+    }
+
     // Direction buttons must map to a single strong, predictable selection axis.
     const auto bright = steering::directionProfile (steering::Direction::bright);
     const auto calm   = steering::directionProfile (steering::Direction::calm);
@@ -122,9 +144,10 @@ int main()
                  counterProfile ? "PASS" : "FAIL",
                  diceProfiles ? "PASS" : "FAIL");
     std::printf ("Story animations: %s\n", storyFxDraws ? "PASS" : "FAIL");
+    std::printf ("Fact toast: %s\n", factToastDraws ? "PASS" : "FAIL");
     std::printf ("Steering intensity: %s\n", steeringIntensity ? "PASS" : "FAIL");
 
     return (chamberPassesThrough && scoreCaptures && tableCaptures
             && directionProfiles && counterProfile && diceProfiles
-            && steeringIntensity && storyFxDraws) ? 0 : 1;
+            && steeringIntensity && storyFxDraws && factToastDraws) ? 0 : 1;
 }
