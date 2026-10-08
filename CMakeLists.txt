@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(MUTAGEN VERSION 0.2.0 LANGUAGES C CXX)
+project(MUTAGEN VERSION 0.3.0 LANGUAGES C CXX)
 
 # Static MSVC runtime: the Windows standalone .exe runs without a VC++ redistributable.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -143,6 +143,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/LabGameOverlay.cpp
     Source/GUI/StoryPanel.cpp
     Source/GUI/SecretLayer.cpp
+    Source/GUI/StoryFx.cpp
     Source/GUI/IntroOverlay.cpp
     Source/GUI/DeviceSetupHook.cpp)
 
@@ -255,6 +256,8 @@ if(MUTAGEN_BUILD_TESTS)
     target_sources(MutagenGuiSmokeTest PRIVATE
         Tests/GuiSmokeTest.cpp
         Source/GUI/ScoreHud.cpp
+        Source/GUI/StoryFx.cpp
+        Source/GUI/MutagenLookAndFeel.cpp
         Source/Engine/ScoreSystem.cpp)
 
     target_include_directories(MutagenGuiSmokeTest PRIVATE Source)

@@ -229,12 +229,24 @@ Every line they speak is one true fact about acoustics, sound design or music
 theory, and the colony *performs* it while they speak: the cells sing the octave,
 the fifth, the dominant seventh; a tempo gate opens at 120 BPM; a delay starts
 repeating itself. Facts heard are counted as **lexicon**, and lexicon (plus sounds
-collected and ear checks passed) is what opens the next act. There are eight acts,
-sixty lexicon entries and sixteen ear checks.
+collected and ear checks passed) is what opens the next act. There are nine acts
+(the ninth is a coda), sixty-four lexicon entries and sixteen ear checks.
 
 No two runs are the same. Each run draws its own **key and mode** (twelve roots,
-ten modes from Lydian to whole-tone), its own **twist** (eight, such as *Echo was
-always alone* or *The 432 decree*), its own event order and its own pacing.
+ten modes from Lydian to whole-tone), its own **twist** (twelve, such as *Echo was
+always alone*, *The 432 decree* or *A clap contains everything*), its own event order and its own pacing.
+
+Between the lessons the cast **talk to each other** (fourteen short exchanges, each ending in
+something the colony plays), and Act IX ends with one of **four endings** chosen by how you
+played: resolved (you answered the ear checks well), haunted (you found the secrets), the archive
+(you kept many sounds) or an open cadence.
+
+**Chance events** happen to the dish whether you ask or not: twenty-four of them in four rarities
+(common, uncommon, rare, mythic), such as a meteor shower, a golden spore, a total eclipse or the
+colony singing back. Each has its own animation over the culture chamber, something it does to the
+colony and a little score. The longer none of the rare ones lands, the likelier one becomes.
+Every speaker also has an animated sigil beside their line, and acts, twists and endings arrive
+with a title banner.
 
 The lab games (roulette, three-card monte, slots, dice, twenty-one, scratch cards)
 are offered during play. Instrument rewards are real sounds: each one is recorded

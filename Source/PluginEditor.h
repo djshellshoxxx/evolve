@@ -26,6 +26,7 @@
 #include "GUI/LabGameOverlay.h"
 #include "GUI/StoryPanel.h"
 #include "GUI/SecretLayer.h"
+#include "GUI/StoryFx.h"
 #include "GUI/IntroOverlay.h"
 #include "Engine/ScoreSystem.h"
 #include "Engine/HauntedEvents.h"
@@ -98,6 +99,7 @@ namespace mutagen
         LabGameOverlay    labGameOverlay;
         StoryPanel        storyPanel { processor };
         SecretLayer       secretLayer { processor, chamber, storyPanel };
+        StoryFx           storyFx;
         IntroOverlay      introOverlay;
         NameOverlay       nameOverlay;
         void askName();

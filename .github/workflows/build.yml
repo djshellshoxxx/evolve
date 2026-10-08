@@ -58,6 +58,8 @@ jobs:
         run: |
           set -e
           ver=$(sed -n 's/^project(MUTAGEN VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          # A tag such as v0.3.0-beta.1 names the package; otherwise use the CMake version.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then ver="${GITHUB_REF_NAME#v}"; fi
           art=build/MUTAGEN_artefacts/Release
           out=MUTAGEN-$ver-${{ matrix.name }}
           mkdir -p "$out"
@@ -90,11 +92,16 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Version
-        run: echo "VERSION=$(sed -n 's/^project(MUTAGEN VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)" >> "$GITHUB_ENV"
+        run: |
+          ver="$(sed -n 's/^project(MUTAGEN VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then ver="${GITHUB_REF_NAME#v}"; fi
+          echo "VERSION=$ver" >> "$GITHUB_ENV"
+          case "$ver" in *-*) echo "PRERELEASE=true" >> "$GITHUB_ENV" ;; *) echo "PRERELEASE=false" >> "$GITHUB_ENV" ;; esac
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', env.VERSION) }}
           name: MUTAGEN ${{ env.VERSION }}
+          prerelease: ${{ env.PRERELEASE == 'true' }}
           target_commitish: ${{ github.sha }}
           body_path: docs/RELEASE_NOTES.md
           files: dist/*
