@@ -53,6 +53,14 @@ namespace mutagen
         ++prog.runsPlayed;
         factSeen = facts::SeenSet::fromBase64 (prog.factSeen);
 
+        // Tell the effect mode which key tonight's run is in.
+        {
+            int mask = 0;
+            for (auto step : story::modes()[(std::size_t) runStory.mode].steps)
+                if (step != story::kNo) mask |= 1 << (((step % 12) + 12) % 12);
+            processor.setMorphScale (mask, runStory.root % 12);
+        }
+
         collectButton.setTooltip ("Record the last 3 seconds of the colony into your sound collection");
         exportButton.setTooltip ("Copy every collected sound to a folder as 24-bit WAV files");
         collectButton.onClick = [this]
@@ -277,6 +285,7 @@ namespace mutagen
         topic = juce::String ("TWIST: ") + t.name;
         say (t.speaker, t.reveal);
         perform (t.effect, t.notes, t.param);
+        { EngineCommand ev; ev.type = CommandType::gameEvent; ev.ia = 7; processor.pushCommand (ev); }
         if (onGlitch) onGlitch (colourFor (t.speaker));
         if (onBanner) onBanner ("TWIST", t.name, colourFor (t.speaker));
         if (onReward) onReward (0.8f, juce::String ("TWIST  ") + t.name);
@@ -301,6 +310,7 @@ namespace mutagen
         sinceLastFact = 0.0;
 
         const int bonusScore = f.demonstrable ? facts::kDemoBonusScore : 0;
+        { EngineCommand ev; ev.type = CommandType::gameEvent; ev.ia = 6; processor.pushCommand (ev); }
         if (onFact) onFact (f.category, f.text, points, bonusScore, bonus ? theme::resonator : theme::spectralV);
         if (f.demonstrable)
         {
@@ -443,6 +453,7 @@ namespace mutagen
         if (c.rarity >= R::rare && onBanner)
             onBanner (juce::String (chance::rarityName (c.rarity)) + " EVENT", c.name, colour);
 
+        { EngineCommand ev; ev.type = CommandType::gameEvent; ev.ia = 5; processor.pushCommand (ev); }
         applyChance (c);
         if (onReward) onReward (c.reward, juce::String ("CHANCE  ") + c.name + (fresh ? "  (NEW)" : ""));
         if (c.rarity >= R::rare && c.kind != chance::Kind::collect)

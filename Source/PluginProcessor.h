@@ -15,6 +15,7 @@
 #include "Engine/BreedingLab.h"
 #include "Engine/OrganismState.h"
 #include "Engine/PostChain.h"
+#include "Engine/LiveMorph.h"
 #include "Engine/Ingest.h"
 #include "Engine/MidiLearn.h"
 #include "Engine/PresetManager.h"
@@ -235,6 +236,14 @@ namespace mutagen
         int digestedCount() const { return sourcePool.digestCount(); }
         juce::StringArray digestedNames() const { return sourcePool.eatenNames(); }
 
+        // ---- colony morph: set from the message thread --------------------
+        void setMorphScore (float score01) { morphScore01.store (juce::jlimit (0.0f, 1.0f, score01), std::memory_order_relaxed); }
+        void setMorphScale (int pitchClassMask, int rootPitchClass)
+        {
+            morphScaleMask.store (pitchClassMask & 0xfff, std::memory_order_relaxed);
+            morphRootPc.store (((rootPitchClass % 12) + 12) % 12, std::memory_order_relaxed);
+        }
+
         // ---- microphone ------------------------------------------------
         void armMic (bool shouldArm);
         void startMicCapture (float seconds);
@@ -267,6 +276,16 @@ namespace mutagen
 
         // scratch
         juce::AudioBuffer<float> dryScratch;
+
+        // ---- colony morph (effect mode) -----------------------------------
+        LiveMorph morph;
+        juce::AudioBuffer<float> morphScratch;
+        int    morphEventKind = 0;          // audio thread only
+        double morphEventAge = 99.0;
+        int    morphWarmSamples = 0;        // keeps the morph's buffers fed for a while after it is turned down
+        std::atomic<float> morphScore01 { 0.0f };
+        std::atomic<int>   morphScaleMask { 0x0ab5 };
+        std::atomic<int>   morphRootPc { 0 };
 
         // Procedural hidden-event voice. Trigger values are atomics because
         // the message thread requests them and the audio thread renders them.

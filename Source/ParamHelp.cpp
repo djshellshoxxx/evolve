@@ -90,6 +90,11 @@ namespace mutagen::params
                 // ---- output -------------------------------------------------
                 { masterGain, "Output level." },
                 { dryWet,     "Blend between the incoming audio and the colony." },
+                { morphMix,   "Colony Morph: how much of your incoming audio is re-made by the colony. "
+                              "It regrains the sound, makes it ring in the run's key, and is coloured by "
+                              "the game (enzyme shimmer, catalyst wobble, radiation crackle, heat, chance events)." },
+                { morphReact, "How strongly the game's state (variety, appeal, noise, heat, pressure) "
+                              "steers the Colony Morph. Low = gentle and steady, high = the sound follows the game." },
 
                 // ---- performance macros --------------------------------------
                 { macroGrowth,   "One hand on food, fertility and lifespan together." },

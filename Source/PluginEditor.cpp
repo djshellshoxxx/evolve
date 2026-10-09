@@ -794,6 +794,7 @@ namespace mutagen
         lastSeenScore = scoreSystem.score();
         scoreHud.setState (scoreSystem, snapshot);
         scoreHud.setKnowledge ((juce::int64) storyPanel.progress().knowledge);
+        processor.setMorphScore ((float) (std::log10 (1.0 + (double) juce::jmax ((juce::int64) 0, scoreSystem.score())) / 9.0));
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
                            processor.micLevel(), processor.entropyTapLevel(),
