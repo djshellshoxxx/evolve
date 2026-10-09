@@ -5,6 +5,7 @@
 #include "../Source/PluginProcessor.h"
 #include <cmath>
 #include <cstdio>
+#include <memory>
 
 using namespace mutagen;
 
@@ -20,7 +21,10 @@ namespace
 
     Run render (float morphMix, bool withEvents)
     {
-        MutagenProcessor p;
+        // Heap, as a real host does: the processor holds several megabytes of history and
+        // payload arrays, which overflows Windows' 1 MB default stack.
+        auto owned = std::make_unique<MutagenProcessor>();
+        MutagenProcessor& p = *owned;
         p.setPlayConfigDetails (2, 2, 48000.0, 512);
         p.prepareToPlay (48000.0, 512);
         setParam (p, "pluginRole", 1.0f);   // Effect
@@ -71,6 +75,7 @@ int main()
 {
     juce::ScopedJuceInitialiser_GUI init;
 
+    std::printf ("processor object: %zu KB (Windows default stack is 1024 KB)\n", sizeof (MutagenProcessor) / 1024);
     const auto off = render (0.0f, false);
     const auto on  = render (1.0f, true);
 
