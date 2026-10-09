@@ -278,6 +278,13 @@ namespace mutagen
         juce::AudioBuffer<float> dryScratch;
 
         // ---- colony morph (effect mode) -----------------------------------
+        // Parameter pointers resolved once, so buildPostParams never builds a string on the audio thread.
+        std::atomic<float>* oscPtr[params::numOscillators][6] {};
+        std::atomic<float>* lfoPtr[params::numLfos][6] {};
+        std::atomic<float>* envLfoDestPtr = nullptr;
+        std::atomic<float>* gatorStepPtr[params::gatorSteps] {};
+        void cachePostParamPointers();
+
         LiveMorph morph;
         juce::AudioBuffer<float> morphScratch;
         int    morphEventKind = 0;          // audio thread only

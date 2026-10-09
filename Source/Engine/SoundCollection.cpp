@@ -165,7 +165,28 @@ namespace mutagen
             p.secrets |= disk.secrets;
             p.chanceSeen |= disk.chanceSeen;
             p.knowledge = juce::jmax (p.knowledge, disk.knowledge);
-            if (p.factSeed == 0) { p.factSeed = disk.factSeed; p.factCounter = disk.factCounter; p.factSeen = disk.factSeen; }
+            if (p.factSeed == 0)
+            {
+                p.factSeed = disk.factSeed; p.factCounter = disk.factCounter; p.factSeen = disk.factSeen;
+            }
+            else if (p.factSeed == disk.factSeed)
+            {
+                // Same deck: never move backwards, and keep every fact either instance has shown.
+                p.factCounter = juce::jmax (p.factCounter, disk.factCounter);
+                juce::MemoryOutputStream a, b;
+                if (juce::Base64::convertFromBase64 (a, juce::String (p.factSeen))
+                    && juce::Base64::convertFromBase64 (b, juce::String (disk.factSeen)))
+                {
+                    std::vector<std::uint8_t> merged (juce::jmax (a.getDataSize(), b.getDataSize()), (std::uint8_t) 0);
+                    const auto* pa = static_cast<const std::uint8_t*> (a.getData());
+                    const auto* pb = static_cast<const std::uint8_t*> (b.getData());
+                    for (std::size_t i = 0; i < merged.size(); ++i)
+                        merged[i] = (std::uint8_t) ((i < a.getDataSize() ? pa[i] : 0) | (i < b.getDataSize() ? pb[i] : 0));
+                    p.factSeen = juce::Base64::toBase64 (merged.data(), merged.size()).toStdString();
+                }
+                else if (p.factSeen.empty())
+                    p.factSeen = disk.factSeen;
+            }
             p.endingsSeen |= disk.endingsSeen;
             p.introSeen = p.introSeen || disk.introSeen;
             p.plotFloor = juce::jmax (p.plotFloor, disk.plotFloor);

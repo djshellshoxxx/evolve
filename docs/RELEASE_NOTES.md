@@ -1,3 +1,35 @@
+## MUTAGEN 0.3.0 beta 3: Colony Morph
+
+This is a **beta**. The effect is covered by automated tests (including a headless run of the real processor), but it has not yet been heard on a wide range of hosts. Please report anything odd.
+
+**New**
+- **Colony Morph**: use MUTAGEN as an effect. It regrains your incoming audio, makes it ring in the run's key, and colours it with game events (enzyme shimmer, catalyst wobble, radiation crackle, heat, chance sparkles, twists). New **Morph** and **React** knobs, plus knobs for **Output** and **Dry/Wet**, which had no on-screen control before.
+- **Music Facts**: the 89 reviewed curated facts are in the game, and 500 new sound-design demonstration facts (gate, sidechain, riser, filter sweep, bass drop, tape stop, echo throw, reverse swell).
+- Animation touch-ups: brighter spores, bubbles and snow-sines, comet glow, an eclipse corona, a gentler lightning flash and a stronger heartbeat.
+
+**Fixed**
+- RANDOM no longer resets Output, Dry/Wet, CPU quality, Role and MIDI routing on later presses.
+- Open Run now restores the saved score and play time.
+- Double-clicking a knob resets it to its real default.
+- Right-click "Reset to Default" no longer appears on buttons that have no default.
+- A damaged history file can no longer crash the editor on load.
+- A story twist, ear check or chance event no longer fires in a burst after you close Help or the intro; an unanswered ear check gives up after 90 seconds instead of freezing the story.
+- Story moments can no longer trigger the 5% score-wipe radiation; that stays on the RADIATE button.
+- A second open instance can no longer roll back your fact progress.
+- No more per-block string allocation on the audio thread (about 175 per block removed).
+- The idle story sigil repaints less often.
+
+**Known gaps** (from the audit in `docs/audit/`)
+- The Source selector in the Germination panel does not yet change anything, and Shift/Ctrl fine-drag on knobs is not implemented.
+- Several DSP hot spots (resonator and grain maths) are not yet optimised.
+
+**Downloads**
+- Windows x64: standalone `.exe`, VST3, CLAP
+- Linux x64: standalone, VST3, CLAP (`.tar.gz`)
+- macOS universal: app, AU, VST3, CLAP (unsigned; right-click, then Open the first time)
+
+---
+
 ## MUTAGEN 0.3.0 beta 2: Music Facts
 
 This is a **beta**. The facts are verified by automated tests and an independent checker, but the demonstrations have not yet been heard on a wide range of hosts. Please report anything odd.

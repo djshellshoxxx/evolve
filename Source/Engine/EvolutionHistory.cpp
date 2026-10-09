@@ -106,8 +106,10 @@ namespace mutagen
         {
             const auto c = vt.getChild (i);
             GenerationNode n;
-            n.id       = (int) c.getProperty ("id", (int) tree.size());
+            // Ids are positions: a damaged file must not be able to point outside the tree or at itself.
+            n.id       = (int) tree.size();
             n.parentId = (int) c.getProperty ("parent", -1);
+            if (n.parentId < 0 || n.parentId >= n.id) n.parentId = -1;
             n.label    = c.getProperty ("label", "gen").toString();
             n.timeStamp = (double) c.getProperty ("time", 0.0);
             n.preserved = (bool) c.getProperty ("preserved", false);

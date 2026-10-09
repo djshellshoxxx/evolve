@@ -36,6 +36,7 @@ namespace mutagen
 
         LabeledKnob captureLenKnob, transientKnob, populationKnob;
         LabeledKnob distGrainKnob, distSpecKnob, distResKnob;
+        LabeledKnob outputKnob, dryWetKnob, morphKnob, reactKnob;
 
         SpeciesMixBar mixBar;
         juce::Label   sourceInfo;

@@ -336,7 +336,16 @@ namespace mutagen
         // that starts from defaults, so press two is a new set of settings
         // rather than a random walk away from press one.
         if (hasRandomised)
-            resetToDefaults();
+        {
+            // Only the patch resets; the user's rig (output, dry/wet, CPU, role, MIDI routing) stays.
+            for (auto* p : apvts.processor.getParameters())
+                if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p); rp != nullptr && isRandomisable (rp->paramID))
+                {
+                    rp->beginChangeGesture();
+                    rp->setValueNotifyingHost (rp->getDefaultValue());
+                    rp->endChangeGesture();
+                }
+        }
         hasRandomised = true;
 
         for (auto* p : apvts.processor.getParameters())

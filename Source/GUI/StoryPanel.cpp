@@ -133,7 +133,15 @@ namespace mutagen
             else ++it;
         }
 
-        if (paused || quizIndex >= 0) return;
+        // While the story is paused (Help, intro...) or an ear check waits for an answer, every
+        // timer waits too, so nothing fires in a burst afterwards. An unanswered ear check
+        // gives up after 90 seconds instead of freezing the director.
+        if (paused || quizIndex >= 0)
+        {
+            holdSchedule (dt);
+            if (! paused && quizIndex >= 0 && (quizWait += dt) > 90.0) dismissQuiz();
+            return;
+        }
 
         // Every 30 minutes of play the plot moves on by itself: the next act
         // opens, or, once the last act is open, a fresh twist lands.
@@ -233,6 +241,28 @@ namespace mutagen
             runStory.nextEventSec = clock + runStory.gapAfterEvent (currentAct);
             if (id >= 0) fireEvent (id);
         }
+    }
+
+    void StoryPanel::holdSchedule (double dt)
+    {
+        runStory.nextEventSec += dt;
+        runStory.nextQuizSec += dt;
+        runStory.nextBanterSec += dt;
+        chanceDir.nextAtSec += dt;
+        if (! runStory.twistRevealed) runStory.twistAtSec += dt;
+        if (! keyIntroDone) keyIntroAt += dt;
+        if (finaleAt > 0.0) finaleAt += dt;
+        for (auto& q : lineQueue) q.at += dt;
+    }
+
+    void StoryPanel::dismissQuiz()
+    {
+        for (auto& b : answerButtons) b.setVisible (false);
+        quizIndex = -1;
+        runStory.nextQuizSec = clock + runStory.gapAfterQuiz();
+        runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 15.0);
+        say (currentSpeaker(), "No answer? Then the question stays with you. Listen again.");
+        resized();
     }
 
     void StoryPanel::openAct (int act)
@@ -560,6 +590,7 @@ namespace mutagen
 
     void StoryPanel::askQuiz()
     {
+        quizWait = 0.0;
         quizIndex = runStory.drawQuiz (currentAct);
         if (quizIndex < 0) { runStory.nextQuizSec = clock + runStory.gapAfterQuiz(); return; }
 
@@ -618,7 +649,9 @@ namespace mutagen
             case Effect::chord:    playNotes (semis, 0.0, 2.4); break;
             case Effect::scale:    playNotes (runStory.scaleNotes (param), 0.26, 0.4); break;
             case Effect::mutate:   c.type = CommandType::mutateNow; processor.pushCommand (c); break;
-            case Effect::radiate:  c.type = CommandType::radiate; processor.pushCommand (c); break;
+            // A story demonstration never rolls the radiation dice (5% kills the sound and
+            // resets the score): that is the player's RADIATE button only.
+            case Effect::radiate:  c.type = CommandType::mutateNow; processor.pushCommand (c); break;
             case Effect::gate:     processor.triggerTemporaryGator (param > 0 ? param : 120, 16, 6); break;
             case Effect::delay:    processor.triggerTripDelay (param > 0 ? param : 40); break;
             case Effect::haunted:  processor.triggerHauntedSound (param, 0.7f); break;
@@ -718,7 +751,9 @@ namespace mutagen
     {
         bool dirty = false;
         sigilPhase += 1.0f / 30.0f;
-        repaint (sigilBounds());
+        // The sigil animates at full rate while the character speaks, and at a third of that when idle.
+        if (typed < (float) line.length() || flash > 0.0f || (++sigilTick % 3) == 0)
+            repaint (sigilBounds());
         if (typed < (float) line.length()) { typed += 2.2f; dirty = true; }
         if (flash > 0.0f) { flash = juce::jmax (0.0f, flash - 0.04f); dirty = true; }
         if (dirty) repaint();

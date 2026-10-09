@@ -68,6 +68,9 @@ namespace mutagen
 
         void reset();
 
+        /** Puts a saved run's score and play time back (Open Run). */
+        void restoreRun (juce::int64 savedScore, double savedSeconds) { reset(); total = (double) savedScore; runSeconds = savedSeconds; }
+
         // ---- read-out --------------------------------------------------
         juce::int64 score()      const { return (juce::int64) total; }
         float  multiplier()      const { return multiplierValue; }

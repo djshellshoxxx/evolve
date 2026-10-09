@@ -231,7 +231,7 @@ namespace mutagen
         };
 
         setResizable (true, true);
-        setResizeLimits (1060, 700, 2600, 1700);
+        setResizeLimits (1060, 740, 2600, 1700);
         setSize (1320, 860);
 
         lastTimeSec = juce::Time::getMillisecondCounterHiRes() * 0.001;
@@ -758,6 +758,10 @@ namespace mutagen
                 {
                     processor.setStateInformation (state.getData(), (int) state.getSize());
                 }
+
+                // The score and play time come back with the run, as the README and Help promise.
+                scoreSystem.restoreRun ((juce::int64) (double) run.getProperty ("score", 0.0),
+                                        (double) run.getProperty ("seconds", 0.0));
 
                 timeline.refresh();
                 topBar.setStatus ("loaded " + f.getFileName());

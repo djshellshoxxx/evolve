@@ -303,6 +303,16 @@ if(MUTAGEN_BUILD_TESTS)
     target_include_directories(MutagenLiveMorphTest PRIVATE Source)
     add_test(NAME MutagenLiveMorphTest COMMAND MutagenLiveMorphTest)
 
+    # Drives the real processor headlessly in Effect role with the Colony Morph on.
+    juce_add_console_app(MutagenProcessorSmokeTest PRODUCT_NAME "MutagenProcessorSmokeTest")
+    target_sources(MutagenProcessorSmokeTest PRIVATE Tests/ProcessorSmokeTest.cpp)
+    target_include_directories(MutagenProcessorSmokeTest PRIVATE Source)
+    target_compile_definitions(MutagenProcessorSmokeTest PRIVATE
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1 JUCE_REPORT_APP_USAGE=0)
+    target_link_libraries(MutagenProcessorSmokeTest PRIVATE MUTAGEN
+        juce::juce_gui_extra PUBLIC juce::juce_recommended_config_flags)
+    add_test(NAME MutagenProcessorSmokeTest COMMAND MutagenProcessorSmokeTest)
+
     add_executable(MutagenMusicFactsTest Tests/MusicFactsTest.cpp Source/Engine/MusicFacts.cpp)
     target_include_directories(MutagenMusicFactsTest PRIVATE Source)
     add_test(NAME MutagenMusicFactsTest COMMAND MutagenMusicFactsTest)

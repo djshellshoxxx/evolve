@@ -19,6 +19,7 @@ MutagenProcessor::MutagenProcessor()
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "MUTAGEN", params::createLayout())
 {
+    cachePostParamPointers();
     /*  Seed from harvested entropy rather than from the clock alone.
 
         A clock-seeded PRNG gives every instance the same statistical
@@ -250,20 +251,37 @@ void MutagenProcessor::updateEnvironmentFromParameters()
     postChain.setParams (ppp);
 }
 
+void MutagenProcessor::cachePostParamPointers()
+{
+    static constexpr const char* oscLeaves[6] = { "on", "wave", "tune", "fine", "level", "pan" };
+    static constexpr const char* lfoLeaves[6] = { "sync", "rate", "div", "depth", "shape", "phase" };
+    for (int i = 0; i < params::numOscillators; ++i)
+        for (int k = 0; k < 6; ++k)
+            oscPtr[i][k] = apvts.getRawParameterValue (params::oscParam (i, oscLeaves[k]));
+    for (int i = 0; i < params::numLfos; ++i)
+        for (int k = 0; k < 6; ++k)
+            lfoPtr[i][k] = apvts.getRawParameterValue (params::lfoParam (i, lfoLeaves[k]));
+    envLfoDestPtr = apvts.getRawParameterValue (params::lfoParam (params::envLfoIndex, "dest"));
+    for (int s = 0; s < params::gatorSteps; ++s)
+        gatorStepPtr[s] = apvts.getRawParameterValue (params::gatorStepParam (s));
+}
+
 void MutagenProcessor::buildPostParams (PostParams& q) const
 {
-    auto f = [this] (const juce::String& id) { return apvts.getRawParameterValue (id)->load(); };
-    auto b = [&f] (const juce::String& id) { return f (id) > 0.5f; };
+    // StringRef, not String: the parameter ids are string literals, so no allocation per lookup.
+    auto f = [this] (juce::StringRef id) { return apvts.getRawParameterValue (id)->load(); };
+    auto b = [&f] (juce::StringRef id) { return f (id) > 0.5f; };
 
     for (int i = 0; i < params::numOscillators; ++i)
     {
         auto& O = q.osc[(size_t) i];
-        O.on    = b (params::oscParam (i, "on"));
-        O.wave  = (int) f (params::oscParam (i, "wave"));
-        O.tune  = f (params::oscParam (i, "tune"));
-        O.fine  = f (params::oscParam (i, "fine"));
-        O.level = f (params::oscParam (i, "level"));
-        O.pan   = f (params::oscParam (i, "pan"));
+        const auto* o = oscPtr[i];
+        O.on    = o[0]->load() > 0.5f;
+        O.wave  = (int) o[1]->load();
+        O.tune  = o[2]->load();
+        O.fine  = o[3]->load();
+        O.level = o[4]->load();
+        O.pan   = o[5]->load();
     }
     q.oscLevel    = f (params::oscLevel);
     q.oscKeytrack = b (params::oscKeytrack);
@@ -286,14 +304,15 @@ void MutagenProcessor::buildPostParams (PostParams& q) const
     for (int i = 0; i < params::numLfos; ++i)
     {
         auto& Lo = q.lfo[(size_t) i];
-        Lo.sync  = b (params::lfoParam (i, "sync"));
-        Lo.rateHz = f (params::lfoParam (i, "rate"));
-        Lo.div   = (int) f (params::lfoParam (i, "div"));
-        Lo.depth = f (params::lfoParam (i, "depth"));
-        Lo.shape = (int) f (params::lfoParam (i, "shape"));
-        Lo.phase = f (params::lfoParam (i, "phase"));
+        const auto* l = lfoPtr[i];
+        Lo.sync  = l[0]->load() > 0.5f;
+        Lo.rateHz = l[1]->load();
+        Lo.div   = (int) l[2]->load();
+        Lo.depth = l[3]->load();
+        Lo.shape = (int) l[4]->load();
+        Lo.phase = l[5]->load();
     }
-    q.envLfoDest = (int) f (params::lfoParam (params::envLfoIndex, "dest"));
+    q.envLfoDest = (int) envLfoDestPtr->load();
 
     q.eqOn   = b (params::eqOn);
     q.eqLowF = f (params::eqLowFreq);  q.eqLowG = f (params::eqLowGain);
@@ -309,7 +328,7 @@ void MutagenProcessor::buildPostParams (PostParams& q) const
     q.gatorRelease = f (params::gatorRelease);
     q.gatorDepth   = f (params::gatorDepth);
     for (int s = 0; s < params::gatorSteps; ++s)
-        q.gatorPattern[(size_t) s] = b (params::gatorStepParam (s));
+        q.gatorPattern[(size_t) s] = gatorStepPtr[s]->load() > 0.5f;
 
     q.glitchOn      = b (params::glitchOn);
     q.glitchAmount  = f (params::glitchAmount);

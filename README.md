@@ -217,6 +217,17 @@ machines may route system beeps through normal audio rather than a motherboard s
 
 ---
 
+## Colony Morph (use MUTAGEN as an effect)
+
+Set **Role** to Effect or Hybrid and turn up **Morph**: the colony re-makes whatever you send into it.
+It listens to the input (level, brightness, onsets), regrains it into short overlapping grains, makes it
+ring in the key of tonight's run, and colours it with what is happening in the game: **enzyme** adds a
+shimmer, **catalyst** a fast pitch wobble, **radiate** a bit-crushed crackle, **heat** speeds the grains up,
+chance events add sparkles, a story twist brings in a slow reversed swell, and a frozen (noisy) colony freezes
+and darkens the sound. **React** sets how strongly the game's state (variety, appeal, noise, heat, pressure)
+steers it: low is gentle and steady, high follows the game closely. Morph has its own level, so it works at any
+**Dry/Wet** setting. **Output** and **Dry/Wet** now have knobs beside Morph and React in the Germination panel.
+
 ## The Resonance Acts
 
 A second storyline runs in the narrator strip under the chamber. Seven new
