@@ -209,8 +209,42 @@ int main (int argc, char** argv)
         }
     }
 
-    // ---- the curated hook is empty for now, so the filler is used
-    CHECK (curatedText (0) == nullptr);
+    // ---- curated facts: indices 0..88 embedded, unique, served at IDs 27000..27088
+    {
+        std::unordered_set<std::string> curated;
+        for (int i = 0; i < 89; ++i)
+        {
+            const char* text = curatedText (i);
+            CHECK (text != nullptr);
+            CHECK (curated.insert (text).second);
+            CHECK (factAt (27000 + i).text == text);
+            CHECK (factAt (27000 + i).category != "");
+            CHECK (factAt (27000 + i).demonstrable == (factAt (27000 + i).demo.kind != Demo::Kind::none));
+        }
+        CHECK (curatedText (89) == nullptr);
+        CHECK (curatedText (-1) == nullptr);
+        CHECK (curatedText (2999) == nullptr);
+    }
+
+    // ---- sound-design effects: IDs 29500..29999 are demonstrable effect facts
+    {
+        for (int id = 29500; id < 30000; ++id)
+        {
+            const Fact fact = factAt (id);
+            CHECK (fact.demonstrable);
+            CHECK (fact.demo.kind == Demo::Kind::effect);
+            CHECK (fact.demo.fxId >= 0 && fact.demo.fxId < kFxCount);
+            CHECK (fact.demo.durationMs > 0 && fact.demo.durationMs <= 10000);
+            CHECK (fact.text.size() >= 40 && fact.text.size() <= 200);
+            CHECK (fact.category == "Sound design");
+        }
+        // Every effect is used, and the fx values match the variant pattern (id - 29500) % 8.
+        std::set<int> effects;
+        for (int id = 29500; id < 30000; ++id) effects.insert (factAt (id).demo.fxId);
+        CHECK (effects.size() == (size_t) kFxCount);
+        CHECK (factAt (29500).demo.fxId == kFxGate);
+        CHECK (factAt (29507).demo.fxId == kFxReverseSwell);
+    }
 
     std::cout << "MutagenMusicFactsTest passed: " << kFactCount << " facts, "
               << demonstrable << " demonstrable (" << (int) (share * 100) << "%)\n";

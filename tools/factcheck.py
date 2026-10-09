@@ -12,15 +12,25 @@ Usage:
     python3 tools/factcheck.py --binary PATH
     python3 tools/factcheck.py --dump FILE          # check a saved dump
 
+Two families are handled by ID rather than by text pattern:
+  curated  IDs 27000..27088 (the embedded curated facts). They are skipped by the
+           arithmetic checks and counted; each text must equal the JSON entry.
+  effects  IDs 29500..29999 (sound-design effects). Each text must match an effect
+           template, its numbers are recomputed here, and its effect must be the
+           one the ID implies: (id - 29500) % 8, in Fx order.
+
 Exit status is 0 when there are zero mismatches and zero unparsed texts.
 """
 import argparse
 import glob
+import json
 import math
+import os
 import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
+from fractions import Fraction
 
 # ----------------------------------------------------------------- theory
 
@@ -535,6 +545,161 @@ def check_pairs(text):
     return None
 
 
+# ------------------------------------------------ sound-design effects (IDs 29500..29999)
+# Numbers are recomputed from their definitions: a beat is 60 / bpm seconds, so a
+# note value of b beats lasts 60000 * b / bpm ms; beats = seconds * bpm / 60;
+# octaves = log2(f2 / f1); equal temperament f = 440 * 2 ** ((midi - 69) / 12).
+# Whole-number ms use exact rational arithmetic rounded half up; decimals are
+# allowed half a printed unit of error.
+
+EFFECT_FIRST = 29500
+FX_NAMES = ["gate", "sidechain", "riser", "sweep", "bassDrop", "tapeStop", "echoThrow", "reverseSwell"]
+NOTE_VALUES = {   # note value in beats, as a fraction
+    "quarter-note": Fraction(1), "dotted quarter-note": Fraction(3, 2), "eighth-note": Fraction(1, 2),
+    "half-note": Fraction(2), "triplet eighth-note": Fraction(1, 3),
+}
+ONE_DP = 0.05 + EPS
+TWO_DP = 0.005 + EPS
+LABEL = "quarter-note|dotted quarter-note|eighth-note|half-note|triplet eighth-note"
+
+
+def half_up(q):
+    """Nearest integer to a non-negative Fraction, halves up."""
+    return math.floor(q + Fraction(1, 2))
+
+
+def _gate(g):
+    bpm, div, ms = int(g["bpm"]), int(g["div"]), int(g["ms"])
+    problems = []
+    if div not in (4, 8, 16, 32):
+        problems.append("division 1/%d" % div)
+    expected = half_up(Fraction(60000 * 4, bpm * div))
+    if ms != expected:
+        problems.append("ms %d != %d" % (ms, expected))
+    return problems
+
+
+def _sidechain(g):
+    bpm, ms = int(g["bpm"]), int(g["ms"])
+    beat = Fraction(1) if g["unit"] == "quarter" else Fraction(1, 2)
+    expected = half_up(Fraction(60000) * beat / bpm)
+    return [] if ms == expected else ["ms %d != %d" % (ms, expected)]
+
+
+def _riser(g):
+    bars, bpm, sec = int(g["bars"]), int(g["bpm"]), float(g["sec"])
+    problems = []
+    if "word" in g and g["word"] != ("bar" if bars == 1 else "bars"):
+        problems.append("plural for %d bars" % bars)
+    exact = bars * 4 * 60 / bpm
+    if abs(sec - exact) > ONE_DP:
+        problems.append("seconds %.1f != %.4f" % (sec, exact))
+    return problems
+
+
+def _sweep(g):
+    lo, hi, octaves = int(g["from"]), int(g["to"]), float(g["oct"])
+    problems = []
+    if (lo - 50) % 10 != 0 or not 0 <= (lo - 50) // 10 <= 62:
+        problems.append("start %d off the grid" % lo)
+    if hi not in (2000, 4000, 8000, 12000, 16000):
+        problems.append("end %d off the grid" % hi)
+    expected = math.log2(hi / lo)
+    if abs(octaves - expected) > ONE_DP:
+        problems.append("octaves %.1f != %.4f" % (octaves, expected))
+    return problems
+
+
+def _bass(g):
+    m_hi, m_lo = midi_of(g["n1"]), midi_of(g["n2"])
+    problems = []
+    if absolute_name(m_hi) != g["n1"] or absolute_name(m_lo) != g["n2"]:
+        problems.append("note names")
+    if abs(float(g["f1"]) - freq(m_hi, 440)) > TWO_DP:
+        problems.append("start Hz %s != %.4f" % (g["f1"], freq(m_hi, 440)))
+    if abs(float(g["f2"]) - freq(m_lo, 440)) > TWO_DP:
+        problems.append("end Hz %s != %.4f" % (g["f2"], freq(m_lo, 440)))
+    drop = m_hi - m_lo
+    expected = {12: "one octave", 24: "two octaves"}.get(drop, "%d semitones" % drop)
+    if g["fall"] != expected:
+        problems.append("fall '%s' != '%s'" % (g["fall"], expected))
+    return problems
+
+
+def _tape(g):
+    seconds, bpm, beats = float(g["s"]), int(g["bpm"]), float(g["beats"])
+    problems = []
+    if abs(seconds * 10 - round(seconds * 10)) > EPS or not 1.0 <= seconds <= 3.0:
+        problems.append("seconds %s off the grid" % g["s"])
+    exact = seconds * bpm / 60
+    if abs(beats - exact) > ONE_DP:
+        problems.append("beats %.1f != %.4f" % (beats, exact))
+    return problems
+
+
+def _echo(g):
+    label, bpm, ms = g["label"], int(g["bpm"]), int(g["ms"])
+    problems = []
+    if g.get("article") is not None:
+        expected_article = "An" if label.startswith("eighth") else "A"
+        if g["article"] != expected_article:
+            problems.append("article %s before %s" % (g["article"], label))
+    expected = half_up(Fraction(60000) * NOTE_VALUES[label] / bpm)
+    if ms != expected:
+        problems.append("ms %d != %d" % (ms, expected))
+    return problems
+
+
+def _reverse(g):
+    tail, bpm, beats = int(g["tail"]), int(g["bpm"]), float(g["beats"])
+    exact = tail * bpm / 60
+    return [] if abs(beats - exact) <= ONE_DP else ["beats %.1f != %.4f" % (beats, exact)]
+
+
+# (family name, template, checker). Each template is the whole text.
+EFFECT_FORMS = [
+    ("gate", r"A gate at 1/(?P<div>\d+) notes at (?P<bpm>\d+) BPM opens and closes every (?P<ms>\d+) ms\.", _gate),
+    ("gate", r"Gating 1/(?P<div>\d+) notes at (?P<bpm>\d+) BPM chops the sound every (?P<ms>\d+) ms\.", _gate),
+    ("gate", r"At (?P<bpm>\d+) BPM, a gate on 1/(?P<div>\d+) notes switches the signal on and off every (?P<ms>\d+) ms\.", _gate),
+    ("sidechain", r"Sidechain compression pumping on every (?P<unit>quarter|eighth) note at (?P<bpm>\d+) BPM ducks the pad every (?P<ms>\d+) ms\.", _sidechain),
+    ("sidechain", r"At (?P<bpm>\d+) BPM, a sidechained pad ducks on every (?P<unit>quarter|eighth) note, which is (?P<ms>\d+) ms apart\.", _sidechain),
+    ("sidechain", r"Sidechain ducking on each (?P<unit>quarter|eighth) note at (?P<bpm>\d+) BPM repeats every (?P<ms>\d+) ms\.", _sidechain),
+    ("riser", r"A riser over (?P<bars>\d+) (?P<word>bars?) at (?P<bpm>\d+) BPM lasts (?P<sec>[\d.]+) s\.", _riser),
+    ("riser", r"At (?P<bpm>\d+) BPM, a riser spanning (?P<bars>\d+) (?P<word>bars?) takes (?P<sec>[\d.]+) s to build\.", _riser),
+    ("riser", r"Building a (?P<bars>\d+)-bar riser at (?P<bpm>\d+) BPM takes (?P<sec>[\d.]+) seconds\.", _riser),
+    ("sweep", r"A filter sweep from (?P<from>\d+) Hz to (?P<to>\d+) Hz covers (?P<oct>[\d.]+) octaves\.", _sweep),
+    ("sweep", r"Sweeping a filter from (?P<from>\d+) Hz up to (?P<to>\d+) Hz spans (?P<oct>[\d.]+) octaves\.", _sweep),
+    ("sweep", r"A cutoff sweep rising from (?P<from>\d+) Hz to (?P<to>\d+) Hz is (?P<oct>[\d.]+) octaves wide\.", _sweep),
+    ("bassDrop", r"A bass drop sliding from (?P<n1>%s) \((?P<f1>[\d.]+) Hz\) down to (?P<n2>%s) \((?P<f2>[\d.]+) Hz\) falls (?P<fall>one octave|two octaves|\d+ semitones)\." % (NOTE_OCT, NOTE_OCT), _bass),
+    ("bassDrop", r"In a bass drop, the pitch glides from (?P<n1>%s) \((?P<f1>[\d.]+) Hz\) down to (?P<n2>%s) \((?P<f2>[\d.]+) Hz\), a fall of (?P<fall>one octave|two octaves|\d+ semitones)\." % (NOTE_OCT, NOTE_OCT), _bass),
+    ("bassDrop", r"A bass drop glides from (?P<n1>%s) \((?P<f1>[\d.]+) Hz\) to (?P<n2>%s) \((?P<f2>[\d.]+) Hz\): a drop of (?P<fall>one octave|two octaves|\d+ semitones)\." % (NOTE_OCT, NOTE_OCT), _bass),
+    ("tapeStop", r"A tape stop slows playback to a halt; if it takes (?P<s>[\d.]+) s from (?P<bpm>\d+) BPM that is (?P<beats>[\d.]+) beats\.", _tape),
+    ("tapeStop", r"A tape stop that takes (?P<s>[\d.]+) s from (?P<bpm>\d+) BPM lasts (?P<beats>[\d.]+) beats\.", _tape),
+    ("tapeStop", r"Stopping a tape over (?P<s>[\d.]+) s at (?P<bpm>\d+) BPM spans (?P<beats>[\d.]+) beats\.", _tape),
+    ("echoThrow", r"(?P<article>A|An) (?P<label>%s) echo at (?P<bpm>\d+) BPM repeats every (?P<ms>\d+) ms\." % LABEL, _echo),
+    ("echoThrow", r"Echo throws on (?P<label>%s) timing at (?P<bpm>\d+) BPM repeat every (?P<ms>\d+) ms\." % LABEL, _echo),
+    ("reverseSwell", r"A reverse swell of a (?P<tail>\d+) s tail at (?P<bpm>\d+) BPM spans (?P<beats>[\d.]+) beats\.", _reverse),
+    ("reverseSwell", r"A (?P<tail>\d+) s reverse swell at (?P<bpm>\d+) BPM builds over (?P<beats>[\d.]+) beats\.", _reverse),
+]
+
+
+def check_effect(text):
+    """(family name, problems) for an effect text, or None when no template matches."""
+    for name, pattern, checker in EFFECT_FORMS:
+        m = re.fullmatch(pattern, text)
+        if m:
+            return name, checker(m.groupdict())
+    return None
+
+
+def load_curated_texts():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "data", "curated_facts.json")
+    with open(path, encoding="utf-8") as handle:
+        return [entry["text"] for entry in json.load(handle)]
+
+
+CURATED_FIRST = 27000
+
 FAMILIES = [
     ("tuning", check_tuning), ("cents", check_cents), ("piano", check_piano),
     ("interval", check_interval), ("chord", check_chord), ("scale", check_scale),
@@ -579,10 +744,35 @@ def main():
     samples = defaultdict(list)
     unparsed = []
     total = len(rows)
+    curated = load_curated_texts()
 
     for ident, text in rows:
         if "?" in text:
             unparsed.append((ident, text))
+            continue
+        if CURATED_FIRST <= ident < CURATED_FIRST + len(curated):
+            # Curated facts are skipped by the arithmetic checks and counted here.
+            checked["curated"] += 1
+            expected = curated[ident - CURATED_FIRST]
+            if text != expected:
+                mismatched["curated"] += 1
+                if len(samples["curated"]) < 3:
+                    samples["curated"].append("%d: text differs from curated_facts.json" % ident)
+            continue
+        if EFFECT_FIRST <= ident < EFFECT_FIRST + 500:
+            found = check_effect(text)
+            if found is None:
+                unparsed.append((ident, text))
+                continue
+            name, problems = found
+            wanted = FX_NAMES[(ident - EFFECT_FIRST) % len(FX_NAMES)]
+            if name != wanted:
+                problems = problems + ["is '%s', the id implies '%s'" % (name, wanted)]
+            checked["effects"] += 1
+            if problems:
+                mismatched["effects"] += 1
+                if len(samples["effects"]) < 3:
+                    samples["effects"].append("%d: %s -> %s" % (ident, text, "; ".join(problems)))
             continue
         for name, check in FAMILIES:
             problems = check(text)
@@ -598,7 +788,7 @@ def main():
             unparsed.append((ident, text))
 
     print("%-16s %8s %10s" % ("family", "checked", "mismatches"))
-    for name, _ in FAMILIES:
+    for name in ["curated"] + [name for name, _ in FAMILIES] + ["effects"]:
         print("%-16s %8d %10d" % (name, checked[name], mismatched[name]))
     print("%-16s %8d" % ("total ids", total))
     print("%-16s %8d" % ("unparsed", len(unparsed)))

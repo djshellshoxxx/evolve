@@ -355,14 +355,64 @@ namespace mutagen
             case K::dopplerPass:   playNotes (semis, 0.35, 1.2); break;
             case K::beats:         playNotes (semis, 0.0, 2.5); break;
             case K::effect:
-                switch (d.fxId % 4)
+            {
+                // Timed note helper: a note that sounds at `at` seconds from now for `len` seconds.
+                const auto note = [this] (double at, int midi, double len)
                 {
-                    case 0: processor.triggerTemporaryGator (120, 8, 4); break;
-                    case 1: processor.triggerTripDelay (20); break;
-                    case 2: { EngineCommand c; c.type = CommandType::mutateNow; processor.pushCommand (c); break; }
-                    default: processor.triggerTemporaryGator (90, 8, 4); break;
+                    const int n = juce::jlimit (12, 108, midi);
+                    noteQueue.push_back ({ clock + 0.05 + at, n, true });
+                    noteQueue.push_back ({ clock + 0.05 + at + len, n, false });
+                };
+                const int a = semis[0] + runStory.root;                       // first note given by the fact
+                const int b = semis.size() > 1 ? semis[1] + runStory.root : a;
+                switch (d.fxId)
+                {
+                    case facts::kFxGate:        // a held chord chopped by the tempo gate
+                    case facts::kFxSidechain:   // the same, pumping harder and lower
+                    {
+                        const int root = d.fxId == facts::kFxSidechain ? runStory.root - 12 : runStory.root;
+                        for (int i : { 0, 4, 7 }) note (0.0, root + i, 5.0);
+                        processor.triggerTemporaryGator (d.fxId == facts::kFxSidechain ? 124 : 120, 6, 2);
+                        break;
+                    }
+                    case facts::kFxRiser:       // a rising run that speeds up
+                    {
+                        double t = 0.0, gap = 0.34;
+                        for (int i = 0; i < 16; ++i) { note (t, runStory.root + i * 2, gap * 1.6); t += gap; gap = juce::jmax (0.05, gap * 0.84); }
+                        break;
+                    }
+                    case facts::kFxSweep:       // a fast chromatic glide, like a filter opening
+                        for (int i = 0; i <= 24; ++i) note (i * 0.09, runStory.root - 12 + i, 0.16);
+                        break;
+                    case facts::kFxBassDrop:    // a held note that falls into the sub
+                    {
+                        const int from = a > b ? a : juce::jmax (a, runStory.root);
+                        const int to = a > b ? b : from - 24;
+                        note (0.0, from, 1.0);
+                        const int steps = juce::jmax (4, from - to);
+                        for (int i = 1; i <= steps; ++i) note (1.0 + i * 0.06, from - (from - to) * i / steps, 0.12);
+                        note (1.0 + steps * 0.06 + 0.1, to, 2.0);
+                        break;
+                    }
+                    case facts::kFxTapeStop:    // pitch sags while the steps slow down
+                    {
+                        double t = 0.0, gap = 0.06;
+                        int m = a;
+                        for (int i = 0; i < 14; ++i) { note (t, m, gap * 1.4); t += gap; gap *= 1.28; if (i % 2 == 1) --m; }
+                        break;
+                    }
+                    case facts::kFxEchoThrow:   // a short note thrown into the delay
+                        note (0.0, a, 0.25);
+                        note (0.5, a + 7, 0.25);
+                        processor.triggerTripDelay (10);
+                        break;
+                    case facts::kFxReverseSwell: // a chord that builds in, one voice at a time
+                    default:
+                        for (int i = 0; i < 4; ++i) note (i * 0.5, runStory.root + (int) (i * 3.5f), 3.0 - i * 0.5);
+                        break;
                 }
                 break;
+            }
             case K::songMotif:     playNotes (semis, 0.4, 0.5); break;
         }
     }
