@@ -110,7 +110,7 @@ namespace mutagen
         // resonator bank
         static constexpr int maxModes = 6;
         float modeY1[maxModes] {}, modeY2[maxModes] {};
-        float modeF[maxModes] {}, modeFb[maxModes] {};
+        float modeF[maxModes] {}, modeFb[maxModes] {}, modeC[maxModes] {};
         float toneZ = 0.0f;   // shared one-pole "depth" filter
 
         // ---- API ----
