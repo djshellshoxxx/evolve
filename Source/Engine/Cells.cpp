@@ -526,6 +526,7 @@ namespace mutagen
                 modeF[i]  = juce::MathConstants<float>::twoPi * f / sr;
                 modeFb[i] = juce::jlimit (0.80f, 0.9995f,
                               rGain * (1.0f - (float) i / (float) maxModes * (1.0f - decayG) * 0.4f));
+                modeC[i]  = 2.0f * modeFb[i] * std::cos (modeF[i]);   // constant for the block
             }
 
             const float selfNoise = res > 0.85f ? (res - 0.85f) * 0.05f : 0.0f;
@@ -538,9 +539,8 @@ namespace mutagen
                 float s = 0.0f;
                 for (int i = 0; i < maxModes; ++i)
                 {
-                    const float cosw = std::cos (modeF[i]);
                     const float y = in * (1.0f - modeFb[i] * modeFb[i]) * 0.5f
-                                    + 2.0f * modeFb[i] * cosw * modeY1[i]
+                                    + modeC[i] * modeY1[i]
                                     - modeFb[i] * modeFb[i] * modeY2[i];
                     modeY2[i] = modeY1[i];
                     modeY1[i] = flush (y);
