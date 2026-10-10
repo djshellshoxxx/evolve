@@ -74,12 +74,14 @@ namespace mutagen
         svf.setType (juce::dsp::StateVariableTPTFilterType::lowpass);
 
         juce::dsp::ProcessSpec mono { sr, (juce::uint32) juce::jmax (1, maxBlock), 1 };
-        const auto flat = juce::dsp::IIR::Coefficients<float>::makeAllPass (sr, 1000.0f);
+        eqLastSr = 0.0;   // force a coefficient rebuild on the next block
         for (auto& band : eq)
             for (auto& f : band)
             {
                 f.prepare (mono);
-                f.coefficients = flat;   // never leave coefficients null
+                // One object per filter: they used to share a single object, so
+                // the low, mid and high bands overwrote each other's settings.
+                f.coefficients = juce::dsp::IIR::Coefficients<float>::makeAllPass (sr, 1000.0f);
                 f.reset();
             }
 
@@ -239,8 +241,13 @@ namespace mutagen
             ? juce::jmap (pp.velToFilter, 1.0f, 0.25f + 1.75f * pp.lastVelocity) : 1.0f;
 
         // ---- EQ coefficients (block-rate) ----
-        if (pp.eqOn)
+        // The coefficient factories heap-allocate, so only rebuild them when a
+        // setting actually changed (or the sample rate did), not every block.
+        const std::array<float, 7> eqKey { pp.eqLowF, pp.eqLowG, pp.eqMidF, pp.eqMidQ, pp.eqMidG, pp.eqHighF, pp.eqHighG };
+        if (pp.eqOn && (eqKey != eqLastKey || sr != eqLastSr))
         {
+            eqLastKey = eqKey;
+            eqLastSr = sr;
             auto g = [] (float dB) { return std::pow (10.0f, dB / 40.0f); };
             const auto lo = juce::dsp::IIR::Coefficients<float>::makeLowShelf  (sr, juce::jlimit (20.0f, 500.0f,  pp.eqLowF),  0.7f, g (pp.eqLowG));
             const auto md = juce::dsp::IIR::Coefficients<float>::makePeakFilter (sr, juce::jlimit (100.0f, 12000.0f, pp.eqMidF), juce::jlimit (0.1f, 12.0f, pp.eqMidQ), g (pp.eqMidG));
