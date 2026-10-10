@@ -53,6 +53,14 @@ namespace mutagen
         ++prog.runsPlayed;
         factSeen = facts::SeenSet::fromBase64 (prog.factSeen);
 
+        // Tell the effect mode which key tonight's run is in.
+        {
+            int mask = 0;
+            for (auto step : story::modes()[(std::size_t) runStory.mode].steps)
+                if (step != story::kNo) mask |= 1 << (((step % 12) + 12) % 12);
+            processor.setMorphScale (mask, runStory.root % 12);
+        }
+
         collectButton.setTooltip ("Record the last 3 seconds of the colony into your sound collection");
         exportButton.setTooltip ("Copy every collected sound to a folder as 24-bit WAV files");
         collectButton.onClick = [this]
@@ -125,7 +133,15 @@ namespace mutagen
             else ++it;
         }
 
-        if (paused || quizIndex >= 0) return;
+        // While the story is paused (Help, intro...) or an ear check waits for an answer, every
+        // timer waits too, so nothing fires in a burst afterwards. An unanswered ear check
+        // gives up after 90 seconds instead of freezing the director.
+        if (paused || quizIndex >= 0)
+        {
+            holdSchedule (dt);
+            if (! paused && quizIndex >= 0 && (quizWait += dt) > 90.0) dismissQuiz();
+            return;
+        }
 
         // Every 30 minutes of play the plot moves on by itself: the next act
         // opens, or, once the last act is open, a fresh twist lands.
@@ -227,6 +243,28 @@ namespace mutagen
         }
     }
 
+    void StoryPanel::holdSchedule (double dt)
+    {
+        runStory.nextEventSec += dt;
+        runStory.nextQuizSec += dt;
+        runStory.nextBanterSec += dt;
+        chanceDir.nextAtSec += dt;
+        if (! runStory.twistRevealed) runStory.twistAtSec += dt;
+        if (! keyIntroDone) keyIntroAt += dt;
+        if (finaleAt > 0.0) finaleAt += dt;
+        for (auto& q : lineQueue) q.at += dt;
+    }
+
+    void StoryPanel::dismissQuiz()
+    {
+        for (auto& b : answerButtons) b.setVisible (false);
+        quizIndex = -1;
+        runStory.nextQuizSec = clock + runStory.gapAfterQuiz();
+        runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 15.0);
+        say (currentSpeaker(), "No answer? Then the question stays with you. Listen again.");
+        resized();
+    }
+
     void StoryPanel::openAct (int act)
     {
         const bool firstTime = act > prog.highestActSeen;
@@ -277,6 +315,7 @@ namespace mutagen
         topic = juce::String ("TWIST: ") + t.name;
         say (t.speaker, t.reveal);
         perform (t.effect, t.notes, t.param);
+        { EngineCommand ev; ev.type = CommandType::gameEvent; ev.ia = 7; processor.pushCommand (ev); }
         if (onGlitch) onGlitch (colourFor (t.speaker));
         if (onBanner) onBanner ("TWIST", t.name, colourFor (t.speaker));
         if (onReward) onReward (0.8f, juce::String ("TWIST  ") + t.name);
@@ -301,6 +340,7 @@ namespace mutagen
         sinceLastFact = 0.0;
 
         const int bonusScore = f.demonstrable ? facts::kDemoBonusScore : 0;
+        { EngineCommand ev; ev.type = CommandType::gameEvent; ev.ia = 6; processor.pushCommand (ev); }
         if (onFact) onFact (f.category, f.text, points, bonusScore, bonus ? theme::resonator : theme::spectralV);
         if (f.demonstrable)
         {
@@ -355,14 +395,64 @@ namespace mutagen
             case K::dopplerPass:   playNotes (semis, 0.35, 1.2); break;
             case K::beats:         playNotes (semis, 0.0, 2.5); break;
             case K::effect:
-                switch (d.fxId % 4)
+            {
+                // Timed note helper: a note that sounds at `at` seconds from now for `len` seconds.
+                const auto note = [this] (double at, int midi, double len)
                 {
-                    case 0: processor.triggerTemporaryGator (120, 8, 4); break;
-                    case 1: processor.triggerTripDelay (20); break;
-                    case 2: { EngineCommand c; c.type = CommandType::mutateNow; processor.pushCommand (c); break; }
-                    default: processor.triggerTemporaryGator (90, 8, 4); break;
+                    const int n = juce::jlimit (12, 108, midi);
+                    noteQueue.push_back ({ clock + 0.05 + at, n, true });
+                    noteQueue.push_back ({ clock + 0.05 + at + len, n, false });
+                };
+                const int a = semis[0] + runStory.root;                       // first note given by the fact
+                const int b = semis.size() > 1 ? semis[1] + runStory.root : a;
+                switch (d.fxId)
+                {
+                    case facts::kFxGate:        // a held chord chopped by the tempo gate
+                    case facts::kFxSidechain:   // the same, pumping harder and lower
+                    {
+                        const int root = d.fxId == facts::kFxSidechain ? runStory.root - 12 : runStory.root;
+                        for (int i : { 0, 4, 7 }) note (0.0, root + i, 5.0);
+                        processor.triggerTemporaryGator (d.fxId == facts::kFxSidechain ? 124 : 120, 6, 2);
+                        break;
+                    }
+                    case facts::kFxRiser:       // a rising run that speeds up
+                    {
+                        double t = 0.0, gap = 0.34;
+                        for (int i = 0; i < 16; ++i) { note (t, runStory.root + i * 2, gap * 1.6); t += gap; gap = juce::jmax (0.05, gap * 0.84); }
+                        break;
+                    }
+                    case facts::kFxSweep:       // a fast chromatic glide, like a filter opening
+                        for (int i = 0; i <= 24; ++i) note (i * 0.09, runStory.root - 12 + i, 0.16);
+                        break;
+                    case facts::kFxBassDrop:    // a held note that falls into the sub
+                    {
+                        const int from = a > b ? a : juce::jmax (a, runStory.root);
+                        const int to = a > b ? b : from - 24;
+                        note (0.0, from, 1.0);
+                        const int steps = juce::jmax (4, from - to);
+                        for (int i = 1; i <= steps; ++i) note (1.0 + i * 0.06, from - (from - to) * i / steps, 0.12);
+                        note (1.0 + steps * 0.06 + 0.1, to, 2.0);
+                        break;
+                    }
+                    case facts::kFxTapeStop:    // pitch sags while the steps slow down
+                    {
+                        double t = 0.0, gap = 0.06;
+                        int m = a;
+                        for (int i = 0; i < 14; ++i) { note (t, m, gap * 1.4); t += gap; gap *= 1.28; if (i % 2 == 1) --m; }
+                        break;
+                    }
+                    case facts::kFxEchoThrow:   // a short note thrown into the delay
+                        note (0.0, a, 0.25);
+                        note (0.5, a + 7, 0.25);
+                        processor.triggerTripDelay (10);
+                        break;
+                    case facts::kFxReverseSwell: // a chord that builds in, one voice at a time
+                    default:
+                        for (int i = 0; i < 4; ++i) note (i * 0.5, runStory.root + (int) (i * 3.5f), 3.0 - i * 0.5);
+                        break;
                 }
                 break;
+            }
             case K::songMotif:     playNotes (semis, 0.4, 0.5); break;
         }
     }
@@ -393,6 +483,7 @@ namespace mutagen
         if (c.rarity >= R::rare && onBanner)
             onBanner (juce::String (chance::rarityName (c.rarity)) + " EVENT", c.name, colour);
 
+        { EngineCommand ev; ev.type = CommandType::gameEvent; ev.ia = 5; processor.pushCommand (ev); }
         applyChance (c);
         if (onReward) onReward (c.reward, juce::String ("CHANCE  ") + c.name + (fresh ? "  (NEW)" : ""));
         if (c.rarity >= R::rare && c.kind != chance::Kind::collect)
@@ -499,6 +590,7 @@ namespace mutagen
 
     void StoryPanel::askQuiz()
     {
+        quizWait = 0.0;
         quizIndex = runStory.drawQuiz (currentAct);
         if (quizIndex < 0) { runStory.nextQuizSec = clock + runStory.gapAfterQuiz(); return; }
 
@@ -557,7 +649,9 @@ namespace mutagen
             case Effect::chord:    playNotes (semis, 0.0, 2.4); break;
             case Effect::scale:    playNotes (runStory.scaleNotes (param), 0.26, 0.4); break;
             case Effect::mutate:   c.type = CommandType::mutateNow; processor.pushCommand (c); break;
-            case Effect::radiate:  c.type = CommandType::radiate; processor.pushCommand (c); break;
+            // A story demonstration never rolls the radiation dice (5% kills the sound and
+            // resets the score): that is the player's RADIATE button only.
+            case Effect::radiate:  c.type = CommandType::mutateNow; processor.pushCommand (c); break;
             case Effect::gate:     processor.triggerTemporaryGator (param > 0 ? param : 120, 16, 6); break;
             case Effect::delay:    processor.triggerTripDelay (param > 0 ? param : 40); break;
             case Effect::haunted:  processor.triggerHauntedSound (param, 0.7f); break;
@@ -657,7 +751,9 @@ namespace mutagen
     {
         bool dirty = false;
         sigilPhase += 1.0f / 30.0f;
-        repaint (sigilBounds());
+        // The sigil animates at full rate while the character speaks, and at a third of that when idle.
+        if (typed < (float) line.length() || flash > 0.0f || (++sigilTick % 3) == 0)
+            repaint (sigilBounds());
         if (typed < (float) line.length()) { typed += 2.2f; dirty = true; }
         if (flash > 0.0f) { flash = juce::jmax (0.0f, flash - 0.04f); dirty = true; }
         if (dirty) repaint();

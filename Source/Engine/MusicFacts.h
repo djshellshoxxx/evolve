@@ -31,9 +31,15 @@ namespace mutagen::facts
     constexpr int kFactCount = 30000;
     constexpr int kDemoBonusScore = 9344;
 
+    /** Sound-design effects, the fxId of Demo::Kind::effect. */
+    enum Fx { kFxGate = 0, kFxSidechain, kFxRiser, kFxSweep, kFxBassDrop, kFxTapeStop,
+              kFxEchoThrow, kFxReverseSwell, kFxCount };
+
     /** What the colony plays while a demonstrable fact is shown. MIDI numbers
-        are 21..108; unused note slots hold -1. For Kind::scale, notes holds the
-        first six scale tones and fxId is the scale index (see scaleSemitones). */
+        are 21..108; unused note slots hold -1. Notes are played in order.
+        fxId by kind: scale = scale index (see scaleSemitones); effect = Fx value;
+        dopplerPass = index into the speed table; beats = beat rate in Hz: the
+        first tone is notes[0] and the second sounds fxId Hz above it. */
     struct Demo
     {
         enum class Kind { none, note, pianoKey, interval, chord, scale, octavePair, keySound,
@@ -61,8 +67,8 @@ namespace mutagen::facts
     /** Same answer as factAt(id).demonstrable, without building the text. */
     bool isDemonstrable (int id);
 
-    /** Hook for curated facts. curatedIndex is 0..2999 (ID 27000 + index).
-        Returns nullptr for slots that still use computed filler. */
+    /** Curated facts embedded from docs/data/curated_facts.json (tools/gen_facts.py).
+        curatedIndex is 0..88 (ID 27000 + index); returns nullptr otherwise. */
     const char* curatedText (int curatedIndex);
 
     /** Number of scale definitions and their semitone offsets from the tonic. */

@@ -99,6 +99,8 @@ namespace mutagen
         void releaseAll();
         void fireChance (int id = -1);
         void presentFact (bool bonus);
+        void holdSchedule (double dt);
+        void dismissQuiz();
         void playDemo (const facts::Demo&);
         void applyChance (const chance::Chance&);
         void fireBanter();
@@ -115,6 +117,7 @@ namespace mutagen
         chance::Director chanceDir;
         facts::Deck factDeck;
         facts::SeenSet factSeen;
+        double quizWait = 0.0;           // seconds the current ear check has waited for an answer
         double factClock = 0.0;          // unpaused seconds since the last fact
         double sinceLastFact = 1.0e9;
         int pendingFactRewards = 0;
@@ -124,6 +127,7 @@ namespace mutagen
         std::vector<QueuedLine> lineQueue;
         double finaleAt = -1.0;
         float sigilPhase = 0.0f;
+        int sigilTick = 0;
 
         double clock = 0.0;
         int currentAct = 0;

@@ -17,6 +17,8 @@ namespace mutagen
         slider.setColour (juce::Slider::rotarySliderFillColourId, tint);
         slider.getProperties().set ("tint", (int) tint.getARGB());
         slider.setDoubleClickReturnValue (true, 0.0);
+        if (auto* rp = state.getParameter (paramID))
+            slider.setDoubleClickReturnValue (true, (double) rp->convertFrom0to1 (rp->getDefaultValue()));
         slider.setVelocityBasedMode (false);
         // The house rule: the value appears over the knob while you hover or
         // drag it, and the caption is what you see the rest of the time.

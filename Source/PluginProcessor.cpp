@@ -19,6 +19,7 @@ MutagenProcessor::MutagenProcessor()
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "MUTAGEN", params::createLayout())
 {
+    cachePostParamPointers();
     /*  Seed from harvested entropy rather than from the clock alone.
 
         A clock-seeded PRNG gives every instance the same statistical
@@ -71,6 +72,9 @@ void MutagenProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     mic.prepare (sampleRate, samplesPerBlock);
 
     dryScratch.setSize (2, samplesPerBlock);
+    morphScratch.setSize (2, samplesPerBlock);
+    morph.prepare (sampleRate, samplesPerBlock);
+    morphWarmSamples = 0;
     for (auto& replay : hauntedReplayBuffers)
     {
         replay.setSize (1, juce::jmax (1, (int) (sampleRate * 12.0)), false, true, false);
@@ -247,20 +251,37 @@ void MutagenProcessor::updateEnvironmentFromParameters()
     postChain.setParams (ppp);
 }
 
+void MutagenProcessor::cachePostParamPointers()
+{
+    static constexpr const char* oscLeaves[6] = { "on", "wave", "tune", "fine", "level", "pan" };
+    static constexpr const char* lfoLeaves[6] = { "sync", "rate", "div", "depth", "shape", "phase" };
+    for (int i = 0; i < params::numOscillators; ++i)
+        for (int k = 0; k < 6; ++k)
+            oscPtr[i][k] = apvts.getRawParameterValue (params::oscParam (i, oscLeaves[k]));
+    for (int i = 0; i < params::numLfos; ++i)
+        for (int k = 0; k < 6; ++k)
+            lfoPtr[i][k] = apvts.getRawParameterValue (params::lfoParam (i, lfoLeaves[k]));
+    envLfoDestPtr = apvts.getRawParameterValue (params::lfoParam (params::envLfoIndex, "dest"));
+    for (int s = 0; s < params::gatorSteps; ++s)
+        gatorStepPtr[s] = apvts.getRawParameterValue (params::gatorStepParam (s));
+}
+
 void MutagenProcessor::buildPostParams (PostParams& q) const
 {
-    auto f = [this] (const juce::String& id) { return apvts.getRawParameterValue (id)->load(); };
-    auto b = [&f] (const juce::String& id) { return f (id) > 0.5f; };
+    // StringRef, not String: the parameter ids are string literals, so no allocation per lookup.
+    auto f = [this] (juce::StringRef id) { return apvts.getRawParameterValue (id)->load(); };
+    auto b = [&f] (juce::StringRef id) { return f (id) > 0.5f; };
 
     for (int i = 0; i < params::numOscillators; ++i)
     {
         auto& O = q.osc[(size_t) i];
-        O.on    = b (params::oscParam (i, "on"));
-        O.wave  = (int) f (params::oscParam (i, "wave"));
-        O.tune  = f (params::oscParam (i, "tune"));
-        O.fine  = f (params::oscParam (i, "fine"));
-        O.level = f (params::oscParam (i, "level"));
-        O.pan   = f (params::oscParam (i, "pan"));
+        const auto* o = oscPtr[i];
+        O.on    = o[0]->load() > 0.5f;
+        O.wave  = (int) o[1]->load();
+        O.tune  = o[2]->load();
+        O.fine  = o[3]->load();
+        O.level = o[4]->load();
+        O.pan   = o[5]->load();
     }
     q.oscLevel    = f (params::oscLevel);
     q.oscKeytrack = b (params::oscKeytrack);
@@ -283,14 +304,15 @@ void MutagenProcessor::buildPostParams (PostParams& q) const
     for (int i = 0; i < params::numLfos; ++i)
     {
         auto& Lo = q.lfo[(size_t) i];
-        Lo.sync  = b (params::lfoParam (i, "sync"));
-        Lo.rateHz = f (params::lfoParam (i, "rate"));
-        Lo.div   = (int) f (params::lfoParam (i, "div"));
-        Lo.depth = f (params::lfoParam (i, "depth"));
-        Lo.shape = (int) f (params::lfoParam (i, "shape"));
-        Lo.phase = f (params::lfoParam (i, "phase"));
+        const auto* l = lfoPtr[i];
+        Lo.sync  = l[0]->load() > 0.5f;
+        Lo.rateHz = l[1]->load();
+        Lo.div   = (int) l[2]->load();
+        Lo.depth = l[3]->load();
+        Lo.shape = (int) l[4]->load();
+        Lo.phase = l[5]->load();
     }
-    q.envLfoDest = (int) f (params::lfoParam (params::envLfoIndex, "dest"));
+    q.envLfoDest = (int) envLfoDestPtr->load();
 
     q.eqOn   = b (params::eqOn);
     q.eqLowF = f (params::eqLowFreq);  q.eqLowG = f (params::eqLowGain);
@@ -306,7 +328,7 @@ void MutagenProcessor::buildPostParams (PostParams& q) const
     q.gatorRelease = f (params::gatorRelease);
     q.gatorDepth   = f (params::gatorDepth);
     for (int s = 0; s < params::gatorSteps; ++s)
-        q.gatorPattern[(size_t) s] = b (params::gatorStepParam (s));
+        q.gatorPattern[(size_t) s] = gatorStepPtr[s]->load() > 0.5f;
 
     q.glitchOn      = b (params::glitchOn);
     q.glitchAmount  = f (params::glitchAmount);
@@ -567,11 +589,16 @@ void MutagenProcessor::applyCommand (const EngineCommand& c)
                                c.fd > 0.0f ? c.fd : 0.6f);
             break;
 
-        case CommandType::addEnzyme:   colony.addEnzyme(); break;
-        case CommandType::addCatalyst: colony.addCatalyst(); break;
-        case CommandType::addHeat:     colony.addHeat (c.fa >= 0.0f ? 1.0f : -1.0f); break;
+        case CommandType::addEnzyme:   colony.addEnzyme();   morphEventKind = 1; morphEventAge = 0.0; break;
+        case CommandType::addCatalyst: colony.addCatalyst(); morphEventKind = 2; morphEventAge = 0.0; break;
+        case CommandType::addHeat:     colony.addHeat (c.fa >= 0.0f ? 1.0f : -1.0f); morphEventKind = 4; morphEventAge = 0.0; break;
+
+        case CommandType::gameEvent:
+            if (c.ia >= 5 && c.ia <= 7) { morphEventKind = c.ia; morphEventAge = 0.0; }
+            break;
 
         case CommandType::radiate:
+            morphEventKind = 3; morphEventAge = 0.0;
             radiationOutcome.store (colony.radiate());
             radiationStamp.fetch_add (1);
             break;
@@ -915,10 +942,57 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     {
         const float wet = *p (params::dryWet);
         const float dry = 1.0f - wet;
+
+        // The colony morph re-makes the incoming audio from what it hears and
+        // from what is happening in the game. It is its own level, so it works
+        // at any Dry/Wet setting, and it takes the place of some of the dry signal.
+        const float morphLevel = juce::jlimit (0.0f, 1.0f, p (params::morphMix)->load());
+        if (morphLevel > 0.001f) morphWarmSamples = (int) (sampleRateHz * 2.0);
+        const bool runMorph = morphWarmSamples > 0;
+        if (runMorph)
+        {
+            morphWarmSamples = juce::jmax (0, morphWarmSamples - numSamples);
+            morphScratch.setSize (2, numSamples, false, false, true);
+
+            morphEventAge += (double) numSamples / sampleRateHz;
+            if (morphEventAge > 6.0) morphEventKind = 0;
+
+            const auto& snap = snapshots[(size_t) snapPublished.load (std::memory_order_acquire)];
+            const float react = juce::jlimit (0.0f, 1.0f, p (params::morphReact)->load());
+            const MorphState neutral;
+            const auto steer = [react] (float actual, float rest) { return rest + react * (actual - rest); };
+
+            MorphState ms;
+            ms.variety   = steer (snap.variety,  neutral.variety);
+            ms.appeal    = steer (snap.appeal,   neutral.appeal);
+            ms.greyness  = steer (snap.greyness, neutral.greyness);
+            ms.roughness = steer (snap.roughness, neutral.roughness);
+            ms.centroid  = steer (snap.centroid, neutral.centroid);
+            ms.tonalness = steer (snap.tonalness, neutral.tonalness);
+            ms.heat      = steer (snap.temperatureField, neutral.heat);
+            ms.pressure  = steer (snap.pressureFront, neutral.pressure);
+            ms.infection = steer (snap.infectionField, neutral.infection);
+            ms.score01   = morphScore01.load (std::memory_order_relaxed);
+            const float pop = (float) juce::jmax (1, snap.popBySpecies[0] + snap.popBySpecies[1] + snap.popBySpecies[2]);
+            for (int sp = 0; sp < 3; ++sp) ms.species[(size_t) sp] = (float) snap.popBySpecies[sp] / pop;
+            ms.scaleMask = (std::uint16_t) morphScaleMask.load (std::memory_order_relaxed);
+            ms.rootPc = morphRootPc.load (std::memory_order_relaxed);
+            ms.bpm = transport.isPlaying ? (float) transport.bpm : 0.0f;
+            ms.seed = (std::uint32_t) (snap.seed ^ (snap.seed >> 32)) | 1u;
+            ms.eventKind = morphEventKind;
+            ms.eventAge = (float) morphEventAge;
+            if (ms.eventKind == 0 && snap.noiseLocked) { ms.eventKind = 8; ms.eventAge = 0.0f; }
+            morph.setState (ms);
+            morph.process (dryScratch.getReadPointer (0), dryScratch.getReadPointer (1),
+                           morphScratch.getWritePointer (0), morphScratch.getWritePointer (1), numSamples);
+        }
+
         for (int ch = 0; ch < juce::jmin (totalOut, 2); ++ch)
         {
             buffer.applyGain (ch, 0, numSamples, wet);
-            buffer.addFrom (ch, 0, dryScratch, ch, 0, numSamples, dry);
+            buffer.addFrom (ch, 0, dryScratch, ch, 0, numSamples, dry * (1.0f - morphLevel));
+            if (runMorph && morphLevel > 0.001f)
+                buffer.addFrom (ch, 0, morphScratch, ch, 0, numSamples, morphLevel);
         }
     }
 

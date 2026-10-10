@@ -127,6 +127,8 @@ namespace mutagen::params
         // ---- output ----
         addF (masterGain, "Output", Range { 0.0f, 1.5f, 0.0001f }, 0.9f);
         addF (dryWet,     "Dry/Wet", unit(), 1.0f);
+        addF (morphMix,   "Morph",   unit(), 0.0f);
+        addF (morphReact, "React",   unit(), 0.6f);
 
         // ---- performance macros ----
         addF (macroGrowth,   "M: Growth",   unit(), 0.5f);

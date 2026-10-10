@@ -38,3 +38,5 @@ desktop.ini
 *.lib
 *.log
 compile_commands.json
+__pycache__/
+*.pyc

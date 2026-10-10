@@ -142,8 +142,11 @@ namespace mutagen
                     const float x0 = rnd (f.seed, i, 0), speed = 0.5f + rnd (f.seed, i, 1);
                     const float y = std::fmod (t * speed * 1.2f + rnd (f.seed, i, 2), 1.0f);
                     const float x = x0 + 0.03f * std::sin (f.age * 1.5f + i);
-                    const float s = 1.5f + rnd (f.seed, i, 3) * 3.0f;
-                    g.setColour (col.withAlpha (env * (0.25f + 0.5f * rnd (f.seed, i, 4)) * 0.8f));
+                    const float s = 2.5f + rnd (f.seed, i, 3) * 4.5f;
+                    const float al = env * (0.4f + 0.55f * rnd (f.seed, i, 4));
+                    g.setColour (col.withAlpha (al * 0.22f));
+                    g.fillEllipse (a.getX() + x * w - s, a.getY() + y * h - s, s * 3.0f, s * 3.0f);
+                    g.setColour (col.brighter (0.2f).withAlpha (al));
                     g.fillEllipse (a.getX() + x * w, a.getY() + y * h, s, s);
                 }
                 break;
@@ -155,12 +158,17 @@ namespace mutagen
                     if (u <= 0.0f || u >= 1.0f) continue;
                     const float sx = w * (0.35f + 0.7f * rnd (f.seed, c, 0)), sy = -20.0f;
                     const float dx = -w * 0.35f, dy = h * 1.15f;
-                    for (int k = 0; k < 14; ++k)
+                    for (int k = 0; k < 20; ++k)
                     {
-                        const float uk = u - k * 0.012f;
+                        const float uk = u - k * 0.011f;
                         if (uk < 0.0f) break;
-                        const float s = (k == 0 ? 5.0f : 4.0f - k * 0.25f);
-                        g.setColour ((k == 0 ? juce::Colours::white : col).withAlpha ((1.0f - k / 14.0f) * (1.0f - u * 0.5f) * 0.9f));
+                        const float s = (k == 0 ? 8.0f : juce::jmax (1.5f, 6.5f - k * 0.3f));
+                        if (k == 0)
+                        {
+                            g.setColour (col.withAlpha (0.25f * (1.0f - u * 0.5f)));
+                            g.fillEllipse (a.getX() + sx + dx * uk - 12.0f, a.getY() + sy + dy * uk - 12.0f, 24.0f, 24.0f);
+                        }
+                        g.setColour ((k == 0 ? juce::Colours::white : col).withAlpha ((1.0f - k / 20.0f) * (1.0f - u * 0.5f) * 0.95f));
                         g.fillEllipse (a.getX() + sx + dx * uk - s * 0.5f, a.getY() + sy + dy * uk - s * 0.5f, s, s);
                     }
                 }
@@ -175,7 +183,16 @@ namespace mutagen
                 g.setGradientFill (grad);
                 g.fillRect (a);
                 const float r = juce::jmin (w, h) * 0.16f;
-                g.setColour (col.withAlpha (dark * dark * 0.8f));
+                {
+                    const float breathe = 1.0f + 0.06f * std::sin (f.age * 2.2f);
+                    juce::ColourGradient corona (col.withAlpha (0.65f * dark * dark), a.getCentre(),
+                                                 col.withAlpha (0.0f), { a.getCentreX() + r * 2.4f * breathe, a.getCentreY() }, true);
+                    corona.addColour (r / (r * 2.4f * breathe), col.brighter (0.4f).withAlpha (0.8f * dark * dark));
+                    g.setGradientFill (corona);
+                    g.fillEllipse (a.getCentreX() - r * 2.4f * breathe, a.getCentreY() - r * 2.4f * breathe,
+                                   r * 4.8f * breathe, r * 4.8f * breathe);
+                }
+                g.setColour (col.withAlpha (dark * dark * 0.9f));
                 g.drawEllipse (a.getCentreX() - r, a.getCentreY() - r, r * 2.0f, r * 2.0f, 2.5f);
                 g.setColour (juce::Colours::black.withAlpha (dark));
                 g.fillEllipse (a.getCentreX() - r, a.getCentreY() - r, r * 2.0f, r * 2.0f);
@@ -187,8 +204,8 @@ namespace mutagen
                     const float x = rnd (f.seed, i, 0);
                     const float y = 1.0f - std::fmod (t * (0.25f + 0.5f * rnd (f.seed, i, 1)) + rnd (f.seed, i, 2), 1.0f);
                     const float tw = 0.5f + 0.5f * std::sin (f.age * (4.0f + 6.0f * rnd (f.seed, i, 3)) + i);
-                    const float s = 1.0f + rnd (f.seed, i, 4) * 3.0f;
-                    g.setColour (col.withAlpha (env * tw * 0.9f));
+                    const float s = 1.5f + rnd (f.seed, i, 4) * 4.0f;
+                    g.setColour (col.withAlpha (env * tw * 0.95f));
                     g.fillEllipse (a.getX() + x * w, a.getY() + y * h, s, s);
                     if (s > 3.2f)
                     {
@@ -221,7 +238,7 @@ namespace mutagen
             case A::lightning:
             {
                 const float flash = (t < 0.12f || (t > 0.26f && t < 0.34f)) ? 1.0f : juce::jmax (0.0f, 0.5f - t);
-                g.setColour (juce::Colours::white.withAlpha (flash * 0.18f * f.intensity));
+                g.setColour (juce::Colours::white.withAlpha (flash * 0.07f * f.intensity));
                 g.fillRect (a);
                 if (flash <= 0.0f) break;
                 for (int bolt = 0; bolt < 2; ++bolt)
@@ -236,10 +253,12 @@ namespace mutagen
                         y = a.getY() + h * s / (float) steps;
                         p.lineTo (x, y);
                     }
-                    g.setColour (col.withAlpha (0.35f * flash));
-                    g.strokePath (p, juce::PathStrokeType (5.0f));
+                    g.setColour (col.withAlpha (0.18f * flash));
+                    g.strokePath (p, juce::PathStrokeType (14.0f));
+                    g.setColour (col.withAlpha (0.4f * flash));
+                    g.strokePath (p, juce::PathStrokeType (6.0f));
                     g.setColour (juce::Colours::white.withAlpha (0.95f * flash));
-                    g.strokePath (p, juce::PathStrokeType (1.6f));
+                    g.strokePath (p, juce::PathStrokeType (2.4f));
                 }
                 break;
             }
@@ -248,10 +267,10 @@ namespace mutagen
                 {
                     const float u = std::fmod (t * (0.6f + rnd (f.seed, i, 0)) + rnd (f.seed, i, 1), 1.0f);
                     const float x = rnd (f.seed, i, 2) + 0.02f * std::sin (f.age * 3.0f + i);
-                    const float s = 5.0f + rnd (f.seed, i, 3) * 16.0f;
+                    const float s = 7.0f + rnd (f.seed, i, 3) * 22.0f;
                     const float y = a.getBottom() - u * (h + s);
-                    g.setColour (col.withAlpha (env * 0.55f));
-                    g.drawEllipse (a.getX() + x * w, y, s, s, 1.1f);
+                    g.setColour (col.withAlpha (env * 0.85f));
+                    g.drawEllipse (a.getX() + x * w, y, s, s, 1.5f);
                     g.setColour (juce::Colours::white.withAlpha (env * 0.45f));
                     g.fillEllipse (a.getX() + x * w + s * 0.2f, y + s * 0.18f, s * 0.2f, s * 0.2f);
                 }
@@ -297,7 +316,7 @@ namespace mutagen
                     const float x0 = rnd (f.seed, i, 0);
                     const float y = std::fmod (t * (0.35f + 0.4f * rnd (f.seed, i, 1)) + rnd (f.seed, i, 2), 1.0f);
                     const float x = a.getX() + (x0 + 0.03f * std::sin (f.age + i)) * w, yy = a.getY() + y * h;
-                    const float sz = 6.0f + rnd (f.seed, i, 3) * 9.0f;
+                    const float sz = 8.0f + rnd (f.seed, i, 3) * 12.0f;
                     juce::Path p;
                     for (int k = 0; k <= 8; ++k)
                     {
@@ -305,8 +324,8 @@ namespace mutagen
                         const float px = x + (u - 0.5f) * sz * 2.0f, py = yy + std::sin (u * 2.0f * kPi) * sz * 0.4f;
                         if (k == 0) p.startNewSubPath (px, py); else p.lineTo (px, py);
                     }
-                    g.setColour (col.withAlpha (env * 0.7f));
-                    g.strokePath (p, juce::PathStrokeType (1.0f));
+                    g.setColour (col.withAlpha (env * 0.95f));
+                    g.strokePath (p, juce::PathStrokeType (1.4f));
                 }
                 break;
             case A::heartbeat:
@@ -314,13 +333,13 @@ namespace mutagen
                 const float beat = std::fmod (f.age, 1.0f);   // 60 BPM: lub at 0, dub at 0.28
                 const float lub = std::exp (-beat * 9.0f), dub = beat > 0.28f ? 0.6f * std::exp (-(beat - 0.28f) * 10.0f) : 0.0f;
                 const float pulse = juce::jmax (lub, dub) * env;
-                juce::ColourGradient grad (col.withAlpha (0.0f), a.getCentre(), col.withAlpha (0.35f * pulse),
+                juce::ColourGradient grad (col.withAlpha (0.0f), a.getCentre(), col.withAlpha (0.6f * pulse),
                                            { a.getX(), a.getY() }, true);
                 g.setGradientFill (grad);
                 g.fillRect (a);
                 const float r = (1.0f - lub) * juce::jmin (w, h) * 0.45f;
                 g.setColour (col.withAlpha (lub * env * 0.5f));
-                g.drawEllipse (a.getCentreX() - r, a.getCentreY() - r, r * 2.0f, r * 2.0f, 2.0f);
+                g.drawEllipse (a.getCentreX() - r, a.getCentreY() - r, r * 2.0f, r * 2.0f, 3.0f);
                 break;
             }
         }

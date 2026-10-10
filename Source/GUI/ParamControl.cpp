@@ -84,7 +84,9 @@ namespace mutagen::paramMenu
         if (allowSetValue)
             m.addItem (idSetValue, "Set Value...");
 
-        m.addItem (idReset, "Reset to Default");
+        // Only a real parameter has a default to go back to; on plain buttons the item did nothing.
+        if (param != nullptr)
+            m.addItem (idReset, "Reset to Default");
 
         if (proc != nullptr && param != nullptr)
         {

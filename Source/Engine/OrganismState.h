@@ -204,7 +204,8 @@ namespace mutagen
         radiate,            // 5% fatal, 10% gift, 85% shrug
         newWorld,           // u64 = world seed; re-rolls the rules of the run
         knobGesture,        // ia = knob (0 pitch, 1 lfo, 2 osc), fa = signed amount, fb = speed
-        noteRelease         // ia = midiNote - releases a noteBurst (story demonstrations)
+        noteRelease,        // ia = midiNote - releases a noteBurst (story demonstrations)
+        gameEvent           // ia = 5 chance sparkle, 6 fact demo, 7 twist: colours the effect-mode sound
     };
 
     enum class ScopeLevel : int { colony = 0, species, family, cell };

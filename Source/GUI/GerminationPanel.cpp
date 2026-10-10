@@ -14,7 +14,11 @@ namespace mutagen
           populationKnob (p.apvts, params::initialPopulation, "Population", grain),
           distGrainKnob  (p.apvts, params::distGrain,  "Grain",  grain),
           distSpecKnob   (p.apvts, params::distSpectral, "Spectral", spectral),
-          distResKnob    (p.apvts, params::distResonator, "Resonator", resonator)
+          distResKnob    (p.apvts, params::distResonator, "Resonator", resonator),
+          outputKnob     (p.apvts, params::masterGain, "Output", spectral),
+          dryWetKnob     (p.apvts, params::dryWet, "Dry/Wet", spectral),
+          morphKnob      (p.apvts, params::morphMix, "Morph", resonator),
+          reactKnob      (p.apvts, params::morphReact, "React", resonator)
     {
         accentColour = grain;
 
@@ -49,7 +53,8 @@ namespace mutagen
         captureBtn.onClick    = [this] { captureLive(); };
 
         for (auto* k : { &captureLenKnob, &transientKnob, &populationKnob,
-                         &distGrainKnob, &distSpecKnob, &distResKnob })
+                         &distGrainKnob, &distSpecKnob, &distResKnob,
+                         &outputKnob, &dryWetKnob, &morphKnob, &reactKnob })
             addAndMakeVisible (k);
 
         addAndMakeVisible (mixBar);
@@ -142,14 +147,16 @@ namespace mutagen
         captureBtn.setBounds (r.removeFromTop (24));
         r.removeFromTop (8);
 
-        auto knobs = r.removeFromTop (74);
+        // Four rows of knobs: shrink them a little when the window is short.
+        const int kh = r.getHeight() >= 480 ? 74 : 60;
+        auto knobs = r.removeFromTop (kh);
         const int kw = knobs.getWidth() / 3;
         captureLenKnob.setBounds (knobs.removeFromLeft (kw));
         transientKnob.setBounds  (knobs.removeFromLeft (kw));
         populationKnob.setBounds (knobs);
         r.removeFromTop (10);
 
-        auto dist = r.removeFromTop (74);
+        auto dist = r.removeFromTop (kh);
         const int dw = dist.getWidth() / 3;
         distGrainKnob.setBounds (dist.removeFromLeft (dw));
         distSpecKnob.setBounds  (dist.removeFromLeft (dw));
@@ -158,6 +165,15 @@ namespace mutagen
 
         mixBar.setBounds (r.removeFromTop (20));
         r.removeFromTop (10);
+
+        // Output, Dry/Wet and the Colony Morph effect sit together.
+        auto outRow = r.removeFromTop (kh);
+        const int ow = outRow.getWidth() / 4;
+        outputKnob.setBounds (outRow.removeFromLeft (ow));
+        dryWetKnob.setBounds (outRow.removeFromLeft (ow));
+        morphKnob.setBounds  (outRow.removeFromLeft (ow));
+        reactKnob.setBounds  (outRow);
+        r.removeFromTop (8);
 
         germinateBtn.setBounds (r.removeFromTop (30));
         r.removeFromTop (5);

@@ -55,6 +55,8 @@ namespace mutagen::params
     // ---- Output ------------------------------------------------------
     inline constexpr auto masterGain      = "masterGain";
     inline constexpr auto dryWet          = "dryWet";
+    inline constexpr auto morphMix        = "morphMix";        // colony morph effect level
+    inline constexpr auto morphReact      = "morphReact";      // how much the game state steers it
 
     // ---- Performance macros ---------------------------------------
     inline constexpr auto macroGrowth     = "macroGrowth";
