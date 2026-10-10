@@ -121,8 +121,10 @@ namespace mutagen
                 c.type = it->on ? CommandType::noteBurst : CommandType::noteRelease;
                 c.ia = it->note;
                 c.fa = 0.75f;
-                processor.pushCommand (c);
-                it = noteQueue.erase (it);
+                // A full command ring drops the command: keep the event and try again next tick,
+                // so a release is never lost and a note never sticks.
+                if (processor.pushCommand (c)) it = noteQueue.erase (it);
+                else ++it;
             }
             else ++it;
         }
@@ -438,7 +440,7 @@ namespace mutagen
                     {
                         double t = 0.0, gap = 0.06;
                         int m = a;
-                        for (int i = 0; i < 14; ++i) { note (t, m, gap * 1.4); t += gap; gap *= 1.28; if (i % 2 == 1) --m; }
+                        for (int i = 0; i < 14; ++i) { note (t, m, gap * 1.4); t += gap; gap *= 1.28; --m; }
                         break;
                     }
                     case facts::kFxEchoThrow:   // a short note thrown into the delay
@@ -750,7 +752,7 @@ namespace mutagen
     void StoryPanel::timerCallback()
     {
         bool dirty = false;
-        sigilPhase += 1.0f / 30.0f;
+        sigilPhase += 1.0 / 30.0;
         // The sigil animates at full rate while the character speaks, and at a third of that when idle.
         if (typed < (float) line.length() || flash > 0.0f || (++sigilTick % 3) == 0)
             repaint (sigilBounds());
@@ -826,7 +828,7 @@ namespace mutagen
 
     void StoryPanel::drawSigil (juce::Graphics& g, juce::Rectangle<float> r) const
     {
-        const float ph = sigilPhase;
+        const float ph = (float) std::fmod (sigilPhase, 1000.0);
         const auto c = speakerColour;
         const auto mid = r.getCentre();
         const float R = r.getWidth() * 0.5f;

@@ -593,14 +593,21 @@ void MutagenProcessor::applyCommand (const EngineCommand& c)
         case CommandType::addCatalyst: colony.addCatalyst(); morphEventKind = 2; morphEventAge = 0.0; break;
         case CommandType::addHeat:     colony.addHeat (c.fa >= 0.0f ? 1.0f : -1.0f); morphEventKind = 4; morphEventAge = 0.0; break;
 
+        case CommandType::setSeed:
+            colony.setSeed (c.u64);
+            break;
+
         case CommandType::gameEvent:
             if (c.ia >= 5 && c.ia <= 7) { morphEventKind = c.ia; morphEventAge = 0.0; }
             break;
 
         case CommandType::radiate:
             morphEventKind = 3; morphEventAge = 0.0;
-            radiationOutcome.store (colony.radiate());
-            radiationStamp.fetch_add (1);
+        {
+            const auto s = radiationStamp.load (std::memory_order_relaxed);
+            radiationOutcomes[s % 8].store (colony.radiate(), std::memory_order_relaxed);
+            radiationStamp.store (s + 1, std::memory_order_release);
+        }
             break;
 
         case CommandType::newWorld:
@@ -1216,12 +1223,15 @@ void MutagenProcessor::setStateInformation (const void* data, int sizeInBytes)
 
     juce::ValueTree root = juce::ValueTree::fromXml (*xml);
     if (! root.hasType ("MUTAGEN_STATE")) return;
+    if ((int) root.getProperty ("version", 1) > 1) return;   // saved by a newer version: do not half-apply it
 
     if (auto apvtsChild = root.getChildWithName (apvts.state.getType()); apvtsChild.isValid())
         apvts.replaceState (apvtsChild);
 
     if (auto evo = root.getChildWithName ("EVOLUTION"); evo.isValid())
         history.fromValueTree (evo);
+    else
+        history.clear();      // a state without history must not inherit the open session's tree
 
     if (auto midiMap = root.getChildWithName ("MIDIMAP"); midiMap.isValid())
         midiLearn.fromValueTree (midiMap);
@@ -1230,7 +1240,13 @@ void MutagenProcessor::setStateInformation (const void* data, int sizeInBytes)
 
     const juce::String seedStr = root.getProperty ("seed").toString();
     if (seedStr.isNotEmpty())
-        colony.setSeed ((uint64_t) seedStr.getLargeIntValue());
+    {
+        // The colony's random generator belongs to the audio thread: hand the seed over as a command.
+        EngineCommand sc;
+        sc.type = CommandType::setSeed;
+        sc.u64 = (uint64_t) seedStr.getLargeIntValue();
+        pushCommand (sc);
+    }
 
     organismName = root.getProperty ("name", "MUTAGEN").toString();
 

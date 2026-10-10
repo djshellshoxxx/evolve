@@ -204,14 +204,31 @@ namespace mutagen
 
         // RADIATE result, published back to the message thread so the score and
         // the HUD can react to a 5% catastrophe or a 10% gift.
-        std::atomic<int>      radiationOutcome { 0 };
+        std::atomic<int>      radiationOutcomes[8] {};   // ring: written by the audio thread only
         std::atomic<uint64_t> radiationStamp   { 0 };
 
     public:
         /** Most recent RADIATE outcome (-1 fatal, 0 nothing, +1 gift) and a
             counter that increments each time one lands, so the editor can tell
             a new result from a repeat of the last one. */
-        int      lastRadiationOutcome() const { return radiationOutcome.load(); }
+        int      lastRadiationOutcome() const
+        {
+            const auto s = radiationStamp.load (std::memory_order_acquire);
+            return s == 0 ? 0 : radiationOutcomes[(s - 1) % 8].load (std::memory_order_relaxed);
+        }
+
+        /** Reads the oldest radiation result the caller has not seen yet (advance `cursor` from 0).
+            Several results in one editor tick are all delivered; only if the editor falls more
+            than eight results behind are the oldest dropped. */
+        bool nextRadiation (uint64_t& cursor, int& outcome) const
+        {
+            const auto stamp = radiationStamp.load (std::memory_order_acquire);
+            if (cursor >= stamp) return false;
+            if (stamp - cursor > 8) cursor = stamp - 8;
+            outcome = radiationOutcomes[cursor % 8].load (std::memory_order_relaxed);
+            ++cursor;
+            return true;
+        }
         uint64_t radiationCounter() const { return radiationStamp.load(); }
 
         /** Re-roll the rules of the run (tuning, palette, tempo, routing). */

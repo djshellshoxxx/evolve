@@ -126,7 +126,7 @@ namespace mutagen
         struct QueuedLine { double at; story::Speaker who; juce::String text; story::Effect fx; std::array<int, 4> notes; int param; };
         std::vector<QueuedLine> lineQueue;
         double finaleAt = -1.0;
-        float sigilPhase = 0.0f;
+        double sigilPhase = 0.0;
         int sigilTick = 0;
 
         double clock = 0.0;

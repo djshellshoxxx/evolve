@@ -74,11 +74,53 @@ namespace mutagen
         mixBar.setCounts (s.popBySpecies[0], s.popBySpecies[1], s.popBySpecies[2]);
     }
 
-    void GerminationPanel::germinate()
+    void GerminationPanel::pushGerminate()
     {
         EngineCommand c;
         c.type = CommandType::germinate;
         processor.pushCommand (c);
+    }
+
+    void GerminationPanel::setSourceChoice (params::SourceMode mode)
+    {
+        if (auto* rp = processor.apvts.getParameter (params::sourceMode))
+            rp->setValueNotifyingHost (rp->convertTo0to1 ((float) (int) mode));
+    }
+
+    /*  GERMINATE feeds the colony from whatever the Source selector says: a built-in
+        primitive (noise, impulse, tone) is loaded fresh, Live Input captures the last
+        few seconds, and Sample / Preserved Organism keep what was loaded. Loading a
+        sample or an organism switches the selector to match, so it never silently
+        replaces what you just loaded.  */
+    void GerminationPanel::germinate()
+    {
+        using SM = params::SourceMode;
+        const auto mode = (SM) juce::jlimit (0, 5, (int) processor.apvts.getRawParameterValue (params::sourceMode)->load());
+
+        switch (mode)
+        {
+            case SM::primitiveNoise:
+            case SM::primitiveImpulse:
+            case SM::primitiveTone:
+                processor.loadPrimitiveSource (mode, 2.0f);
+                sourceInfo.setText (juce::String ("Seed: ") + (mode == SM::primitiveNoise ? "noise"
+                                                              : mode == SM::primitiveImpulse ? "impulse" : "tone"),
+                                    juce::dontSendNotification);
+                break;
+            case SM::liveInput:
+            {
+                const float len = processor.apvts.getRawParameterValue (params::captureLength)->load();
+                const float sens = processor.apvts.getRawParameterValue (params::transientSens)->load();
+                processor.captureLiveToSource (len, sens);
+                sourceInfo.setText ("Seed: captured " + juce::String (len, 1) + "s of live audio",
+                                    juce::dontSendNotification);
+                break;
+            }
+            case SM::sample:
+            case SM::preservedOrganism:
+                break;
+        }
+        pushGerminate();
     }
 
     void GerminationPanel::loadSampleFile()
@@ -94,6 +136,7 @@ namespace mutagen
                 if (f.existsAsFile() && processor.loadSourceFromFile (f))
                 {
                     sourceInfo.setText ("Seed: " + f.getFileName(), juce::dontSendNotification);
+                    setSourceChoice (params::SourceMode::sample);
                     germinate();
                 }
             });
@@ -116,6 +159,7 @@ namespace mutagen
                     c.type = CommandType::restoreOrganism;
                     c.payloadIndex = processor.stageOrganismPayload (o);
                     processor.pushCommand (c);
+                    setSourceChoice (params::SourceMode::preservedOrganism);
                     sourceInfo.setText ("Organism: " + f.getFileNameWithoutExtension(),
                                         juce::dontSendNotification);
                 }
@@ -129,7 +173,8 @@ namespace mutagen
         processor.captureLiveToSource (len, sens);
         sourceInfo.setText ("Seed: captured " + juce::String (len, 1) + "s of live audio",
                             juce::dontSendNotification);
-        germinate();
+        setSourceChoice (params::SourceMode::liveInput);
+        pushGerminate();
     }
 
     void GerminationPanel::resized()
