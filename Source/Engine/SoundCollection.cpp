@@ -117,8 +117,10 @@ namespace mutagen
     {
         if (! folder.createDirectory()) return 0;
         int copied = 0;
-        for (const auto& e : items)
-            if (e.file.existsAsFile() && e.file.copyFileTo (folder.getChildFile (e.file.getFileName())))
+        // Everything in the shared folder, not just what this instance collected: another
+        // open instance may have added sounds since this one started.
+        for (const auto& f : collectionFolder().findChildFiles (juce::File::findFiles, false, "*.wav"))
+            if (f.copyFileTo (folder.getChildFile (f.getFileName())))
                 ++copied;
         return copied;
     }
@@ -145,7 +147,9 @@ namespace mutagen
                 p.plotFloor = juce::jlimit (1, story::actCount, (int) o->getProperty ("plotFloor"));
                 p.knowledge = (std::uint64_t) (juce::int64) o->getProperty ("knowledge");
                 p.factSeed = (std::uint64_t) o->getProperty ("factSeed").toString().getLargeIntValue();
-                p.factCounter = (std::uint32_t) (juce::int64) o->getProperty ("factCounter");
+                // The deck replays this many draws when the editor opens: a damaged file must not hang it.
+                p.factCounter = (std::uint32_t) juce::jlimit ((juce::int64) 0, (juce::int64) 200000,
+                                                              (juce::int64) o->getProperty ("factCounter"));
                 p.factSeen = o->getProperty ("factSeen").toString().toStdString();
                 p.chanceSeen = (std::uint32_t) (juce::int64) o->getProperty ("chanceSeen");
                 p.endingsSeen = (std::uint32_t) (juce::int64) o->getProperty ("endingsSeen");

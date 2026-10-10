@@ -2,6 +2,7 @@
 
 #include "Widgets.h"
 #include "../Engine/OrganismState.h"
+#include "../Parameters.h"
 
 namespace mutagen
 {
@@ -19,6 +20,8 @@ namespace mutagen
 
     private:
         void germinate();
+        void pushGerminate();
+        void setSourceChoice (params::SourceMode);
         void loadSampleFile();
         void loadOrganismFile();
         void captureLive();

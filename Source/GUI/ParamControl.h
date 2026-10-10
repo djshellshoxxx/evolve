@@ -54,15 +54,11 @@ namespace mutagen
                 paramMenu::showForSlider (*this);
                 return;     // deliberately not forwarded: no right-drag
             }
+            // The house drag rule: Shift is coarse (a full sweep in 100 px), Ctrl/Cmd is
+            // ultra-fine (1200 px), and a plain drag is 250 px. Set at the start of the drag.
+            setMouseDragSensitivity (e.mods.isShiftDown() ? 100
+                                   : (e.mods.isCtrlDown() || e.mods.isCommandDown()) ? 1200 : 250);
             juce::Slider::mouseDown (e);
-        }
-
-        /** The house drag rule: vertical for fine control, Shift coarse,
-            Ctrl/Cmd ultra-fine. JUCE gives us the modifier hooks; the ratios
-            are ours. */
-        void mouseDrag (const juce::MouseEvent& e) override
-        {
-            juce::Slider::mouseDrag (e);
         }
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ParamSlider)

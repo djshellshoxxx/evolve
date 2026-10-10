@@ -805,10 +805,8 @@ namespace mutagen
                            processor.entropyTapLive());
 
         // A RADIATE landed on the audio thread; react exactly once per result.
-        if (const auto counter = processor.radiationCounter(); counter != lastRadiationCounter)
+        for (int outcome = 0; processor.nextRadiation (lastRadiationCounter, outcome);)
         {
-            lastRadiationCounter = counter;
-            const int outcome = processor.lastRadiationOutcome();
             scoreSystem.onRadiation (outcome);
             progressionSystem.record (ProgressionSystem::Action::radiationExposure);
             gameBar.flashRadiation (outcome);
