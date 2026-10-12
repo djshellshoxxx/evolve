@@ -70,7 +70,8 @@ namespace mutagen
         void serviceHauntedMilestones (juce::int64 beforeScore, juce::int64 afterScore);
         void serviceSpontaneousPhantom();
 
-        enum class PendingGame { roulette, monte, slots, dice, twentyOne, scratch, skillRoulette };
+        enum class PendingGame { roulette, monte, slots, dice, twentyOne, scratch, skillRoulette, phantomMonte, eclipseSlots, spectralDice };
+        PendingGame activeLabGame = PendingGame::roulette;
         void wireLabGames();
         void rewardInstrument (int kind, int count);
         void serviceLabGameSchedule (juce::int64 beforeScore, juce::int64 afterScore);
