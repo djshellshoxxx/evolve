@@ -66,6 +66,7 @@ namespace mutagen
 
         /** Secrets, the intro and the odd visitors report back through these. */
         void markSecret (int id) { prog.secrets |= (std::uint64_t) 1 << id; persist(); repaint(); }
+        void recordEncounter (std::uint32_t rooms, std::uint32_t relics) { prog.roomsSolved |= rooms; prog.relics |= relics; persist(); }
         void markIntroSeen() { prog.introSeen = true; persist(); }
         void setPlayerName (const juce::String& name)
         {

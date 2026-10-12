@@ -69,6 +69,10 @@ namespace mutagen
         addAndMakeVisible (chamber);
         addAndMakeVisible (storyPanel);
         wireLabGames();
+        wireEncounters();
+        scoreSystem.restoreRun (processor.savedRunScore.load(), processor.savedRunSeconds.load());
+        scoreSystem.setRunId (juce::String (processor.savedRunId.load()));
+        scoreRestoreRevision = processor.runRestoreRevision.load();
 
         addAndMakeVisible (secretLayer);
         addAndMakeVisible (storyFx);
@@ -240,6 +244,8 @@ namespace mutagen
 
     MutagenEditor::~MutagenEditor()
     {
+        processor.setRoomTargets (story::RoomTargets::baseline());
+        for (const auto& n : encounterNotes) if (n.started) processor.keyboardState.noteOff (1, n.pitch, 0.0f);
         stopTimer();
         for (int i = 0; i < getNumChildComponents(); ++i)
             if (auto* child = getChildComponent (i))
@@ -475,31 +481,30 @@ namespace mutagen
     void MutagenEditor::doRender()
     {
         if (renderEngine.isBusy()) return;
-
-        chooser = std::make_unique<juce::FileChooser> (
-            "Render the colony to WAV",
-            juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-                .getChildFile (processor.organismName + ".wav"),
-            "*.wav");
-
-        chooser->launchAsync (juce::FileBrowserComponent::saveMode
-                              | juce::FileBrowserComponent::canSelectFiles,
-            [this] (const juce::FileChooser& fc)
-            {
-                const auto f = fc.getResult();
-                if (f == juce::File{}) return;
-
-                topBar.setStatus ("rendering 12s ...");
-                RenderEngine::Job job;
-                job.destination = f;
-                job.seconds = 12.0f;
-                renderEngine.onFinished = [this] (bool ok, juce::File out)
+        if ((int) *processor.apvts.getRawParameterValue (params::pluginRole) != (int) params::PluginRole::instrument)
+        { topBar.setStatus ("Switch Role to Instrument to export the colony."); return; }
+        juce::PopupMenu durations;
+        durations.addItem (4, "4 seconds"); durations.addItem (8, "8 seconds");
+        durations.addItem (12, "12 seconds"); durations.addItem (30, "30 seconds");
+        auto safe = juce::Component::SafePointer<MutagenEditor> (this);
+        durations.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&topBar), [safe] (int seconds)
+        {
+            if (safe == nullptr || seconds == 0) return;
+            safe->chooser = std::make_unique<juce::FileChooser> ("Render the colony to WAV",
+                juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+                    .getChildFile (safe->processor.organismName + ".wav"), "*.wav");
+            safe->chooser->launchAsync (juce::FileBrowserComponent::saveMode
+                | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
+                [safe, seconds] (const juce::FileChooser& fc)
                 {
-                    topBar.setStatus (ok ? "saved " + out.getFileName()
-                                         : "render failed");
-                };
-                renderEngine.start (processor, job);
-            });
+                    if (safe == nullptr || fc.getResult() == juce::File{}) return;
+                    safe->topBar.setStatus ("rendering " + juce::String (seconds) + "s ...");
+                    RenderEngine::Job job; job.destination = fc.getResult(); job.seconds = (float) seconds;
+                    safe->renderEngine.onFinished = [safe] (bool ok, juce::File out)
+                    { if (safe != nullptr) safe->topBar.setStatus (ok ? "saved " + out.getFileName() : "render failed"); };
+                    safe->renderEngine.start (safe->processor, job);
+                });
+        });
     }
 
 
@@ -780,25 +785,40 @@ namespace mutagen
         processor.copyLatestSnapshot (snapshot);
 
         // ---- the game layer -------------------------------------------
+        const auto revision = processor.runRestoreRevision.load (std::memory_order_acquire);
+        if (revision != scoreRestoreRevision)
+        {
+            scoreRestoreRevision = revision;
+            scoreSystem.restoreRun (processor.savedRunScore.load(), processor.savedRunSeconds.load());
+            scoreSystem.setRunId (juce::String (processor.savedRunId.load()));
+        }
         const auto runScoreBefore = scoreSystem.score();
         scoreSystem.update (snapshot, dt);
         const auto runScoreAfter = scoreSystem.score();
         progressionSystem.observe (snapshot, scoreSystem);
         storyPanel.tick (dt, breedingLab.isVisible() || performance.isVisible()
-                               || helpView.isVisible() || labGameOverlay.isVisible()
+                               || helpView.isVisible() || encounter.isVisible() || labGameOverlay.isVisible()
                                || introOverlay.isVisible() || nameOverlay.isVisible());
         serviceHauntedMilestones (runScoreBefore, runScoreAfter);
-        playSeconds += dt;
+        const bool playPaused = breedingLab.isVisible() || performance.isVisible()
+            || helpView.isVisible() || optionsView.isVisible() || progressionView.isVisible()
+            || labGameOverlay.isVisible() || encounter.isVisible()
+            || introOverlay.isVisible() || nameOverlay.isVisible();
+        if (! playPaused) playSeconds += dt;
+        serviceEncounters (dt, playPaused);
         secretLayer.update (dt, scoreSystem.score(), snapshot.generation, snapshot.population,
                             introOverlay.isVisible() || nameOverlay.isVisible()
                             || breedingLab.isVisible() || performance.isVisible());
         // Compare against the score seen last tick, so bonuses applied between
         // ticks (skills, fates, secrets) still count as crossings.
-        serviceLabGameSchedule (lastSeenScore, scoreSystem.score());
+        if (! playPaused) serviceLabGameSchedule (lastSeenScore, scoreSystem.score());
         lastSeenScore = scoreSystem.score();
         scoreHud.setState (scoreSystem, snapshot);
         scoreHud.setKnowledge ((juce::int64) storyPanel.progress().knowledge);
         processor.setMorphScore ((float) (std::log10 (1.0 + (double) juce::jmax ((juce::int64) 0, scoreSystem.score())) / 9.0));
+        processor.savedRunId.store (scoreSystem.currentRunId().getLargeIntValue());
+        processor.savedRunScore.store (scoreSystem.score());
+        processor.savedRunSeconds.store (scoreSystem.elapsed());
         gameBar.tick ((float) dt);
         gameBar.setStatus (processor.micArmed(), processor.micCapturing(),
                            processor.micLevel(), processor.entropyTapLevel(),
@@ -944,6 +964,7 @@ namespace mutagen
         introOverlay.setBounds (getLocalBounds());
         nameOverlay.setBounds (getLocalBounds());
         labGameOverlay.setBounds (chamber.getBounds().withSizeKeepingCentre (juce::jmin (520, chamber.getWidth()), juce::jmin (300, chamber.getHeight())));
+        encounter.setBounds (overlay.reduced (24));
         fxRack.setBounds (overlay.reduced (16));
 
         // Help and options are read, not played with, so they are narrower

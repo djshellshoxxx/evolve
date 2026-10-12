@@ -1,3 +1,4 @@
+#include "../Source/GUI/EncounterOverlay.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Source/GUI/ScoreHud.h"
 #include "../Source/GUI/StoryFx.h"
@@ -147,7 +148,30 @@ int main()
     std::printf ("Fact toast: %s\n", factToastDraws ? "PASS" : "FAIL");
     std::printf ("Steering intensity: %s\n", steeringIntensity ? "PASS" : "FAIL");
 
-    return (chamberPassesThrough && scoreCaptures && tableCaptures
+    mutagen::EncounterOverlay encounter;
+    encounter.setSize (700, 450);
+    int noteCount = 0, completions = 0;
+    encounter.onNote = [&] (int n, double seconds) { if (n >= 0 && n <= 127 && seconds > 0) ++noteCount; };
+    encounter.onFinished = [&] (auto, bool, std::uint32_t) { ++completions; };
+    encounter.begin (mutagen::EncounterOverlay::Kind::phantom, 42, 2, 0, 60, 0);
+    encounter.tick (0.1);
+    const bool phantomPlays = noteCount > 0;
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    const bool oneCompletion = completions == 1 && ! encounter.isVisible();
+    bool roomAudio = false;
+    encounter.onRoomTargets = [&] (const auto& t) { roomAudio |= t.combMix > 0 || t.reverbMacro > 0 || t.dopplerDepth > 0 || t.lowShelfDb != 0 || t.phaseOffset > 0; };
+    encounter.begin (mutagen::EncounterOverlay::Kind::room, 42, 2, 0, 60, 0);
+    for (int i = 0; i < 20; ++i) encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::tuner, 42, 2, 0, 60, 0);
+    const int before = noteCount;
+    encounter.tick (2.1);
+    const bool tunerPlays = noteCount > before;
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    std::printf ("Encounter integration: phantom=%d room=%d tuner=%d close=%d\n", phantomPlays, roomAudio, tunerPlays, oneCompletion);
+
+    return (phantomPlays && roomAudio && tunerPlays && oneCompletion && chamberPassesThrough && scoreCaptures && tableCaptures
             && directionProfiles && counterProfile && diceProfiles
             && steeringIntensity && storyFxDraws && factToastDraws) ? 0 : 1;
 }

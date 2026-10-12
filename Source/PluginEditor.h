@@ -24,6 +24,7 @@
 #include "GUI/ProgressionView.h"
 #include "GUI/HauntedOverlay.h"
 #include "GUI/LabGameOverlay.h"
+#include "GUI/EncounterOverlay.h"
 #include "GUI/StoryPanel.h"
 #include "GUI/SecretLayer.h"
 #include "GUI/StoryFx.h"
@@ -70,7 +71,8 @@ namespace mutagen
         void serviceHauntedMilestones (juce::int64 beforeScore, juce::int64 afterScore);
         void serviceSpontaneousPhantom();
 
-        enum class PendingGame { roulette, monte, slots, dice, twentyOne, scratch, skillRoulette };
+        enum class PendingGame { roulette, monte, slots, dice, twentyOne, scratch, skillRoulette, phantomMonte, eclipseSlots, spectralDice };
+        PendingGame activeLabGame = PendingGame::roulette;
         void wireLabGames();
         void rewardInstrument (int kind, int count);
         void serviceLabGameSchedule (juce::int64 beforeScore, juce::int64 afterScore);
@@ -97,6 +99,13 @@ namespace mutagen
         PerformanceView   performance;
         FxRackView        fxRack;
         LabGameOverlay    labGameOverlay;
+        EncounterOverlay encounter;
+        struct EncounterNote { int pitch; double offAt; bool started = false; };
+        std::vector<EncounterNote> encounterNotes;
+        double encounterClock = 0;
+        unsigned scoreRestoreRevision = 0;
+        void wireEncounters();
+        void serviceEncounters (double dt, bool paused);
         StoryPanel        storyPanel { processor };
         SecretLayer       secretLayer { processor, chamber, storyPanel };
         StoryFx           storyFx;

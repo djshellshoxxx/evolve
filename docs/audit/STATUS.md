@@ -25,7 +25,10 @@ Reports: `features-and-controls.md`, `bugs.md` (and the performance findings, de
 | K1, K2, K3 | Sigil phase no longer freezes; two story lines play the right sound; no repeated pitch in the tape-stop demo |
 | RT-1 | No string allocation per audio block in `buildPostParams` |
 
-## Open
+## Previous open findings
+
+F-04/05/06/08/12/18/19 and W9/W11 are addressed by the integration follow-up; see `integration-followup-20261012.md` for implementation and validation. The list below records the original audit.
+
 - F-04, F-05, F-06: export length choice, instrument-only gating, stereo output
 - F-08: no control for Memory
 - F-12: XY pad right-click menu

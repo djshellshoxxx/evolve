@@ -25,6 +25,7 @@ namespace mutagen
 
     void ScoreSystem::reset()
     {
+        runId = juce::String (juce::Random::getSystemRandom().nextInt64());
         total = 0.0;
         multiplierValue = 1.0f;
         comboCount = 0;
@@ -337,6 +338,7 @@ namespace mutagen
                 if (! item.isObject()) continue;
                 HighScore h;
                 h.name        = item.getProperty ("name", "colony").toString();
+                h.runId = item.getProperty ("runId", "").toString();
                 h.world       = item.getProperty ("world", "WORLD").toString();
                 h.score       = (juce::int64) (double) item.getProperty ("score", 0);
                 h.seconds     = (double) item.getProperty ("seconds", 0);
@@ -359,6 +361,7 @@ namespace mutagen
         {
             auto* o = new juce::DynamicObject();
             o->setProperty ("name", h.name);
+            o->setProperty ("runId", h.runId);
             o->setProperty ("world", h.world);
             o->setProperty ("score", (double) h.score);
             o->setProperty ("seconds", h.seconds);
@@ -377,6 +380,7 @@ namespace mutagen
     void ScoreSystem::submit (const juce::String& playerName, const EngineSnapshot& snap)
     {
         HighScore h;
+        h.runId = runId;
         h.name        = playerName.isNotEmpty() ? playerName : juce::String ("colony");
         h.world       = juce::String (snap.worldName);
         h.score       = (juce::int64) total;
@@ -386,6 +390,12 @@ namespace mutagen
         h.discoveries = discoveryCount;
         h.when        = juce::Time::getCurrentTime().toMilliseconds();
 
+        // Re-submitting an unchanged run must not occupy another leaderboard row.
+        for (const auto& existing : highScores)
+            if (existing.name == h.name && existing.world == h.world && existing.score == h.score
+                && existing.seconds == h.seconds && existing.generations == h.generations) return;
+        highScores.erase (std::remove_if (highScores.begin(), highScores.end(),
+            [&] (const HighScore& previous) { return previous.runId == runId; }), highScores.end());
         highScores.push_back (h);
         std::sort (highScores.begin(), highScores.end(),
                    [] (const HighScore& a, const HighScore& b) { return a.score > b.score; });

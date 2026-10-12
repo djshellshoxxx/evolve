@@ -142,6 +142,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/OptionsView.cpp
     Source/GUI/ProgressionView.cpp
     Source/GUI/HauntedOverlay.cpp
+    Source/GUI/EncounterOverlay.cpp
     Source/GUI/LabGameOverlay.cpp
     Source/GUI/StoryPanel.cpp
     Source/GUI/SecretLayer.cpp
@@ -257,6 +258,7 @@ if(MUTAGEN_BUILD_TESTS)
 
     target_sources(MutagenGuiSmokeTest PRIVATE
         Tests/GuiSmokeTest.cpp
+        Source/GUI/EncounterOverlay.cpp
         Source/GUI/ScoreHud.cpp
         Source/GUI/StoryFx.cpp
         Source/GUI/MutagenLookAndFeel.cpp
@@ -316,4 +318,11 @@ if(MUTAGEN_BUILD_TESTS)
     add_executable(MutagenMusicFactsTest Tests/MusicFactsTest.cpp Source/Engine/MusicFacts.cpp)
     target_include_directories(MutagenMusicFactsTest PRIVATE Source)
     add_test(NAME MutagenMusicFactsTest COMMAND MutagenMusicFactsTest)
+
+    # Pure-header engines for the story encounters (no JUCE needed).
+    foreach(name Phantom TunerDuel DreamRooms)
+        add_executable(Mutagen${name}Test Tests/${name}Test.cpp)
+        target_include_directories(Mutagen${name}Test PRIVATE Source)
+        add_test(NAME Mutagen${name}Test COMMAND Mutagen${name}Test)
+    endforeach()
 endif()

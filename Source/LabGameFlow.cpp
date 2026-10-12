@@ -9,6 +9,7 @@
 // over says one true thing about that instrument.
 
 #include "PluginEditor.h"
+#include "Engine/Entropy.h"
 
 namespace mutagen
 {
@@ -36,6 +37,65 @@ namespace mutagen
         }
 
         enum Instrument { snare, tom, bassDrum, strings, tambourine, kazoo, bassDrop, pianoKey, clap, pad, upSweep, genericSound };
+    }
+
+    void MutagenEditor::wireEncounters()
+    {
+        addChildComponent (encounter);
+        encounter.onNote = [this] (int n, double seconds)
+        {
+            const int pitch = juce::jlimit (0, 127, n);
+            for (auto& note : encounterNotes)
+                if (note.pitch == pitch) { note.offAt = encounterClock + seconds; return; }
+            if (encounterNotes.size() < 64)
+            {
+                processor.keyboardState.noteOn (1, pitch, 0.65f);
+                encounterNotes.push_back ({ pitch, encounterClock + seconds, true });
+            }
+        };
+        encounter.onNoteStop = [this] (int pitch)
+        {
+            processor.keyboardState.noteOff (1, pitch, 0.0f);
+            encounterNotes.erase (std::remove_if (encounterNotes.begin(), encounterNotes.end(),
+                [pitch] (const EncounterNote& note) { return note.pitch == pitch; }), encounterNotes.end());
+        };
+        encounter.onRoomTargets = [this] (const story::RoomTargets& t) { processor.setRoomTargets (t); };
+        encounter.onFinished = [this] (EncounterOverlay::Kind k, bool won, std::uint32_t mask)
+        {
+            for (const auto& note : encounterNotes) processor.keyboardState.noteOff (1, note.pitch, 0.0f);
+            encounterNotes.clear();
+            if (won)
+            {
+                scoreSystem.adjustScore (1500, "ENCOUNTER SOLVED");
+                progressionSystem.recordGameCompleted();
+                storyPanel.recordEncounter (k == EncounterOverlay::Kind::room ? mask : 0,
+                                            k == EncounterOverlay::Kind::tuner ? mask : 0);
+                storyPanel.grantFactReward();
+            }
+            presentNextLabGame();
+        };
+    }
+
+    void MutagenEditor::serviceEncounters (double dt, bool paused)
+    {
+        encounterClock += dt;
+        // JUCE's keyboard queue carries both note-on and note-off to the audio thread.
+        for (auto i = encounterNotes.begin(); i != encounterNotes.end();)
+            if (encounterClock >= i->offAt)
+            { processor.keyboardState.noteOff (1, i->pitch, 0.0f); i = encounterNotes.erase (i); }
+            else ++i;
+        if (encounter.isVisible() && ! introOverlay.isVisible() && ! nameOverlay.isVisible()
+            && ! helpView.isVisible() && ! optionsView.isVisible()) encounter.tick (dt);
+        if (paused || encounter.isVisible()) return;
+        const int minute = (int) (playSeconds / 60.0);
+        if (minute == lastGameMinuteBucket || minute <= 0) return;
+        int kind = -1;
+        if (hauntedRng.rollInclusive (1, 97) == 1) kind = 0;
+        else if (hauntedRng.rollInclusive (1, 131) == 1) kind = 1;
+        else if (hauntedRng.rollInclusive (1, 173) == 1) kind = 2;
+        if (kind >= 0)
+            encounter.begin ((EncounterOverlay::Kind) kind, globalEntropy().nextSeed(), storyPanel.act(),
+                             storyPanel.run().mode, storyPanel.run().root, storyPanel.progress().relics);
     }
 
     void MutagenEditor::wireLabGames()
@@ -85,12 +145,14 @@ namespace mutagen
         labGameOverlay.onMontePick = [this] (int card)
         {
             const bool won = card == monteWinningCard;
+            const bool phantom = activeLabGame == PendingGame::phantomMonte;
             const auto o = labgames::monteOutcome (won, hauntedRng.rollInclusive (1, 2));
             if (o.points != 0) scoreSystem.adjustScore (o.points, "THREE-CARD MONTE");
+            if (phantom && won) { scoreSystem.adjustScore (13000, "PHANTOM MONTE"); rewardInstrument (genericSound, 1); }
             if (o.rainbowOrbs > 0) { progressionSystem.addRainbowOrbs (o.rainbowOrbs); chamber.spawnRainbowOrbs (o.rainbowOrbs, false); }
             if (o.skillDelta > 0) awardGameSkill (hauntedRng.rollInclusive (0, 4), o.skillDelta);
             if (o.soundUnlocks > 0) rewardInstrument (genericSound, o.soundUnlocks);
-            labGameOverlay.resolve ("THREE-CARD MONTE",
+            labGameOverlay.resolve (phantom ? "PHANTOM MONTE" : "THREE-CARD MONTE",
                                     won ? "You followed the card." : "Card " + juce::String (monteWinningCard + 1) + " was the one.",
                                     labgames::Game::monte,
                                     won ? labgames::SoundMoment::bigWin : labgames::SoundMoment::penalty, won);
@@ -100,14 +162,16 @@ namespace mutagen
 
         labGameOverlay.onSlotsSpin = [this]
         {
+            const bool eclipse = activeLabGame == PendingGame::eclipseSlots;
             const auto o = labgames::slotOutcome (hauntedRng.rollInclusive (0, 999));
             if (o.points != 0) scoreSystem.adjustScore (o.points, "SLOTS");
+            if (eclipse) { progressionSystem.addSpecialOrbs (13); chamber.spawnSpecialOrbs (13); }
             if (o.specialOrbs > 0) { progressionSystem.addSpecialOrbs (o.specialOrbs); chamber.spawnSpecialOrbs (o.specialOrbs); }
             if (o.glowingRainbowOrbs > 0) { progressionSystem.addRainbowOrbs (o.glowingRainbowOrbs, true); chamber.spawnRainbowOrbs (o.glowingRainbowOrbs, true, o.rainbowMultiplier); }
             if (o.skillDelta > 0) awardGameSkill (hauntedRng.rollInclusive (0, 4), o.skillDelta);
             if (o.soundUnlocks > 0) rewardInstrument (genericSound, o.soundUnlocks);
             const auto moment = o.jackpot ? labgames::SoundMoment::jackpot : labgames::SoundMoment::smallWin;
-            labGameOverlay.resolve (o.jackpot ? "JACKPOT" : "SLOTS",
+            labGameOverlay.resolve (eclipse ? "ECLIPSE SLOTS" : (o.jackpot ? "JACKPOT" : "SLOTS"),
                                     o.jackpot ? "777. The whole lab lights up." : "+" + juce::String (o.points) + " points",
                                     labgames::Game::slots, moment, true);
             playLabSound (labgames::Game::slots, moment);
@@ -116,8 +180,10 @@ namespace mutagen
 
         labGameOverlay.onDiceRoll = [this]
         {
+            const bool spectral = activeLabGame == PendingGame::spectralDice;
             const int mine = hauntedRng.rollInclusive (1, 6), lab = hauntedRng.rollInclusive (1, 6);
             const auto o = labgames::diceOutcome (mine, lab);
+            if (spectral && o.won) { scoreSystem.adjustScore (7777, "SPECTRAL DICE"); rewardInstrument (genericSound, 1); }
             if (o.won)
             {
                 progressionSystem.addSpecialOrbs (o.monsterOrbs + o.miniOrbs);
@@ -132,7 +198,7 @@ namespace mutagen
                 diceLossStreak = 0;
                 scoreSystem.adjustScore (-390094, "THREE DICE LOSSES");
             }
-            labGameOverlay.resolve ("DICE", "You " + juce::String (mine) + "  /  Lab " + juce::String (lab),
+            labGameOverlay.resolve (spectral ? "SPECTRAL DICE" : "DICE", "You " + juce::String (mine) + "  /  Lab " + juce::String (lab),
                                     labgames::Game::dice,
                                     o.won ? labgames::SoundMoment::smallWin : labgames::SoundMoment::penalty, o.won);
             playLabSound (labgames::Game::dice, o.won ? labgames::SoundMoment::smallWin : labgames::SoundMoment::penalty);
@@ -248,6 +314,12 @@ namespace mutagen
         if (labgames::shouldOfferTwentyOne (minute, hauntedRng.rollInclusive (1, 11)))   queueLabGame (PendingGame::twentyOne);
         if (labgames::shouldOfferMonte (minute, hauntedRng.rollInclusive (1, 3)))        queueLabGame (PendingGame::monte);
         if (labgames::shouldOfferDice (minute, hauntedRng.rollInclusive (1, 30)))        queueLabGame (PendingGame::dice);
+
+        // Three entirely chance-gated, optional hidden variants. One independent
+        // roll per elapsed play-minute; no progress, click sequence or score requirement.
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::phantomMonte, minute, hauntedRng.rollInclusive (1, 257))) queueLabGame (PendingGame::phantomMonte);
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::eclipseSlots, minute, hauntedRng.rollInclusive (1, 389))) queueLabGame (PendingGame::eclipseSlots);
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::spectralDice, minute, hauntedRng.rollInclusive (1, 601))) queueLabGame (PendingGame::spectralDice);
     }
 
     void MutagenEditor::queueLabGame (PendingGame g, bool allowRepeat)
@@ -255,11 +327,12 @@ namespace mutagen
         if (pendingGames.size() >= (allowRepeat ? 6u : 3u)) return;
         if (! allowRepeat && std::find (pendingGames.begin(), pendingGames.end(), g) != pendingGames.end()) return;
         pendingGames.push_back (g);
-        if (! labGameOverlay.isVisible()) presentNextLabGame();
+        if (! labGameOverlay.isVisible() && ! encounter.isVisible()) presentNextLabGame();
     }
 
     void MutagenEditor::presentNextLabGame()
     {
+        if (encounter.isVisible()) return;
         if (pendingGames.empty())
         {
             labGameOverlay.setVisible (false);
@@ -268,12 +341,16 @@ namespace mutagen
 
         const auto g = pendingGames.front();
         pendingGames.pop_front();
+        activeLabGame = g;
         labGameOverlay.setVisible (true);
         labGameOverlay.toFront (false);
 
         switch (g)
         {
             case PendingGame::roulette:      labGameOverlay.showRoulette (scoreSystem.score()); break;
+            case PendingGame::phantomMonte: monteWinningCard = hauntedRng.rollInclusive (0, 2); labGameOverlay.showMonte(); labGameOverlay.setOfferTitle ("PHANTOM MONTE"); break;
+            case PendingGame::eclipseSlots: labGameOverlay.showSlots(); labGameOverlay.setOfferTitle ("ECLIPSE SLOTS"); break;
+            case PendingGame::spectralDice: labGameOverlay.showDice(); labGameOverlay.setOfferTitle ("SPECTRAL DICE"); break;
             case PendingGame::skillRoulette: labGameOverlay.showRoulette (scoreSystem.score(), true); break;
             case PendingGame::monte:         monteWinningCard = hauntedRng.rollInclusive (0, 2); labGameOverlay.showMonte(); break;
             case PendingGame::slots:         labGameOverlay.showSlots(); break;

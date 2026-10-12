@@ -480,3 +480,9 @@ the design is based on.
 ## Licence
 
 See [LICENSE](LICENSE).
+
+### Chance encounters
+
+Rare play-minute rolls reveal acoustic Dream Rooms, a Phantom call-and-answer encounter, or a Tuner chord-resolution duel. Move and click in a room, click scale notes to answer the Phantom, or drag orange Tuner cells into the lower target rings. Each encounter can be left without a penalty. Solved rooms and earned relics persist. Phantom Monte, Eclipse Slots and Spectral Dice also appear through independent chance offers.
+
+Audio export offers 4, 8, 12 or 30 seconds of stereo capture while in Instrument role. The Environment page includes Memory, and the Performance XY field has a right-click centre action.

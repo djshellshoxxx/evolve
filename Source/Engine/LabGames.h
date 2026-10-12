@@ -153,6 +153,25 @@ namespace mutagen::labgames
         int fadeSeconds = 18;
     };
 
+    // Hidden games never depend on player progress, score, or a click sequence.
+    // Called once per elapsed play-minute, with a fresh uniform roll for each.
+    enum class HiddenGame { phantomMonte, eclipseSlots, spectralDice };
+    inline int hiddenGameOdds (HiddenGame game)
+    {
+        switch (game)
+        {
+            case HiddenGame::phantomMonte: return 257;
+            case HiddenGame::eclipseSlots: return 389;
+            case HiddenGame::spectralDice: return 601;
+        }
+        return 601;
+    }
+    inline bool shouldOfferHiddenGame (HiddenGame game, int minuteBucket, int roll)
+    {
+        return minuteBucket > 0 && roll == 1
+            && roll <= hiddenGameOdds (game);
+    }
+
     inline bool shouldOfferRoulette (int minuteBucket, int roll1to5)
     {
         return minuteBucket > 0 && minuteBucket % 5 == 0 && roll1to5 == 1;

@@ -68,6 +68,7 @@ void MutagenProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     colony.prepare (sampleRate, samplesPerBlock, params::maxCellsFor (cpuQuality()));
     postChain.prepare (sampleRate, samplesPerBlock, 2);
+    roomFx.prepare (sampleRate, samplesPerBlock);
     sourcePool.prepare (sampleRate);
     mic.prepare (sampleRate, samplesPerBlock);
 
@@ -98,7 +99,7 @@ void MutagenProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         const juce::SpinLock::ScopedLockType sl (ringLock);
         captureRing.setSize (1, juce::jmax (1, (int) (sampleRate * 12.0)));
         captureRing.clear();
-        outputRing.setSize (1, juce::jmax (1, (int) (sampleRate * 32.0)));  // > the 30 s render limit
+        outputRing.setSize (2, juce::jmax (1, (int) (sampleRate * 32.0)));  // > the 30 s render limit
         outputRing.clear();
         captureWritePos.store (0);
         outputWritePos.store (0);
@@ -427,10 +428,17 @@ void MutagenProcessor::rollNewWorld()
 
 bool MutagenProcessor::pushCommand (const EngineCommand& c)
 {
+    // Serialize host/message producers; the audio consumer never takes this lock.
+    const juce::SpinLock::ScopedLockType producer (commandProducerLock);
+    const bool payload = c.type == CommandType::injectGenome || c.type == CommandType::restoreOrganism || c.type == CommandType::breedInject;
+    if (payload && (c.payloadIndex < 0 || c.payloadIndex >= kPayloads)) return false;
     const int head = cmdHead.load (std::memory_order_relaxed);
     const int next = (head + 1) % kCmdRing;
     if (next == cmdTail.load (std::memory_order_acquire))
-        return false; // full
+    {
+        if (payload) payloadBusy[(size_t) c.payloadIndex].store (false, std::memory_order_release);
+        return false;
+    }
     cmdRing[(size_t) head] = c;
     cmdHead.store (next, std::memory_order_release);
     return true;
@@ -442,7 +450,11 @@ void MutagenProcessor::pullCommands()
     const int head = cmdHead.load (std::memory_order_acquire);
     while (tail != head)
     {
-        applyCommand (cmdRing[(size_t) tail]);
+        const auto& command = cmdRing[(size_t) tail];
+        applyCommand (command);
+        if ((command.type == CommandType::injectGenome || command.type == CommandType::restoreOrganism || command.type == CommandType::breedInject)
+            && command.payloadIndex >= 0 && command.payloadIndex < kPayloads)
+            payloadBusy[(size_t) command.payloadIndex].store (false, std::memory_order_release);
         tail = (tail + 1) % kCmdRing;
     }
     cmdTail.store (tail, std::memory_order_release);
@@ -450,15 +462,23 @@ void MutagenProcessor::pullCommands()
 
 int MutagenProcessor::stageGenomePayload (const Genome& g)
 {
-    const int idx = payloadWrite.fetch_add (1) % kPayloads;
-    genomePayloads[(size_t) idx] = g;
-    return idx;
+    for (int i = 0; i < kPayloads; ++i)
+    {
+        bool free = false;
+        if (payloadBusy[(size_t) i].compare_exchange_strong (free, true, std::memory_order_acquire))
+        { genomePayloads[(size_t) i] = g; return i; }
+    }
+    return -1;
 }
 int MutagenProcessor::stageOrganismPayload (const OrganismState& o)
 {
-    const int idx = payloadWrite.fetch_add (1) % kPayloads;
-    organismPayloads[(size_t) idx] = o;
-    return idx;
+    for (int i = 0; i < kPayloads; ++i)
+    {
+        bool free = false;
+        if (payloadBusy[(size_t) i].compare_exchange_strong (free, true, std::memory_order_acquire))
+        { organismPayloads[(size_t) i] = o; return i; }
+    }
+    return -1;
 }
 
 void MutagenProcessor::applyCommand (const EngineCommand& c)
@@ -1011,11 +1031,23 @@ void MutagenProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mid
     // Muting while capturing is the primary protection: an open loop cannot
     // howl. The notch and duck below are for live-monitoring mode and for the
     // case where the room is already ringing before capture starts.
+    const bool activeRoom = roomActive.load (std::memory_order_relaxed);
+    if (activeRoom) roomTailSamples = (int) sampleRateHz;
+    if ((activeRoom || roomTailSamples > 0) && totalOut >= 2)
+    {
+        story::RoomTargets t;
+        t.combDelayMs = roomTarget[0].load(); t.combFeedback = roomTarget[1].load();
+        t.combMix = roomTarget[2].load(); t.dopplerRatio = roomTarget[3].load();
+        t.dopplerDepth = roomTarget[4].load(); t.reverbMacro = roomTarget[5].load();
+        t.lowShelfDb = roomTarget[6].load(); t.phaseOffset = roomTarget[7].load(); t.width = roomTarget[8].load();
+        roomFx.process (buffer.getWritePointer (0), buffer.getWritePointer (1), numSamples, t);
+        if (! activeRoom) roomTailSamples = juce::jmax (0, roomTailSamples - numSamples);
+    }
     mic.protectOutput (buffer);
 
     // What the listener actually hears: the source for COLLECT, export and render.
     if (totalOut > 0)
-        writeRing (outputRing, outputWritePos, buffer.getReadPointer (0), numSamples);
+        writeOutputRing (buffer, numSamples);
 
     // ---- publish visual snapshot ----
     colony.writeSnapshot (snapshots[(size_t) snapWrite]);
@@ -1140,9 +1172,37 @@ bool MutagenProcessor::loadSourceFromFile (const juce::File& file)
     return true;
 }
 
+void MutagenProcessor::setRoomTargets (const story::RoomTargets& target)
+{
+    auto t = target; t.clampAll();
+    const std::array<float, 9> v { t.combDelayMs, t.combFeedback, t.combMix, t.dopplerRatio,
+        t.dopplerDepth, t.reverbMacro, t.lowShelfDb, t.phaseOffset, t.width };
+    for (size_t i = 0; i < v.size(); ++i) roomTarget[i].store (v[i], std::memory_order_relaxed);
+    roomActive.store (t.combMix != 0 || t.dopplerDepth != 0 || t.reverbMacro != 0
+        || t.lowShelfDb != 0 || t.phaseOffset != 0, std::memory_order_relaxed);
+}
+
+void MutagenProcessor::writeOutputRing (const juce::AudioBuffer<float>& buffer, int n)
+{
+    const juce::SpinLock::ScopedTryLockType lock (ringLock);
+    if (! lock.isLocked()) return; // audio never waits for a WAV copy or re-prepare
+    const int rn = outputRing.getNumSamples();
+    if (rn <= 0) return;
+    int w = outputWritePos.load (std::memory_order_relaxed);
+    for (int i = 0; i < n; ++i)
+    {
+        for (int ch = 0; ch < 2; ++ch)
+            outputRing.setSample (ch, w, buffer.getSample (juce::jmin (ch, buffer.getNumChannels() - 1), i));
+        if (++w == rn) w = 0;
+    }
+    outputWritePos.store (w, std::memory_order_release);
+}
+
 void MutagenProcessor::writeRing (juce::AudioBuffer<float>& ring, std::atomic<int>& head,
                                   const float* src, int numSamples)
 {
+    const juce::SpinLock::ScopedTryLockType lock (ringLock);
+    if (! lock.isLocked()) return;
     const int rn = ring.getNumSamples();
     if (rn <= 0 || src == nullptr) return;
     float* rd = ring.getWritePointer (0);
@@ -1167,13 +1227,16 @@ void MutagenProcessor::readRing (const juce::AudioBuffer<float>& ring, const std
         return;
     }
     const int want = juce::jlimit (juce::jmin (minSamples, rn), rn, (int) (seconds * sampleRateHz));
-    dst.setSize (1, want, false, false, true);
+    dst.setSize (ring.getNumChannels(), want, false, false, true);
     const int start = ((head.load (std::memory_order_acquire) - want) % rn + rn) % rn;
-    const float* rd = ring.getReadPointer (0);
-    float* out = dst.getWritePointer (0);
-    const int first = juce::jmin (want, rn - start);
-    std::copy (rd + start, rd + start + first, out);
-    std::copy (rd, rd + (want - first), out + first);
+    for (int ch = 0; ch < ring.getNumChannels(); ++ch)
+    {
+        const float* rd = ring.getReadPointer (ch);
+        float* out = dst.getWritePointer (ch);
+        const int first = juce::jmin (want, rn - start);
+        std::copy (rd + start, rd + start + first, out);
+        std::copy (rd, rd + (want - first), out + first);
+    }
 }
 
 void MutagenProcessor::copyRecentOutput (juce::AudioBuffer<float>& dst, float seconds) const
@@ -1197,6 +1260,9 @@ void MutagenProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     juce::ValueTree root ("MUTAGEN_STATE");
     root.setProperty ("version", 1, nullptr);
+    root.setProperty ("scoreRunId", juce::String (savedRunId.load()), nullptr);
+    root.setProperty ("score", juce::String (savedRunScore.load()), nullptr);
+    root.setProperty ("seconds", savedRunSeconds.load(), nullptr);
 
     root.appendChild (apvts.copyState(), nullptr);
 
@@ -1248,6 +1314,11 @@ void MutagenProcessor::setStateInformation (const void* data, int sizeInBytes)
         pushCommand (sc);
     }
 
+    savedRunId.store (root.getProperty ("scoreRunId", "0").toString().getLargeIntValue());
+    savedRunScore.store (root.getProperty ("score", "0").toString().getLargeIntValue());
+    const double seconds = (double) root.getProperty ("seconds", 0.0);
+    savedRunSeconds.store (std::isfinite (seconds) ? juce::jlimit (0.0, 1.0e9, seconds) : 0.0);
+    runRestoreRevision.fetch_add (1, std::memory_order_release);
     organismName = root.getProperty ("name", "MUTAGEN").toString();
 
     OrganismState o;

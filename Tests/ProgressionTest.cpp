@@ -19,6 +19,20 @@ using namespace mutagen::progression;
 
 int main()
 {
+    // Chance-only secret games: no score or progression prerequisites.
+    for (auto game : { mutagen::labgames::HiddenGame::phantomMonte,
+                       mutagen::labgames::HiddenGame::eclipseSlots,
+                       mutagen::labgames::HiddenGame::spectralDice })
+    {
+        const int odds = mutagen::labgames::hiddenGameOdds (game);
+        CHECK (odds > 1);
+        CHECK (! mutagen::labgames::shouldOfferHiddenGame (game, 0, 1));
+        CHECK (mutagen::labgames::shouldOfferHiddenGame (game, 1, 1));
+        CHECK (mutagen::labgames::shouldOfferHiddenGame (game, 100, 1));
+        for (int roll = 2; roll <= odds; ++roll)
+            CHECK (! mutagen::labgames::shouldOfferHiddenGame (game, 100, roll));
+    }
+
     LifetimeStats empty;
     const auto start = evaluate (empty);
     CHECK (start.level == 1);

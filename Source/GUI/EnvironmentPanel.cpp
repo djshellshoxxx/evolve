@@ -48,7 +48,7 @@ namespace mutagen
             addAndMakeVisible (*big[(size_t) i]);
         }
 
-        const Def smallDefs[10] = {
+        const Def smallDefs[11] = {
             { params::fertility,     "Fertility",  nutrient },
             { params::mutationDepth, "Mut Depth",  spectralV },
             { params::radiation,     "Radiation",  infection },
@@ -59,8 +59,9 @@ namespace mutagen
             { params::apoptosis,     "Apoptosis",  infection },
             { params::diversity,     "Diversity",  spectral },
             { params::migration,     "Migration",  resonator },
+            { params::memory,        "Memory",     resonator },
         };
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < 11; ++i)
         {
             small[(size_t) i] = std::make_unique<LabeledKnob> (s, smallDefs[i].id, smallDefs[i].name,
                                                                smallDefs[i].c, false);
@@ -222,11 +223,11 @@ namespace mutagen
         r.removeFromTop (4);
 
         auto grid = r.removeFromTop (124);
-        const int cw = grid.getWidth() / 5;
+        const int cw = grid.getWidth() / 6;
         const int chh = grid.getHeight() / 2;
-        for (int i = 0; i < 10; ++i)
+        for (int i = 0; i < 11; ++i)
         {
-            const int col = i % 5, rowi = i / 5;
+            const int col = i % 6, rowi = i / 6;
             small[(size_t) i]->setBounds (grid.getX() + col * cw,
                                           grid.getY() + rowi * chh, cw, chh);
         }
