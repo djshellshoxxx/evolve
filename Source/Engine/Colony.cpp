@@ -482,6 +482,22 @@ namespace mutagen
         const float wTot = wAppeal + wNovelty + wUser + 1.0e-6f;
         wAppeal /= wTot; wNovelty /= wTot; wUser /= wTot;
 
+        // ---- 3b. crowding, once per pair ----------------------------------
+        // distanceTo is symmetric, so each pair contributes to both cells
+        // from a single evaluation: half the work of the old all-pairs loop.
+        for (int a = 0; a < liveCount; ++a) crowdOf[a] = 0.0f;
+        for (int a = 0; a < liveCount; ++a)
+            for (int j = a + 1; j < liveCount; ++j)
+            {
+                const float d = behaviourOf[a].distanceTo (behaviourOf[j]);
+                if (d < 0.18f)
+                {
+                    const float k = 1.0f - d / 0.18f;        // triangular kernel
+                    crowdOf[a] += k;
+                    crowdOf[j] += k;
+                }
+            }
+
         // ---- 4. score every cell -------------------------------------------
         float sum = 0.0f, novSum = 0.0f, appSum = 0.0f;
 
@@ -497,13 +513,7 @@ namespace mutagen
             // Count how many neighbours share this cell's patch of behaviour
             // space. A crowd divides its worth; an empty niche keeps all of
             // it. This is what actively *punishes* the colony for converging.
-            float crowd = 0.0f;
-            for (int j = 0; j < liveCount; ++j)
-            {
-                if (j == a) continue;
-                const float d = b.distanceTo (behaviourOf[j]);
-                if (d < 0.18f) crowd += 1.0f - d / 0.18f;    // triangular kernel
-            }
+            const float crowd = crowdOf[a];
             const float share = 1.0f / (1.0f + world.crowdingPenalty * crowd * 0.5f);
 
             // --- the user's wish --------------------------------------------

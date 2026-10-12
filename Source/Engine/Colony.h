@@ -264,6 +264,7 @@ namespace mutagen
         // per-cell scratch for fitness sharing (fixed size, no allocation)
         Behaviour behaviourOf[EngineSnapshot::maxCells];
         float     noveltyOf[EngineSnapshot::maxCells] {};
+        float     crowdOf[EngineSnapshot::maxCells] {};
         int       noveltyCursor = 0;        // amortises the k-NN query
 
         /*  Fitness is an O(n^2) crowding pass plus a k-NN query, and it was

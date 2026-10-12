@@ -158,6 +158,8 @@ namespace mutagen
 
         // 3 EQ bands x 2 channels
         std::array<std::array<juce::dsp::IIR::Filter<float>, 2>, 3> eq;
+        std::array<float, 7> eqLastKey {};
+        double eqLastSr = 0.0;
 
         double gatorStepPos = 0.0;   // in steps
         float  gatorEnv = 1.0f;
