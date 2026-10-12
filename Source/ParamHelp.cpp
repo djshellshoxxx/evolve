@@ -191,8 +191,6 @@ namespace mutagen::params
                 if (leaf == "fine")   return "Fine tuning in cents.";
                 if (leaf == "level")  return "This oscillator's level in the bank.";
                 if (leaf == "pan")    return "This oscillator's position in the stereo field.";
-                if (leaf == "pw")     return "Pulse width, for the pulse wave.";
-                if (leaf == "phase")  return "Start phase.";
             }
 
             if (isLfo)
