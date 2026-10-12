@@ -257,9 +257,9 @@ namespace mutagen
 
         // Three entirely chance-gated, optional hidden variants. One independent
         // roll per elapsed play-minute; no progress, click sequence or score requirement.
-        if (minute > 0 && hauntedRng.rollInclusive (1, 257) == 1) queueLabGame (PendingGame::phantomMonte);
-        if (minute > 0 && hauntedRng.rollInclusive (1, 389) == 1) queueLabGame (PendingGame::eclipseSlots);
-        if (minute > 0 && hauntedRng.rollInclusive (1, 601) == 1) queueLabGame (PendingGame::spectralDice);
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::phantomMonte, minute, hauntedRng.rollInclusive (1, 257))) queueLabGame (PendingGame::phantomMonte);
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::eclipseSlots, minute, hauntedRng.rollInclusive (1, 389))) queueLabGame (PendingGame::eclipseSlots);
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::spectralDice, minute, hauntedRng.rollInclusive (1, 601))) queueLabGame (PendingGame::spectralDice);
     }
 
     void MutagenEditor::queueLabGame (PendingGame g, bool allowRepeat)
