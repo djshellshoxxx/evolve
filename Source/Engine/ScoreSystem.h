@@ -36,6 +36,7 @@ namespace mutagen
     {
         juce::String name  { "colony" };
         juce::String world { "WORLD" };
+        juce::String runId;
         juce::int64  score = 0;
         double       seconds = 0.0;
         float        peakVariety = 0.0f;
@@ -100,6 +101,8 @@ namespace mutagen
         /** File the current run into the table. Keeps the top 20. */
         void submit (const juce::String& playerName, const EngineSnapshot& snap);
 
+        const juce::String& currentRunId() const { return runId; }
+        void setRunId (const juce::String& id) { if (id.isNotEmpty() && id != "0") runId = id; }
         const std::vector<HighScore>& table() const { return highScores; }
 
         /** Rank the current score would take, 1-based; 0 if it would not make
@@ -110,6 +113,7 @@ namespace mutagen
         void pushEvent (const juce::String& text, int points, juce::Colour c);
         void detectMilestones (const EngineSnapshot& snap, double dt);
 
+        juce::String runId = juce::String (juce::Random::getSystemRandom().nextInt64());
         double total = 0.0;
         float  multiplierValue = 1.0f;
         int    comboCount = 0;

@@ -7,6 +7,7 @@
 
 #include <array>
 #include <atomic>
+#include "Engine/DreamRooms.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Parameters.h"
 #include "Engine/Colony.h"
@@ -86,6 +87,11 @@ namespace mutagen
         bool pushCommand (const EngineCommand& c);
 
         /** Stage a payload and return its slot index (use in EngineCommand). */
+        std::atomic<juce::int64> savedRunId { 0 };
+        std::atomic<juce::int64> savedRunScore { 0 };
+        std::atomic<double> savedRunSeconds { 0.0 };
+        std::atomic<unsigned> runRestoreRevision { 0 };
+        void setRoomTargets (const story::RoomTargets&);
         int  stageGenomePayload (const Genome& g);
         int  stageOrganismPayload (const OrganismState& o);
 
@@ -107,7 +113,7 @@ namespace mutagen
 
         void requestGenerationCapture() { captureRequest.store (true); }
 
-        /** Copy the most recent `seconds` of colony output (mono) for rendering.
+        /** Copy the most recent `seconds` of colony output (stereo) for rendering.
             A torn sample at the write head is harmless in a bounce. */
         void copyRecentOutput (juce::AudioBuffer<float>& dst, float seconds) const;
 
@@ -159,7 +165,8 @@ namespace mutagen
         static constexpr int kPayloads = 24;
         std::array<Genome, kPayloads>        genomePayloads;
         std::array<OrganismState, kPayloads> organismPayloads;
-        std::atomic<int> payloadWrite { 0 };
+        std::array<std::atomic<bool>, kPayloads> payloadBusy {};
+        juce::SpinLock commandProducerLock;
 
         // ---- source hand-off --------------------------------------
         std::atomic<SourceMaterial*> pendingSource { nullptr };
@@ -193,10 +200,15 @@ namespace mutagen
         // prepareToPlay, under ringLock, which the message/render threads hold
         // while copying - so a host re-prepare can never free memory mid-read.
         // Write heads are published once per block.
+        story::DreamRoomFx roomFx;
+        std::array<std::atomic<float>, 9> roomTarget { 5.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
+        std::atomic<bool> roomActive { false };
+        int roomTailSamples = 0;
+        void writeOutputRing (const juce::AudioBuffer<float>&, int);
         juce::AudioBuffer<float> captureRing, outputRing;
         std::atomic<int> captureWritePos { 0 }, outputWritePos { 0 };
         mutable juce::SpinLock ringLock;
-        static void writeRing (juce::AudioBuffer<float>&, std::atomic<int>&, const float*, int);
+        void writeRing (juce::AudioBuffer<float>&, std::atomic<int>&, const float*, int);
         void readRing (const juce::AudioBuffer<float>&, const std::atomic<int>&,
                        juce::AudioBuffer<float>& dst, float seconds, int minSamples) const;
 

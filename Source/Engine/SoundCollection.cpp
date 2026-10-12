@@ -142,6 +142,8 @@ namespace mutagen
                 p.highestActSeen = juce::jlimit (0, story::actCount, (int) o->getProperty ("highestActSeen"));
                 p.runsPlayed = (int) o->getProperty ("runsPlayed");
                 p.twistsSeen = (std::uint32_t) (int) o->getProperty ("twistsSeen");
+                p.roomsSolved = (std::uint32_t) (int) o->getProperty ("roomsSolved");
+                p.relics = (std::uint32_t) (int) o->getProperty ("relics");
                 p.secrets = (std::uint64_t) o->getProperty ("secrets").toString().getLargeIntValue();
                 p.introSeen = (bool) o->getProperty ("introSeen");
                 p.plotFloor = juce::jlimit (1, story::actCount, (int) o->getProperty ("plotFloor"));
@@ -166,6 +168,7 @@ namespace mutagen
             story::Progress p = mine;
             p.lexicon |= disk.lexicon;
             p.twistsSeen |= disk.twistsSeen;
+            p.roomsSolved |= disk.roomsSolved; p.relics |= disk.relics;
             p.secrets |= disk.secrets;
             p.chanceSeen |= disk.chanceSeen;
             p.knowledge = juce::jmax (p.knowledge, disk.knowledge);
@@ -210,6 +213,8 @@ namespace mutagen
             o->setProperty ("highestActSeen", p.highestActSeen);
             o->setProperty ("runsPlayed", p.runsPlayed);
             o->setProperty ("twistsSeen", (int) p.twistsSeen);
+            o->setProperty ("roomsSolved", (int) p.roomsSolved);
+            o->setProperty ("relics", (int) p.relics);
             o->setProperty ("secrets", juce::String ((juce::int64) p.secrets));
             o->setProperty ("knowledge", (juce::int64) p.knowledge);
             o->setProperty ("factSeed", juce::String ((juce::int64) p.factSeed));

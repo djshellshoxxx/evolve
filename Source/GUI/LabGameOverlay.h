@@ -45,6 +45,7 @@ namespace mutagen
                       bool positive);
 
         void paint (juce::Graphics&) override;
+        void setOfferTitle (const juce::String& text) { title = text; repaint(); }
         void resized() override;
 
     private:

@@ -90,5 +90,37 @@ int main()
 
     std::printf ("finite=%d bounded=%d passesWhenOff=%d audibleWhenOn=%d (change %.0f%%)\n",
                  (int) finite, (int) bounded, (int) passesWhenOff, (int) audibleWhenOn, change * 100.0);
-    return (finite && bounded && passesWhenOff && audibleWhenOn) ? 0 : 1;
+    auto processor = std::make_unique<MutagenProcessor>();
+    processor->setPlayConfigDetails (2, 2, 48000.0, 512);
+    processor->prepareToPlay (48000.0, 512);
+    setParam (*processor, "pluginRole", 1); setParam (*processor, "dryWet", 0); setParam (*processor, "morphMix", 0);
+    juce::AudioBuffer<float> input (2, 512); input.clear();
+    for (int i = 0; i < 512; ++i) { input.setSample (0, i, 0.2f); input.setSample (1, i, -0.1f); }
+    juce::MidiBuffer midi;
+    processor->processBlock (input, midi);
+    juce::AudioBuffer<float> recorded;
+    processor->copyRecentOutput (recorded, 512.0f / 48000.0f);
+    const bool stereoCapture = recorded.getNumChannels() == 2 && recorded.getNumSamples() > 0
+        && std::abs (recorded.getSample (0, recorded.getNumSamples() - 1) - recorded.getSample (1, recorded.getNumSamples() - 1)) > 0.1f;
+    Genome genome;
+    bool payloadBounded = true;
+    for (int i = 0; i < 24; ++i)
+    {
+        EngineCommand c; c.type = CommandType::injectGenome; c.ia = 0; c.ib = 1;
+        c.payloadIndex = processor->stageGenomePayload (genome);
+        payloadBounded &= c.payloadIndex >= 0 && processor->pushCommand (c);
+    }
+    payloadBounded &= processor->stageGenomePayload (genome) == -1;
+    processor->processBlock (input, midi);
+    EngineCommand reuse; reuse.type = CommandType::injectGenome; reuse.ib = 1;
+    reuse.payloadIndex = processor->stageGenomePayload (genome);
+    payloadBounded &= reuse.payloadIndex >= 0 && processor->pushCommand (reuse);
+    processor->savedRunScore.store (123456); processor->savedRunSeconds.store (78.5); processor->savedRunId.store (9876);
+    juce::MemoryBlock state; processor->getStateInformation (state);
+    auto restored = std::make_unique<MutagenProcessor>();
+    restored->setStateInformation (state.getData(), (int) state.getSize());
+    const bool scoreRestored = restored->savedRunScore.load() == 123456 && restored->savedRunSeconds.load() == 78.5
+        && restored->savedRunId.load() == 9876;
+    std::printf ("Integration: stereo=%d payloadOwnership=%d scoreState=%d\n", stereoCapture, payloadBounded, scoreRestored);
+    return (stereoCapture && payloadBounded && scoreRestored && finite && bounded && passesWhenOff && audibleWhenOn) ? 0 : 1;
 }

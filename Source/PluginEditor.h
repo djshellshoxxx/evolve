@@ -24,6 +24,7 @@
 #include "GUI/ProgressionView.h"
 #include "GUI/HauntedOverlay.h"
 #include "GUI/LabGameOverlay.h"
+#include "GUI/EncounterOverlay.h"
 #include "GUI/StoryPanel.h"
 #include "GUI/SecretLayer.h"
 #include "GUI/StoryFx.h"
@@ -98,6 +99,13 @@ namespace mutagen
         PerformanceView   performance;
         FxRackView        fxRack;
         LabGameOverlay    labGameOverlay;
+        EncounterOverlay encounter;
+        struct EncounterNote { int pitch; double offAt; bool started = false; };
+        std::vector<EncounterNote> encounterNotes;
+        double encounterClock = 0;
+        unsigned scoreRestoreRevision = 0;
+        void wireEncounters();
+        void serviceEncounters (double dt, bool paused);
         StoryPanel        storyPanel { processor };
         SecretLayer       secretLayer { processor, chamber, storyPanel };
         StoryFx           storyFx;

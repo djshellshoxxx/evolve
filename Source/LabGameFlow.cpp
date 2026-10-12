@@ -9,6 +9,7 @@
 // over says one true thing about that instrument.
 
 #include "PluginEditor.h"
+#include "Engine/Entropy.h"
 
 namespace mutagen
 {
@@ -36,6 +37,57 @@ namespace mutagen
         }
 
         enum Instrument { snare, tom, bassDrum, strings, tambourine, kazoo, bassDrop, pianoKey, clap, pad, upSweep, genericSound };
+    }
+
+    void MutagenEditor::wireEncounters()
+    {
+        addChildComponent (encounter);
+        encounter.onNote = [this] (int n, double seconds)
+        {
+            const int pitch = juce::jlimit (0, 127, n);
+            for (auto& note : encounterNotes)
+                if (note.pitch == pitch) { note.offAt = encounterClock + seconds; return; }
+            if (encounterNotes.size() < 64)
+            {
+                processor.keyboardState.noteOn (1, pitch, 0.65f);
+                encounterNotes.push_back ({ pitch, encounterClock + seconds, true });
+            }
+        };
+        encounter.onRoomTargets = [this] (const story::RoomTargets& t) { processor.setRoomTargets (t); };
+        encounter.onFinished = [this] (EncounterOverlay::Kind k, bool won, std::uint32_t mask)
+        {
+            if (won)
+            {
+                scoreSystem.adjustScore (1500, "ENCOUNTER SOLVED");
+                progressionSystem.recordGameCompleted();
+                storyPanel.recordEncounter (k == EncounterOverlay::Kind::room ? mask : 0,
+                                            k == EncounterOverlay::Kind::tuner ? mask : 0);
+                storyPanel.grantFactReward();
+            }
+            presentNextLabGame();
+        };
+    }
+
+    void MutagenEditor::serviceEncounters (double dt, bool paused)
+    {
+        encounterClock += dt;
+        // JUCE's keyboard queue carries both note-on and note-off to the audio thread.
+        for (auto i = encounterNotes.begin(); i != encounterNotes.end();)
+            if (encounterClock >= i->offAt)
+            { processor.keyboardState.noteOff (1, i->pitch, 0.0f); i = encounterNotes.erase (i); }
+            else ++i;
+        if (encounter.isVisible() && ! introOverlay.isVisible() && ! nameOverlay.isVisible()
+            && ! helpView.isVisible() && ! optionsView.isVisible()) encounter.tick (dt);
+        if (paused || encounter.isVisible()) return;
+        const int minute = (int) (playSeconds / 60.0);
+        if (minute == lastGameMinuteBucket || minute <= 0) return;
+        int kind = -1;
+        if (hauntedRng.rollInclusive (1, 97) == 1) kind = 0;
+        else if (hauntedRng.rollInclusive (1, 131) == 1) kind = 1;
+        else if (hauntedRng.rollInclusive (1, 173) == 1) kind = 2;
+        if (kind >= 0)
+            encounter.begin ((EncounterOverlay::Kind) kind, globalEntropy().nextSeed(), storyPanel.act(),
+                             storyPanel.run().mode, storyPanel.run().root, storyPanel.progress().relics);
     }
 
     void MutagenEditor::wireLabGames()
@@ -267,11 +319,12 @@ namespace mutagen
         if (pendingGames.size() >= (allowRepeat ? 6u : 3u)) return;
         if (! allowRepeat && std::find (pendingGames.begin(), pendingGames.end(), g) != pendingGames.end()) return;
         pendingGames.push_back (g);
-        if (! labGameOverlay.isVisible()) presentNextLabGame();
+        if (! labGameOverlay.isVisible() && ! encounter.isVisible()) presentNextLabGame();
     }
 
     void MutagenEditor::presentNextLabGame()
     {
+        if (encounter.isVisible()) return;
         if (pendingGames.empty())
         {
             labGameOverlay.setVisible (false);
@@ -287,9 +340,9 @@ namespace mutagen
         switch (g)
         {
             case PendingGame::roulette:      labGameOverlay.showRoulette (scoreSystem.score()); break;
-            case PendingGame::phantomMonte: monteWinningCard = hauntedRng.rollInclusive (0, 2); labGameOverlay.showMonte(); break;
-            case PendingGame::eclipseSlots: labGameOverlay.showSlots(); break;
-            case PendingGame::spectralDice: labGameOverlay.showDice(); break;
+            case PendingGame::phantomMonte: monteWinningCard = hauntedRng.rollInclusive (0, 2); labGameOverlay.showMonte(); labGameOverlay.setOfferTitle ("PHANTOM MONTE"); break;
+            case PendingGame::eclipseSlots: labGameOverlay.showSlots(); labGameOverlay.setOfferTitle ("ECLIPSE SLOTS"); break;
+            case PendingGame::spectralDice: labGameOverlay.showDice(); labGameOverlay.setOfferTitle ("SPECTRAL DICE"); break;
             case PendingGame::skillRoulette: labGameOverlay.showRoulette (scoreSystem.score(), true); break;
             case PendingGame::monte:         monteWinningCard = hauntedRng.rollInclusive (0, 2); labGameOverlay.showMonte(); break;
             case PendingGame::slots:         labGameOverlay.showSlots(); break;

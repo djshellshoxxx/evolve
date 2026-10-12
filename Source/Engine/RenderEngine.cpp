@@ -35,13 +35,9 @@ namespace mutagen
 
         if (! threadShouldExit() && proc != nullptr)
         {
-            juce::AudioBuffer<float> mono;
-            proc->copyRecentOutput (mono, total);
-
+            juce::AudioBuffer<float> stereo;
+            proc->copyRecentOutput (stereo, total);
             const double sr = proc->currentSampleRate();
-            juce::AudioBuffer<float> stereo (2, mono.getNumSamples());
-            stereo.copyFrom (0, 0, mono, 0, 0, mono.getNumSamples());
-            stereo.copyFrom (1, 0, mono, 0, 0, mono.getNumSamples());
 
             if (out.getFileExtension().isEmpty()) out = out.withFileExtension ("wav");
             out.deleteFile();
@@ -50,7 +46,7 @@ namespace mutagen
             if (auto* stream = out.createOutputStream().release())
             {
                 std::unique_ptr<juce::AudioFormatWriter> writer (
-                    wav.createWriterFor (stream, sr, 2, 24, {}, 0));
+                    wav.createWriterFor (stream, sr, (unsigned int) stereo.getNumChannels(), 24, {}, 0));
                 if (writer != nullptr)
                 {
                     ok = writer->writeFromAudioSampleBuffer (stereo, 0, stereo.getNumSamples());

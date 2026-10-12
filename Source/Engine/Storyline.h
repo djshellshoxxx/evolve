@@ -200,6 +200,7 @@ namespace mutagen::story
         int runsPlayed = 0;
         std::uint32_t twistsSeen = 0;
         std::uint64_t secrets = 0;  // bit per secret room found
+        std::uint32_t roomsSolved = 0, relics = 0;
         bool introSeen = false;
         std::string playerName;
         int plotFloor = 1;          // acts opened by time alone (one per 30 minutes of play)

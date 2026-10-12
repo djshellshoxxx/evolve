@@ -47,8 +47,15 @@ namespace mutagen
                         juce::Justification::centred);
         }
 
-        void mouseDown (const juce::MouseEvent& e) override { drag (e); }
-        void mouseDrag (const juce::MouseEvent& e) override { drag (e); }
+        void mouseDown (const juce::MouseEvent& e) override
+        {
+            if (! e.mods.isPopupMenu()) { drag (e); return; }
+            juce::PopupMenu m; m.addItem (1, "Centre XY");
+            auto safe = juce::Component::SafePointer<XYPad> (this);
+            m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this), [safe] (int result)
+            { if (safe != nullptr && result == 1) { safe->xSlider.setValue (0.5); safe->ySlider.setValue (0.5); safe->repaint(); } });
+        }
+        void mouseDrag (const juce::MouseEvent& e) override { if (! e.mods.isPopupMenu()) drag (e); }
 
     private:
         void drag (const juce::MouseEvent& e)
