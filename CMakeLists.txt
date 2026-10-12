@@ -316,4 +316,11 @@ if(MUTAGEN_BUILD_TESTS)
     add_executable(MutagenMusicFactsTest Tests/MusicFactsTest.cpp Source/Engine/MusicFacts.cpp)
     target_include_directories(MutagenMusicFactsTest PRIVATE Source)
     add_test(NAME MutagenMusicFactsTest COMMAND MutagenMusicFactsTest)
+
+    # Pure-header engines for the story encounters (no JUCE needed).
+    foreach(name Phantom TunerDuel DreamRooms)
+        add_executable(Mutagen${name}Test Tests/${name}Test.cpp)
+        target_include_directories(Mutagen${name}Test PRIVATE Source)
+        add_test(NAME Mutagen${name}Test COMMAND Mutagen${name}Test)
+    endforeach()
 endif()

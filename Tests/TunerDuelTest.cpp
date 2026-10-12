@@ -1,5 +1,6 @@
 // MUTAGEN - Tuner Duel pure-logic tests (no JUCE).
 #include "Engine/TunerDuel.h"
+#include <cmath>
 #include <cstdio>
 
 using namespace mutagen::story;
