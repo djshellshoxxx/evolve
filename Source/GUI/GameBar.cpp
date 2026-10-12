@@ -146,6 +146,16 @@ namespace mutagen
         water.setTooltip ("Slows down one random thing: an oscillator, an LFO lane, or the loop.");
         micArm.setTooltip ("Arm the microphone. Output is muted while capturing, "
                            "and a howl detector aborts if feedback starts.");
+        // These actions are not APVTS parameters; give each an explicit hover description.
+        newWorld.setTooltip ("Start a new colony world. Replaces the current evolving sound.");
+        saveRun.setTooltip ("Save the current colony, score and run statistics to a .mutagen file.");
+        loadRun.setTooltip ("Restore a previously saved .mutagen run.");
+        scores.setTooltip ("View the local high-score leaderboard.");
+        journal.setTooltip ("Open the persistent research journal and unlocked discoveries.");
+        micCapture.setTooltip ("Capture four seconds from the armed microphone. Output stays muted during capture.");
+        pitchKnob.setTooltip ("Drag up or down to mutate pitch. Speed controls intensity; the knob springs back.");
+        lfoKnob.setTooltip ("Drag to mutate modulation movement. Direction and speed influence a random outcome.");
+        oscKnob.setTooltip ("Drag to mutate oscillator character. Each gesture has a fresh random outcome.");
 
         addAndMakeVisible (pitchKnob);
         addAndMakeVisible (lfoKnob);
