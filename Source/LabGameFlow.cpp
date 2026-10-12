@@ -53,9 +53,17 @@ namespace mutagen
                 encounterNotes.push_back ({ pitch, encounterClock + seconds, true });
             }
         };
+        encounter.onNoteStop = [this] (int pitch)
+        {
+            processor.keyboardState.noteOff (1, pitch, 0.0f);
+            encounterNotes.erase (std::remove_if (encounterNotes.begin(), encounterNotes.end(),
+                [pitch] (const EncounterNote& note) { return note.pitch == pitch; }), encounterNotes.end());
+        };
         encounter.onRoomTargets = [this] (const story::RoomTargets& t) { processor.setRoomTargets (t); };
         encounter.onFinished = [this] (EncounterOverlay::Kind k, bool won, std::uint32_t mask)
         {
+            for (const auto& note : encounterNotes) processor.keyboardState.noteOff (1, note.pitch, 0.0f);
+            encounterNotes.clear();
             if (won)
             {
                 scoreSystem.adjustScore (1500, "ENCOUNTER SOLVED");

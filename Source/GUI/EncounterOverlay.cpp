@@ -12,7 +12,7 @@ void EncounterOverlay::begin (Kind k, std::uint64_t seed, int act, int mode, int
 {
     kind = k; rng = story::Rng (seed); rootNote = root;
     clock = 0; position = 0.5; clicked = false; grabbed = -1;
-    answer.clear(); scheduled.clear(); room.reset(); steps.clear();
+    answer.clear(); scheduled.clear(); tunerNotes.clear(); room.reset(); steps.clear();
     for (int s : story::modes()[(size_t) std::clamp (mode, 0, (int) story::modes().size() - 1)].steps)
         if (s != story::kNo) steps.push_back (s);
     if (k == Kind::room)
@@ -77,7 +77,10 @@ void EncounterOverlay::tick (double dt)
         if (duel.state() != lastDuelState)
         {
             lastDuelState = duel.state();
-            for (int n : duel.notesToPlay()) if (onNote) onNote (n, 1.5);
+            for (int n : tunerNotes) if (onNoteStop) onNoteStop (n);
+            tunerNotes = duel.notesToPlay();
+            const double duration = duel.state() == story::duel::State::resolve ? duel.resolveTimeLeft() + 0.1 : 2.2;
+            for (int n : tunerNotes) if (onNote) onNote (n, duration);
         }
         if (duel.finished()) { finish (duel.state() == story::duel::State::won, duel.relicMask()); return; }
     }
@@ -108,8 +111,12 @@ void EncounterOverlay::paint (juce::Graphics& g)
         g.fillEllipse (field.getX() + (float) position * field.getWidth() - 7, field.getCentreY() - 7, 14, 14);
         if (room->hintActive())
         {
-            const double p = room->id() == story::RoomId::combHall ? room->combSolvePos() : room->gardenDriftNow();
-            g.setColour (juce::Colours::gold); g.drawVerticalLine ((int) (field.getX() + p * field.getWidth()), field.getY(), field.getBottom());
+            g.setColour (juce::Colours::gold);
+            auto marker = [&] (double p) { g.drawVerticalLine ((int) (field.getX() + p * field.getWidth()), field.getY(), field.getBottom()); };
+            if (room->id() == story::RoomId::combHall) marker (room->combSolvePos());
+            else if (room->id() == story::RoomId::phaseGarden) marker (room->gardenDriftNow());
+            else if (room->id() == story::RoomId::standingWave)
+                for (double p : room->standingSpots()) marker (p);
         }
         if (room->id() == story::RoomId::dopplerCarousel)
             for (int i = 0; i < 3; ++i)
@@ -160,7 +167,16 @@ void EncounterOverlay::mouseDown (const juce::MouseEvent& e)
 void EncounterOverlay::mouseDrag (const juce::MouseEvent& e)
 { position = std::clamp ((double) ((e.position.x - field.getX()) / std::max (1.0f, field.getWidth())), 0.0, 1.0); }
 void EncounterOverlay::mouseUp (const juce::MouseEvent&)
-{ if (grabbed >= 0) { duel.drop (grabbed, (float) position); grabbed = -1; } }
+{
+    if (grabbed < 0) return;
+    const auto cells = duel.cells();
+    if (duel.drop (grabbed, (float) position) == story::duel::DropResult::correct)
+    {
+        if ((size_t) grabbed < cells.size() && onNoteStop) onNoteStop (cells[(size_t) grabbed].pitch);
+        if (onNote) onNote (duel.xToPitch ((float) position), 0.8);
+    }
+    grabbed = -1;
+}
 bool EncounterOverlay::keyPressed (const juce::KeyPress& k)
 { if (k == juce::KeyPress::escapeKey) { finish (false); return true; } return false; }
 }

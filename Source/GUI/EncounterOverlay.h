@@ -21,6 +21,7 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     bool keyPressed (const juce::KeyPress&) override;
     std::function<void(int, double)> onNote;
+    std::function<void(int)> onNoteStop;
     std::function<void(const story::RoomTargets&)> onRoomTargets;
     std::function<void(Kind, bool, std::uint32_t)> onFinished;
 private:
@@ -35,6 +36,7 @@ private:
     story::duel::State lastDuelState = story::duel::State::idle;
     struct Scheduled { double at; int note; };
     std::vector<Scheduled> scheduled;
+    std::vector<int> tunerNotes;
     juce::TextButton leave { "LEAVE" };
     Kind kind = Kind::room;
     int rootNote = 60, grabbed = -1;
