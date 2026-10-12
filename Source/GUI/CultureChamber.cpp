@@ -733,7 +733,7 @@ namespace mutagen
         {
             const auto ext = juce::File (f).getFileExtension().toLowerCase();
             if (ext == ".wav" || ext == ".aif" || ext == ".aiff" || ext == ".mp3"
-                || ext == ".flac" || ext == ".ogg" || ext == ".m4a")
+                || ext == ".flac" || ext == ".ogg")
                 return true;
         }
         return false;
