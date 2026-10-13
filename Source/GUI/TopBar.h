@@ -62,7 +62,12 @@ namespace mutagen
             and show whatever is currently loaded. */
         void refreshPresets();
         void randomiseSound() { doRandomise(); }
-        void toggleFxView() { fxToggle.triggerClick(); }
+        void toggleFxView()
+        { fxToggle.setToggleState (! fxToggle.getToggleState(), juce::dontSendNotification); if (fxToggle.onClick) fxToggle.onClick(); }
+        void closeFxView()
+        { fxToggle.setToggleState (false, juce::dontSendNotification); if (fxToggle.onClick) fxToggle.onClick(); }
+        void closePerformanceView()
+        { perfToggle.setToggleState (false, juce::dontSendNotification); if (perfToggle.onClick) perfToggle.onClick(); }
 
         /** Transient message in the header - "saved X", "loaded Y". Clears
             itself after a few seconds. */

@@ -278,8 +278,12 @@ namespace mutagen
                 if (! child->isVisible()) continue;
                 if (child == &encounter) return encounter.keyPressed (key);
                 if (child == &labGameOverlay) { presentNextLabGame(); return true; }
-                for (juce::Component* overlay : std::array<juce::Component*, 6> { &optionsView, &helpView,
-                        &progressionView, &breedingLab, &performance, &fxRack })
+                if (child == &performance)
+                { topBar.closePerformanceView(); topBar.grabKeyboardFocus(); return true; }
+                if (child == &fxRack)
+                { topBar.closeFxView(); topBar.grabKeyboardFocus(); return true; }
+                for (juce::Component* overlay : std::array<juce::Component*, 4> { &optionsView, &helpView,
+                        &progressionView, &breedingLab })
                     if (child == overlay)
                     { overlay->setVisible (false); topBar.grabKeyboardFocus(); return true; }
             }

@@ -36,6 +36,13 @@ int main()
     p->processBlock (input, midi); CHECK (std::abs (input.getSample (0, 0) - 0.25f) < 1.0e-5f);
     set (*p, params::pluginRole, 0); p->processBlockBypassed (input, midi);
     CHECK (input.getMagnitude (0, input.getNumSamples()) == 0);
+    p->setPlayConfigDetails (1, 2, 48000, 128);
+    set (*p, params::pluginRole, 1); input.clear();
+    input.setSample (0, 0, 0.25f); input.setSample (1, 0, 0.7f);
+    p->processBlockBypassed (input, midi);
+    CHECK (input.getSample (0, 0) == 0.25f); CHECK (input.getSample (1, 0) == 0.25f);
+    CHECK (input.getSample (1, 1) == 0.0f);
+    p->setPlayConfigDetails (2, 2, 48000, 128);
     set (*p, params::memory, 0.2f); p->parameterSlots.switchTo (true);
     set (*p, params::memory, 0.8f); p->parameterSlots.switchTo (false);
     CHECK (std::abs (p->apvts.getRawParameterValue (params::memory)->load() - 0.2f) < 0.001f);
@@ -62,11 +69,13 @@ int main()
     {
         editor->setSize (1060, 740);
         OptionsView* options = nullptr; HelpView* help = nullptr; GameBar* actions = nullptr;
+        TopBar* topBar = nullptr;
         for (auto* child : editor->getChildren())
         {
             if (dynamic_cast<IntroOverlay*> (child) || dynamic_cast<NameOverlay*> (child)) child->setVisible (false);
             if (auto* toolbar = dynamic_cast<TopBar*> (child))
             {
+                topBar = toolbar;
                 auto* selector = dynamic_cast<juce::ComboBox*> (toolbar->findChildWithID ("factoryPresetSelector"));
                 CHECK (selector != nullptr && selector->getSelectedId() == 3);
             }
@@ -80,6 +89,25 @@ int main()
         CHECK (editor->keyPressed (juce::KeyPress (juce::KeyPress::escapeKey))); CHECK (! restored->midiLearn.isLearning());
         if (help != nullptr)
         { help->setVisible (true); CHECK (editor->keyPressed (juce::KeyPress (juce::KeyPress::escapeKey))); CHECK (! help->isVisible()); }
+        if (topBar != nullptr)
+        {
+            auto* fx = dynamic_cast<juce::Button*> (topBar->findChildWithID ("fxViewToggle"));
+            auto* perform = dynamic_cast<juce::Button*> (topBar->findChildWithID ("performanceViewToggle"));
+            CHECK (fx != nullptr && perform != nullptr);
+            for (int i = 0; i < 2 && fx != nullptr; ++i)
+            {
+                CHECK (editor->keyPressed (juce::KeyPress ('F', juce::ModifierKeys (juce::ModifierKeys::ctrlModifier | juce::ModifierKeys::shiftModifier), 0)));
+                CHECK (fx->getToggleState());
+                CHECK (editor->keyPressed (juce::KeyPress (juce::KeyPress::escapeKey)));
+                CHECK (! fx->getToggleState());
+            }
+            if (perform != nullptr)
+            {
+                perform->setToggleState (true, juce::dontSendNotification); perform->onClick();
+                CHECK (editor->keyPressed (juce::KeyPress (juce::KeyPress::escapeKey)));
+                CHECK (! perform->getToggleState());
+            }
+        }
         if (options != nullptr && options->onHoverValuesChanged)
         { options->onHoverValuesChanged (false); options->onHoverValuesChanged (true); }
         if (actions != nullptr && actions->onNewWorld)

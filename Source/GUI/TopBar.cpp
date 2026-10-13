@@ -262,6 +262,7 @@ namespace mutagen
             setStatus ("reset to defaults");
         };
 
+        perfToggle.setComponentID ("performanceViewToggle");
         perfToggle.setClickingTogglesState (true);
         perfToggle.getProperties().set ("tint", (int) spectralV.getARGB());
         perfToggle.setTooltip ("The performance page: macros, the XY pad and the keyboard");
@@ -271,6 +272,7 @@ namespace mutagen
             if (onPerformanceToggled) onPerformanceToggled (perfToggle.getToggleState());
         };
 
+        fxToggle.setComponentID ("fxViewToggle");
         fxToggle.setClickingTogglesState (true);
         fxToggle.getProperties().set ("tint", (int) infection.getARGB());
         fxToggle.setTooltip ("The post-colony rack: oscillators, filter, LFOs, EQ, gator, glitch");

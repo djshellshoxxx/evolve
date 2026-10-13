@@ -88,7 +88,12 @@ void MutagenProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, j
     const bool instrument = (int) p (params::pluginRole)->load() == (int) params::PluginRole::instrument;
     const int inputChannels = getTotalNumInputChannels();
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
-        if (instrument || ch >= inputChannels) buffer.clear (ch, 0, buffer.getNumSamples());
+        if (instrument || inputChannels == 0) buffer.clear (ch, 0, buffer.getNumSamples());
+        else if (ch >= inputChannels)
+        {
+            if (inputChannels == 1) buffer.copyFrom (ch, 0, buffer, 0, 0, buffer.getNumSamples());
+            else buffer.clear (ch, 0, buffer.getNumSamples());
+        }
 }
 
 bool MutagenProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
