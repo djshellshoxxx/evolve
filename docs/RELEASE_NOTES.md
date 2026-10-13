@@ -94,3 +94,8 @@ This is a **beta**. The new story, animations and events are covered by automate
 - Windows x64: standalone `.exe` (static runtime), VST3, CLAP
 - Linux x64: standalone, VST3, CLAP
 - macOS universal: app, AU, VST3, CLAP (unsigned; right-click → Open the first time)
+
+
+## 0.3.0-beta.4
+
+Completes host factory programs and bypass, saves A/B comparisons in projects, adds keyboard/Escape/MIDI-learn workflows, fixes live hover values and gesture tooltips, and aligns audio import filters with compiled readers. New regressions cover host state, bypass, import and UI actions. Native screen-reader, high-DPI/multi-monitor, device unplug and DAW/listening QA remain unverified.

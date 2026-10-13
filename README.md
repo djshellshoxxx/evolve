@@ -494,3 +494,5 @@ The DAW program browser exposes the factory environments, beginning with Factory
 Escape cancels MIDI learn or closes the current dismissible overlay. Ctrl/Cmd+Shift with R, F, J, H or M invokes Random, FX, Journal, Help or a centre mutation. Shortcuts are inactive during text entry and modal views. Gesture knobs accept Up/Down; the XY field accepts arrows and Shift for smaller steps. Hover value changes apply immediately to the open editor.
 
 RESET SOUND keeps the score and achievements while resetting the sound, parameters and MIDI mappings. NEW WORLD starts a fresh score run and chance-game schedule. Standalone device choices are saved by JUCE; DAW plugin devices remain host-owned. Supported audio import formats come from the readers registered by each platform build.
+
+Maintainers can publish a fresh beta from a reviewed main merge by including `[release:beta.4]` (with an unused suffix) in the merge commit message. All platform builds and tests must pass before publication; existing releases are never overwritten. Normal merges only build artifacts. Tag and manual-dispatch releases remain supported.
