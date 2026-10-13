@@ -9,7 +9,21 @@ namespace mutagen
     class PerformanceView::XYPad : public juce::Component
     {
     public:
-        XYPad (juce::Slider& xs, juce::Slider& ys) : xSlider (xs), ySlider (ys) {}
+        XYPad (juce::Slider& xs, juce::Slider& ys) : xSlider (xs), ySlider (ys)
+        { setName ("Stability and reproductive aggression XY field"); setDescription ("Arrow keys adjust each axis. Shift uses smaller steps."); setWantsKeyboardFocus (true); }
+        bool keyPressed (const juce::KeyPress& key) override
+        {
+            const double step = key.getModifiers().isShiftDown() ? 0.01 : 0.05;
+            const int code = key.getKeyCode();
+            if (code == juce::KeyPress::leftKey) xSlider.setValue (xSlider.getValue() - step);
+            else if (code == juce::KeyPress::rightKey) xSlider.setValue (xSlider.getValue() + step);
+            else if (code == juce::KeyPress::upKey) ySlider.setValue (ySlider.getValue() + step);
+            else if (code == juce::KeyPress::downKey) ySlider.setValue (ySlider.getValue() - step);
+            else return false;
+            repaint(); return true;
+        }
+        std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override
+        { return std::make_unique<juce::AccessibilityHandler> (*this, juce::AccessibilityRole::group); }
 
         void paint (juce::Graphics& g) override
         {

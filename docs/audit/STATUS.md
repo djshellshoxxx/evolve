@@ -36,3 +36,15 @@ F-04/05/06/08/12/18/19 and W9/W11 are addressed by the integration follow-up; se
 - W9: payload slots reused without acknowledgement (needs a design decision)
 - W11: lab-game clock counts overlay time (intent unclear)
 - Performance (estimates from reading, not measured): per-sample `cos` and `fmod` in the resonator and grain paths (`Cells.cpp`), per-block EQ filter allocation (`PostChain.cpp`), large by-value state copies on the audio thread, 40 Hz full repaints in several GUI components, the O(N^2) fitness sharing in `Colony.cpp`. Profile before changing the DSP ones.
+
+## PR #18 follow-up
+
+Implemented: GameBar tooltip interface/build fix and keyboard gestures (F-13); live hover and drag value updates (F-14); overlay Escape, guarded shortcuts and MIDI learn cancellation (F-15/16/17); explicit Reset Sound versus new world/run score and scheduling semantics (F-20); host factory program names and deferred off-message selection (F-21); dry/silent host bypass and note-release handling (F-22); zero fixed graph latency with dry impulse coverage (F-23); expanded Help and platform/device contracts (F-24/26/27); registered-reader file filters with actionable decode errors (F-28); oscillator tooltip cleanup (F-29); processor-owned versioned A/B snapshots (F-30); Factory Default label with legacy Init matching (F-33).
+
+F-25: verified that JUCE's standalone holder calls reloadAudioDeviceState during setup and saveAudioDeviceState during shutdown. Removed unused duplicate AppOptions device-state accessors; native device unplug/restart checks remain pending.
+
+F-31: gesture accessibility actions and keyboard control, named parameter sliders, keyboard XY axes and a guarded keyboard centre mutation are implemented. Native screen-reader and full focus-navigation verification remain pending.
+
+F-32: retains the existing 1060x740 logical minimum; shrinking to 700 would reduce established panel space. Host regression checks visible top-level bounds at the minimum. Native 125/150/200% screenshots, multi-monitor movement and screen-reader/DAW listening QA remain unverified.
+
+Validation includes MutagenHostFeaturesTest for programs, bypass, dry impulse latency, A/B project restore and malformed slots, import filtering, Escape/MIDI learn, new-run score reset and minimum-size bounds; GUI smoke covers action tooltips and keyboard gestures. Latest CI must pass before merge. Broad DSP profiling and native QA are not claimed complete.

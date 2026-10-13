@@ -1,3 +1,4 @@
+#include "../Source/GUI/GameBar.h"
 #include "../Source/GUI/EncounterOverlay.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Source/GUI/ScoreHud.h"
@@ -171,7 +172,18 @@ int main()
     encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
     std::printf ("Encounter integration: phantom=%d room=%d tuner=%d close=%d\n", phantomPlays, roomAudio, tunerPlays, oneCompletion);
 
-    return (phantomPlays && roomAudio && tunerPlays && oneCompletion && chamberPassesThrough && scoreCaptures && tableCaptures
+    GameBar gameBar;
+    bool allActionTooltips = true;
+    for (auto* child : gameBar.getChildren())
+        if (dynamic_cast<juce::Button*> (child) || dynamic_cast<GestureKnob*> (child))
+        { auto* tooltip = dynamic_cast<juce::TooltipClient*> (child); allActionTooltips &= tooltip != nullptr && tooltip->getTooltip().isNotEmpty(); }
+    GestureKnob gesture ("Test", juce::Colours::white); int gestureCalls = 0;
+    gesture.onGesture = [&] (float amount, float speed) { if (amount != 0 && speed > 0) ++gestureCalls; };
+    gesture.keyPressed (juce::KeyPress (juce::KeyPress::upKey));
+    gesture.keyPressed (juce::KeyPress (juce::KeyPress::downKey));
+    const bool keyboardGestures = gestureCalls == 2 && gesture.getWantsKeyboardFocus();
+    std::printf ("Action tooltips=%d keyboard gestures=%d\n", allActionTooltips, keyboardGestures);
+    return (allActionTooltips && keyboardGestures && phantomPlays && roomAudio && tunerPlays && oneCompletion && chamberPassesThrough && scoreCaptures && tableCaptures
             && directionProfiles && counterProfile && diceProfiles
             && steeringIntensity && storyFxDraws && factToastDraws) ? 0 : 1;
 }

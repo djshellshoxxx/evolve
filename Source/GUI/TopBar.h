@@ -61,6 +61,8 @@ namespace mutagen
         /** Rebuild the preset list from the factory bank and the user folder,
             and show whatever is currently loaded. */
         void refreshPresets();
+        void randomiseSound() { doRandomise(); }
+        void toggleFxView() { fxToggle.triggerClick(); }
 
         /** Transient message in the header - "saved X", "loaded Y". Clears
             itself after a few seconds. */
@@ -120,15 +122,14 @@ namespace mutagen
         ParamButton      reanimateBtn { "Reanimate" };
         ParamButton      exportBtn    { "Export" };
         ParamButton      randomBtn    { "RANDOM" };
-        ParamButton      resetBtn     { "RESET" };
+        ParamButton      resetBtn     { "RESET SOUND" };
 
         ParamButton      perfToggle   { "Perform" };
         ParamButton      fxToggle     { "FX" };
         ParamButton      inspToggle   { "Inspector" };
 
         // A/B: two whole parameter states, switched under the running colony.
-        juce::ValueTree  slotA, slotB;
-        bool             onSlotB = false;
+        bool onSlotB = false;
 
         std::unique_ptr<juce::FileChooser> chooser;
         juce::StringArray userNames;

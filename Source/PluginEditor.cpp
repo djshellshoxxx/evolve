@@ -254,6 +254,61 @@ namespace mutagen
         setLookAndFeel (nullptr);
     }
 
+    void MutagenEditor::applyHoverValues (bool enabled)
+    {
+        std::function<void(juce::Component&)> visit = [&] (juce::Component& c)
+        {
+            if (auto* slider = dynamic_cast<ParamSlider*> (&c))
+                slider->setPopupDisplayEnabled (enabled, enabled, slider->getParentComponent());
+            for (auto* child : c.getChildren()) visit (*child);
+        };
+        visit (*this);
+    }
+
+    bool MutagenEditor::keyPressed (const juce::KeyPress& key)
+    {
+        if (key.getKeyCode() == juce::KeyPress::escapeKey)
+        {
+            if (processor.midiLearn.isLearning())
+            { processor.midiLearn.cancelLearn(); topBar.setStatus ("MIDI learn cancelled"); return true; }
+            if (introOverlay.isVisible() || nameOverlay.isVisible()) return false;
+            for (int i = getNumChildComponents() - 1; i >= 0; --i)
+            {
+                auto* child = getChildComponent (i);
+                if (! child->isVisible()) continue;
+                if (child == &encounter) return encounter.keyPressed (key);
+                if (child == &labGameOverlay) { presentNextLabGame(); return true; }
+                for (juce::Component* overlay : std::array<juce::Component*, 6> { &optionsView, &helpView,
+                        &progressionView, &breedingLab, &performance, &fxRack })
+                    if (child == overlay)
+                    { overlay->setVisible (false); topBar.grabKeyboardFocus(); return true; }
+            }
+            if (scoreHud.isTableVisible()) { scoreHud.setTableVisible (false); return true; }
+            return false;
+        }
+        auto* focus = juce::Component::getCurrentlyFocusedComponent();
+        if (focus != nullptr && (dynamic_cast<juce::TextEditor*> (focus) != nullptr
+            || focus->findParentComponentOfClass<juce::TextEditor>() != nullptr)) return false;
+        if (introOverlay.isVisible() || nameOverlay.isVisible() || encounter.isVisible()
+            || labGameOverlay.isVisible() || helpView.isVisible() || optionsView.isVisible()
+            || progressionView.isVisible() || breedingLab.isVisible() || performance.isVisible() || fxRack.isVisible()) return false;
+        const auto modifiers = key.getModifiers();
+        if (! modifiers.isShiftDown() || (! modifiers.isCtrlDown() && ! modifiers.isCommandDown()) || modifiers.isAltDown()) return false;
+        switch (juce::CharacterFunctions::toUpperCase ((juce::juce_wchar) key.getKeyCode()))
+        {
+            case 'R': topBar.randomiseSound(); return true;
+            case 'F': topBar.toggleFxView(); return true;
+            case 'J': if (gameBar.onJournal) gameBar.onJournal(); return true;
+            case 'H': if (topBar.onHelp) topBar.onHelp(); return true;
+            case 'M':
+            {
+                EngineCommand c; c.type = CommandType::mutateAt; c.fa = c.fb = 0.5f; c.fc = 0.2f; c.fd = 0.5f;
+                processor.pushCommand (c); return true;
+            }
+            default: return false;
+        }
+    }
+
     void MutagenEditor::mouseDown (const juce::MouseEvent& e)
     {
         handleHiddenClick (e);
@@ -544,6 +599,7 @@ namespace mutagen
         helpView.onClose    = [this] { helpView.setVisible (false); };
         optionsView.onClose = [this] { optionsView.setVisible (false); };
         optionsView.onTooltipsChanged = [this] (bool on) { applyTooltipSetting (on); };
+        optionsView.onHoverValuesChanged = [this] (bool on) { applyHoverValues (on); };
 
         topBar.onSaveRun = [this] { saveRun(); };
         topBar.onLoadRun = [this] { loadRun(); };
@@ -630,8 +686,19 @@ namespace mutagen
         // ---- run controls -------------------------------------------------
         gameBar.onNewWorld = [this]
         {
+            encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+            pendingGames.clear(); labGameOverlay.setVisible (false);
+            storyPanel.restartRun();
+            scoreSystem.reset(); playSeconds = 0; lastGameMinuteBucket = 0; lastSeenScore = 0;
+            scratchTickets = scratchStreak = diceLossStreak = skillsEarnedThisGame = 0;
+            millionChecked = squidsChecked = giantsChecked = false;
+            lastDivisibleEventSec = lastCreatureDiscoverySec = lastHiddenEffectSec = -100.0;
+            spontaneousPhantomTicks = 0;
+            processor.cancelHauntedMicCapture(); hiddenMicAwaitingReplay = false;
+            processor.savedRunScore.store (0); processor.savedRunSeconds.store (0);
+            processor.savedRunId.store (scoreSystem.currentRunId().getLargeIntValue());
             processor.rollNewWorld();
-            scoreSystem.registerInteraction (1.0f, "NEW WORLD");
+            scoreSystem.registerInteraction (1.0f, "NEW RUN");
         };
 
         gameBar.onSaveRun  = [this] { saveRun(); };

@@ -20,6 +20,7 @@
 #include "Engine/Ingest.h"
 #include "Engine/MidiLearn.h"
 #include "Engine/PresetManager.h"
+#include "Engine/ParameterSlots.h"
 
 namespace mutagen
 {
@@ -36,7 +37,7 @@ namespace mutagen
         Heavier payloads (a genome, a whole organism, freshly analysed source
         material) travel through dedicated slots referenced by the command.
         ================================================================ */
-    class MutagenProcessor : public juce::AudioProcessor
+    class MutagenProcessor : public juce::AudioProcessor, private juce::Timer
     {
     public:
         MutagenProcessor();
@@ -46,6 +47,7 @@ namespace mutagen
         void releaseResources() override;
         bool isBusesLayoutSupported (const BusesLayout&) const override;
         void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+        void processBlockBypassed (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
         juce::AudioProcessorEditor* createEditor() override;
         bool hasEditor() const override { return true; }
@@ -56,10 +58,10 @@ namespace mutagen
         bool isMidiEffect() const override { return false; }
         double getTailLengthSeconds() const override { return 8.0; }
 
-        int getNumPrograms() override { return 1; }
-        int getCurrentProgram() override { return 0; }
-        void setCurrentProgram (int) override {}
-        const juce::String getProgramName (int) override { return "Colony"; }
+        int getNumPrograms() override;
+        int getCurrentProgram() override { return currentProgram.load(); }
+        void setCurrentProgram (int) override;
+        const juce::String getProgramName (int) override;
         void changeProgramName (int, const juce::String&) override {}
 
         void getStateInformation (juce::MemoryBlock&) override;
@@ -77,6 +79,7 @@ namespace mutagen
 
         /** The factory bank and the user's own presets. Message thread. */
         PresetManager  presets { apvts };
+        ParameterSlots parameterSlots { apvts };
 
         /** Latest visual snapshot for the GUI. Safe to call from the message
             thread; copies the most recently published buffer. */
@@ -131,6 +134,8 @@ namespace mutagen
         juce::String organismName { "MUTAGEN" };
 
     private:
+        void timerCallback() override;
+        std::atomic<int> currentProgram { 0 }, pendingProgram { -1 };
         void pullCommands();
         void applyCommand (const EngineCommand& c);
         void updateEnvironmentFromParameters();
@@ -167,6 +172,7 @@ namespace mutagen
         std::array<OrganismState, kPayloads> organismPayloads;
         std::array<std::atomic<bool>, kPayloads> payloadBusy {};
         juce::SpinLock commandProducerLock;
+        std::array<std::atomic<std::uint64_t>, 2> pendingReleases {};
 
         // ---- source hand-off --------------------------------------
         std::atomic<SourceMaterial*> pendingSource { nullptr };
@@ -245,6 +251,7 @@ namespace mutagen
 
         /** Re-roll the rules of the run (tuning, palette, tempo, routing). */
         void rollNewWorld();
+        void releaseNoteReliably (int pitch);
 
         /** Fold a user gesture into the entropy pool. Where the player clicked
             and - more usefully - the exact moment they did it are both things

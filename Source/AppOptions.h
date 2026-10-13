@@ -29,14 +29,6 @@ namespace mutagen
         bool showValueOnHover() const { return props->getBoolValue ("hoverValues", true); }
         void setShowValueOnHover (bool b) { props->setValue ("hoverValues", b); props->saveIfNeeded(); }
 
-        /** Saved standalone audio/MIDI device setup, as an XML string. */
-        juce::String audioDeviceState() const { return props->getValue ("audioDeviceState"); }
-        void setAudioDeviceState (const juce::String& xml)
-        {
-            props->setValue ("audioDeviceState", xml);
-            props->saveIfNeeded();
-        }
-
         static juce::File settingsDirectory()
         {
             return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)

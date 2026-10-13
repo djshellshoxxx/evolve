@@ -87,7 +87,7 @@ namespace mutagen
 
         juce::AudioProcessorValueTreeState& apvts;
         juce::File   current;
-        juce::String currentDisplayName { "Init" };
+        juce::String currentDisplayName { "Factory Default" };
         bool         modified = false;
         bool         hasRandomised = false;
         juce::Random rng;

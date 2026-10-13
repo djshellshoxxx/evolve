@@ -9,6 +9,7 @@
 #include "Engine/Entropy.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <cmath>
+#include <bit>
 #include <vector>
 
 using namespace mutagen;
@@ -38,16 +39,57 @@ MutagenProcessor::MutagenProcessor()
 
     // The MIDI map addresses parameters by index into this processor's
     // parameter list, so it has to be built after the APVTS layout exists.
+    (void) PresetManager::factoryPresets();
     midiLearn.prepare (*this);
+    setLatencySamples (0); // dry path and processing graph have no common fixed delay
+    startTimerHz (30);
 }
 
 MutagenProcessor::~MutagenProcessor()
 {
+    stopTimer();
     delete pendingSource.exchange (nullptr);
     delete retiredSource.exchange (nullptr);
 }
 
 // ---------------------------------------------------------------------------
+
+int MutagenProcessor::getNumPrograms() { return (int) PresetManager::factoryPresets().size(); }
+const juce::String MutagenProcessor::getProgramName (int index)
+{
+    return juce::isPositiveAndBelow (index, getNumPrograms()) ? PresetManager::factoryPresets()[(size_t) index].name : "";
+}
+void MutagenProcessor::setCurrentProgram (int index)
+{
+    if (! juce::isPositiveAndBelow (index, getNumPrograms())) return;
+    currentProgram.store (index);
+    // Hosts may request a program on their audio thread. Only stage an integer there.
+    auto* messages = juce::MessageManager::getInstanceWithoutCreating();
+    if (messages != nullptr && messages->isThisTheMessageThread())
+    { pendingProgram.store (-1); presets.loadFactory (index); }
+    else pendingProgram.store (index, std::memory_order_release);
+}
+void MutagenProcessor::timerCallback()
+{
+    const int index = pendingProgram.exchange (-1, std::memory_order_acquire);
+    if (index >= 0) presets.loadFactory (index);
+}
+void MutagenProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+{
+    juce::ScopedNoDenormals noDenormals;
+    pullCommands();
+    keyboardState.processNextMidiBuffer (midi, 0, buffer.getNumSamples(), true);
+    for (const auto event : midi)
+    {
+        const auto message = event.getMessage();
+        if (message.isNoteOff()) { colony.noteOff (message.getNoteNumber()); postChain.noteOff (message.getNoteNumber()); heldNoteCount = juce::jmax (0, heldNoteCount - 1); }
+        else if (message.isAllNotesOff() || message.isAllSoundOff()) { colony.allNotesOff(); postChain.allNotesOff(); heldNoteCount = 0; }
+    }
+    const bool instrument = (int) p (params::pluginRole)->load() == (int) params::PluginRole::instrument;
+    const int inputChannels = getTotalNumInputChannels();
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+        if (instrument || ch >= inputChannels) buffer.clear (ch, 0, buffer.getNumSamples());
+}
 
 bool MutagenProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
@@ -444,6 +486,13 @@ bool MutagenProcessor::pushCommand (const EngineCommand& c)
     return true;
 }
 
+void MutagenProcessor::releaseNoteReliably (int pitch)
+{
+    if (pitch < 0 || pitch > 127) return;
+    EngineCommand c; c.type = CommandType::noteRelease; c.ia = pitch;
+    if (! pushCommand (c)) pendingReleases[(size_t) (pitch / 64)].fetch_or (1ULL << (pitch % 64), std::memory_order_release);
+}
+
 void MutagenProcessor::pullCommands()
 {
     int tail = cmdTail.load (std::memory_order_relaxed);
@@ -458,6 +507,15 @@ void MutagenProcessor::pullCommands()
         tail = (tail + 1) % kCmdRing;
     }
     cmdTail.store (tail, std::memory_order_release);
+    for (int word = 0; word < 2; ++word)
+    {
+        auto bits = pendingReleases[(size_t) word].exchange (0, std::memory_order_acquire);
+        while (bits != 0)
+        {
+            const int pitch = word * 64 + (int) std::countr_zero (bits);
+            colony.noteOff (pitch); postChain.noteOff (pitch); bits &= bits - 1;
+        }
+    }
 }
 
 int MutagenProcessor::stageGenomePayload (const Genome& g)
@@ -1265,6 +1323,8 @@ void MutagenProcessor::getStateInformation (juce::MemoryBlock& destData)
     root.setProperty ("seconds", savedRunSeconds.load(), nullptr);
 
     root.appendChild (apvts.copyState(), nullptr);
+    root.appendChild (parameterSlots.toValueTree(), nullptr);
+    root.setProperty ("program", currentProgram.load(), nullptr);
 
     // current organism (frozen genome / population / seed / env / history)
     const auto organism = latestOrganism();
@@ -1293,6 +1353,10 @@ void MutagenProcessor::setStateInformation (const void* data, int sizeInBytes)
 
     if (auto apvtsChild = root.getChildWithName (apvts.state.getType()); apvtsChild.isValid())
         apvts.replaceState (apvtsChild);
+
+    parameterSlots.fromValueTree (root.getChildWithName ("PARAMETER_SLOTS"));
+    currentProgram.store (juce::jlimit (0, getNumPrograms() - 1, (int) root.getProperty ("program", 0)));
+    pendingProgram.store (-1);
 
     if (auto evo = root.getChildWithName ("EVOLUTION"); evo.isValid())
         history.fromValueTree (evo);

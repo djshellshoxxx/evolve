@@ -257,6 +257,7 @@ if(MUTAGEN_BUILD_TESTS)
     juce_add_console_app(MutagenGuiSmokeTest PRODUCT_NAME "MutagenGuiSmokeTest")
 
     target_sources(MutagenGuiSmokeTest PRIVATE
+        Source/GUI/GameBar.cpp
         Tests/GuiSmokeTest.cpp
         Source/GUI/EncounterOverlay.cpp
         Source/GUI/ScoreHud.cpp
@@ -325,4 +326,13 @@ if(MUTAGEN_BUILD_TESTS)
         target_include_directories(Mutagen${name}Test PRIVATE Source)
         add_test(NAME Mutagen${name}Test COMMAND Mutagen${name}Test)
     endforeach()
+    juce_add_console_app(MutagenHostFeaturesTest PRODUCT_NAME "MutagenHostFeaturesTest")
+    target_sources(MutagenHostFeaturesTest PRIVATE Tests/HostFeaturesTest.cpp)
+    target_include_directories(MutagenHostFeaturesTest PRIVATE Source)
+    target_compile_definitions(MutagenHostFeaturesTest PRIVATE
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1 JUCE_REPORT_APP_USAGE=0)
+    target_link_libraries(MutagenHostFeaturesTest PRIVATE MUTAGEN
+        juce::juce_gui_extra PUBLIC juce::juce_recommended_config_flags)
+    add_test(NAME MutagenHostFeaturesTest COMMAND MutagenHostFeaturesTest)
+
 endif()

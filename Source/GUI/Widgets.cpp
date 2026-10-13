@@ -12,6 +12,8 @@ namespace mutagen
                               juce::Colour tint, bool big)
         : isBig (big)
     {
+        slider.setName (caption);
+        slider.setDescription (paramID);
         slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         slider.setTextBoxStyle (juce::Slider::NoTextBox, false, 10, 10);
         slider.setColour (juce::Slider::rotarySliderFillColourId, tint);
@@ -22,7 +24,7 @@ namespace mutagen
         slider.setVelocityBasedMode (false);
         // The house rule: the value appears over the knob while you hover or
         // drag it, and the caption is what you see the rest of the time.
-        slider.setPopupDisplayEnabled (AppOptions::get().showValueOnHover(), true, this);
+        slider.setPopupDisplayEnabled (AppOptions::get().showValueOnHover(), AppOptions::get().showValueOnHover(), this);
 
         // Right-click gets Set Value / Reset / Map to MIDI, which needs the
         // control to know which parameter it drives.

@@ -486,3 +486,11 @@ See [LICENSE](LICENSE).
 Rare play-minute rolls reveal acoustic Dream Rooms, a Phantom call-and-answer encounter, or a Tuner chord-resolution duel. Move and click in a room, click scale notes to answer the Phantom, or drag orange Tuner cells into the lower target rings. Each encounter can be left without a penalty. Solved rooms and earned relics persist. Phantom Monte, Eclipse Slots and Spectral Dice also appear through independent chance offers.
 
 Audio export offers 4, 8, 12 or 30 seconds of stereo capture while in Instrument role. The Environment page includes Memory, and the Performance XY field has a right-click centre action.
+
+### Host and keyboard workflow
+
+The DAW program browser exposes the factory environments, beginning with Factory Default (the former Init). Host bypass silences Instrument output and passes through Effect/Hybrid input. Both A/B snapshots are saved with the host project. The processing graph reports zero fixed latency; creative delay/reverb times are effects rather than host compensation delay.
+
+Escape cancels MIDI learn or closes the current dismissible overlay. Ctrl/Cmd+Shift with R, F, J, H or M invokes Random, FX, Journal, Help or a centre mutation. Shortcuts are inactive during text entry and modal views. Gesture knobs accept Up/Down; the XY field accepts arrows and Shift for smaller steps. Hover value changes apply immediately to the open editor.
+
+RESET SOUND keeps the score and achievements while resetting the sound, parameters and MIDI mappings. NEW WORLD starts a fresh score run and chance-game schedule. Standalone device choices are saved by JUCE; DAW plugin devices remain host-owned. Supported audio import formats come from the readers registered by each platform build.

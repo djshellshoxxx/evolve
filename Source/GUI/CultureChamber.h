@@ -42,6 +42,8 @@ namespace mutagen
         void update (const EngineSnapshot& snap, double dtSeconds);
 
         void resized() override;
+        std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override
+        { return std::make_unique<juce::AccessibilityHandler> (*this, juce::AccessibilityRole::group); }
         void paint (juce::Graphics&) override;
         void mouseDown (const juce::MouseEvent&) override;
         void mouseDrag (const juce::MouseEvent&) override;

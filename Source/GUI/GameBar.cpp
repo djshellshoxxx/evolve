@@ -13,8 +13,25 @@ namespace mutagen
     GestureKnob::GestureKnob (juce::String labelText, juce::Colour accentColour)
         : label (std::move (labelText)), colour (accentColour)
     {
+        setName (label + " gesture");
+        setDescription ("Use Up or Down to apply a small gesture. This springs back and does not store a parameter value.");
+        setWantsKeyboardFocus (true);
         setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
         startTimerHz (40);
+    }
+
+    bool GestureKnob::keyPressed (const juce::KeyPress& key)
+    {
+        const int code = key.getKeyCode();
+        if (code != juce::KeyPress::upKey && code != juce::KeyPress::downKey) return false;
+        if (onGesture) onGesture (code == juce::KeyPress::upKey ? 0.1f : -0.1f, 0.25f);
+        return true;
+    }
+    std::unique_ptr<juce::AccessibilityHandler> GestureKnob::createAccessibilityHandler()
+    {
+        return std::make_unique<juce::AccessibilityHandler> (*this, juce::AccessibilityRole::button,
+            juce::AccessibilityActions().addAction (juce::AccessibilityActionType::press,
+                [this] { if (onGesture) onGesture (0.1f, 0.25f); }));
     }
 
     void GestureKnob::timerCallback()
@@ -147,7 +164,7 @@ namespace mutagen
         micArm.setTooltip ("Arm the microphone. Output is muted while capturing, "
                            "and a howl detector aborts if feedback starts.");
         // These actions are not APVTS parameters; give each an explicit hover description.
-        newWorld.setTooltip ("Start a new colony world. Replaces the current evolving sound.");
+        newWorld.setTooltip ("Start a fresh world and score run. Resets the run score and chance-game timers; keeps lifetime achievements.");
         saveRun.setTooltip ("Save the current colony, score and run statistics to a .mutagen file.");
         loadRun.setTooltip ("Restore a previously saved .mutagen run.");
         scores.setTooltip ("View the local high-score leaderboard.");

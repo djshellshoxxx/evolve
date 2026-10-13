@@ -365,6 +365,16 @@ namespace mutagen
                   "Breeding Lab cleared, source back to the default primitive, and the "
                   "colony regrown from a fresh seed." } } },
 
+            { "Keyboard and host integration", {
+                { "Escape", "Cancels armed MIDI learn first, then closes a dismissible overlay. Intro and name entry keep their own controls." },
+                { "Ctrl/Cmd + Shift", "R randomises sound, F opens FX, J opens the journal, H opens Help, M mutates the centre of the chamber. Shortcuts are disabled during text entry and modal views." },
+                { "Gesture knobs and XY", "Tab to a PITCH, LFO or OSC gesture knob and use Up/Down for a small gesture. Arrow keys adjust the focused XY field; Shift uses smaller steps." },
+                { "DAW programs and bypass", "The host preset browser lists the factory environments. Program changes preserve the living colony. Host bypass silences Instrument output and passes dry input through Effect/Hybrid output." },
+                { "A/B snapshots", "A and B compare parameter settings under the same colony. COPY copies the active setting into the other slot. Both slots and the selected slot travel with the host project." },
+                { "New World / Reset Sound", "NEW WORLD starts a new score run and chance-game clock, preserving lifetime achievements. RESET SOUND resets parameters, source, colony, history and MIDI mappings, preserving the current score and lifetime achievements." },
+                { "Audio import and export", "The audio file picker and drag filter use the decoders compiled into this build. Instrument export offers 4, 8, 12 or 30 seconds of stereo output. Story EXPORT WAV copies already collected sounds." },
+                { "Devices", "The standalone device manager restores its saved audio/MIDI setup on restart and falls back when hardware is unavailable. A DAW owns its plugins' devices." } } },
+
             { "Controls and Options", {
                 { "Right-click any control",
                   "Opens the control menu: Set Value (type an exact number), Reset to "

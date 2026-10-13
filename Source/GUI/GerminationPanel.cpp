@@ -1,3 +1,4 @@
+#include "../Engine/AudioImport.h"
 #include "GerminationPanel.h"
 #include "../PluginProcessor.h"
 #include "../Engine/OrganismSerialization.h"
@@ -127,18 +128,21 @@ namespace mutagen
     {
         chooser = std::make_unique<juce::FileChooser> (
             "Select audio to germinate from", juce::File{},
-            "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.ogg");
-        chooser->launchAsync (juce::FileBrowserComponent::openMode
-                              | juce::FileBrowserComponent::canSelectFiles,
-            [this] (const juce::FileChooser& fc)
+            audioImport::wildcard());
+        auto safe = juce::Component::SafePointer<GerminationPanel> (this);
+        chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [safe] (const juce::FileChooser& fc)
             {
+                if (safe == nullptr) return;
                 const auto f = fc.getResult();
-                if (f.existsAsFile() && processor.loadSourceFromFile (f))
+                if (f == juce::File{}) return;
+                if (f.existsAsFile() && safe->processor.loadSourceFromFile (f))
                 {
-                    sourceInfo.setText ("Seed: " + f.getFileName(), juce::dontSendNotification);
-                    setSourceChoice (params::SourceMode::sample);
-                    germinate();
+                    safe->sourceInfo.setText ("Seed: " + f.getFileName(), juce::dontSendNotification);
+                    safe->setSourceChoice (params::SourceMode::sample);
+                    safe->germinate();
                 }
+                else safe->sourceInfo.setText ("Could not decode audio. Choose a supported WAV, AIFF or FLAC file.", juce::dontSendNotification);
             });
     }
 
