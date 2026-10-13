@@ -61,6 +61,13 @@ namespace mutagen
         /** Rebuild the preset list from the factory bank and the user folder,
             and show whatever is currently loaded. */
         void refreshPresets();
+        void randomiseSound() { doRandomise(); }
+        void toggleFxView()
+        { fxToggle.setToggleState (! fxToggle.getToggleState(), juce::dontSendNotification); if (fxToggle.onClick) fxToggle.onClick(); }
+        void closeFxView()
+        { fxToggle.setToggleState (false, juce::dontSendNotification); if (fxToggle.onClick) fxToggle.onClick(); }
+        void closePerformanceView()
+        { perfToggle.setToggleState (false, juce::dontSendNotification); if (perfToggle.onClick) perfToggle.onClick(); }
 
         /** Transient message in the header - "saved X", "loaded Y". Clears
             itself after a few seconds. */
@@ -120,19 +127,20 @@ namespace mutagen
         ParamButton      reanimateBtn { "Reanimate" };
         ParamButton      exportBtn    { "Export" };
         ParamButton      randomBtn    { "RANDOM" };
-        ParamButton      resetBtn     { "RESET" };
+        ParamButton      resetBtn     { "RESET SOUND" };
 
         ParamButton      perfToggle   { "Perform" };
         ParamButton      fxToggle     { "FX" };
         ParamButton      inspToggle   { "Inspector" };
 
         // A/B: two whole parameter states, switched under the running colony.
-        juce::ValueTree  slotA, slotB;
-        bool             onSlotB = false;
+        bool onSlotB = false;
 
         std::unique_ptr<juce::FileChooser> chooser;
         juce::StringArray userNames;
         double statusClearAt = 0.0;
+        int displayedProgram = -1;
+        juce::String displayedPresetName;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TopBar)
     };

@@ -13,8 +13,25 @@ namespace mutagen
     GestureKnob::GestureKnob (juce::String labelText, juce::Colour accentColour)
         : label (std::move (labelText)), colour (accentColour)
     {
+        setName (label + " gesture");
+        setDescription ("Use Up or Down to apply a small gesture. This springs back and does not store a parameter value.");
+        setWantsKeyboardFocus (true);
         setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
         startTimerHz (40);
+    }
+
+    bool GestureKnob::keyPressed (const juce::KeyPress& key)
+    {
+        const int code = key.getKeyCode();
+        if (code != juce::KeyPress::upKey && code != juce::KeyPress::downKey) return false;
+        if (onGesture) onGesture (code == juce::KeyPress::upKey ? 0.1f : -0.1f, 0.25f);
+        return true;
+    }
+    std::unique_ptr<juce::AccessibilityHandler> GestureKnob::createAccessibilityHandler()
+    {
+        return std::make_unique<juce::AccessibilityHandler> (*this, juce::AccessibilityRole::button,
+            juce::AccessibilityActions().addAction (juce::AccessibilityActionType::press,
+                [this] { if (onGesture) onGesture (0.1f, 0.25f); }));
     }
 
     void GestureKnob::timerCallback()
@@ -146,6 +163,16 @@ namespace mutagen
         water.setTooltip ("Slows down one random thing: an oscillator, an LFO lane, or the loop.");
         micArm.setTooltip ("Arm the microphone. Output is muted while capturing, "
                            "and a howl detector aborts if feedback starts.");
+        // These actions are not APVTS parameters; give each an explicit hover description.
+        newWorld.setTooltip ("Start a fresh world and score run. Resets the run score and chance-game timers; keeps lifetime achievements.");
+        saveRun.setTooltip ("Save the current colony, score and run statistics to a .mutagen file.");
+        loadRun.setTooltip ("Restore a previously saved .mutagen run.");
+        scores.setTooltip ("View the local high-score leaderboard.");
+        journal.setTooltip ("Open the persistent research journal and unlocked discoveries.");
+        micCapture.setTooltip ("Capture four seconds from the armed microphone. Output stays muted during capture.");
+        pitchKnob.setTooltip ("Drag up or down to mutate pitch. Speed controls intensity; the knob springs back.");
+        lfoKnob.setTooltip ("Drag to mutate modulation movement. Direction and speed influence a random outcome.");
+        oscKnob.setTooltip ("Drag to mutate oscillator character. Each gesture has a fresh random outcome.");
 
         addAndMakeVisible (pitchKnob);
         addAndMakeVisible (lfoKnob);

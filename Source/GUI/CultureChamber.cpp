@@ -1,6 +1,7 @@
 #include "CultureChamber.h"
 #include "MutagenLookAndFeel.h"
 #include "../PluginProcessor.h"
+#include "../Engine/AudioImport.h"
 #include <cmath>
 
 namespace mutagen
@@ -19,7 +20,9 @@ namespace mutagen
     CultureChamber::CultureChamber (MutagenProcessor& p) : processor (p)
     {
         setOpaque (true);
-        setWantsKeyboardFocus (false);
+        setWantsKeyboardFocus (true);
+        setName ("Culture chamber");
+        setDescription ("Ctrl or Command plus Shift plus M mutates the centre of the colony. Mouse selects and inspects cells.");
     }
 
     void CultureChamber::resized()
@@ -729,13 +732,7 @@ namespace mutagen
 
     bool CultureChamber::isInterestedInFileDrag (const juce::StringArray& files)
     {
-        for (const auto& f : files)
-        {
-            const auto ext = juce::File (f).getFileExtension().toLowerCase();
-            if (ext == ".wav" || ext == ".aif" || ext == ".aiff" || ext == ".mp3"
-                || ext == ".flac" || ext == ".ogg" || ext == ".m4a")
-                return true;
-        }
+        for (const auto& f : files) if (audioImport::accepts (f)) return true;
         return false;
     }
 

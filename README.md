@@ -119,7 +119,7 @@ pair, the **options gear** and the **manual**.
 - **Presets** are the *environment*, not the organism — the conditions the colony
   lives in. Loading one changes the world and lets the running colony react to it,
   rather than replacing the thing that has been evolving. Twenty-odd factory presets in
-  six categories, plus your own in `%APPDATA%/MUTAGEN/Presets`.
+  six categories, plus your own in the platform application-data directory (`%APPDATA%/MUTAGEN/Presets` on Windows; `~/Library/MUTAGEN/Presets` on macOS).
 - **A/B** holds two whole parameter states and flips between them under the same living
   colony. The first switch copies the slot you are leaving into the empty one, so there
   is always something to compare against.
@@ -275,7 +275,7 @@ then written straight away as a **24-bit WAV** to
 |---|---|
 | Windows | `%APPDATA%\MUTAGEN\Collected Sounds` |
 | macOS | `~/Library/MUTAGEN/Collected Sounds` |
-| Linux | `~/.config/MUTAGEN/Collected Sounds` |
+| Linux | `$XDG_CONFIG_HOME/MUTAGEN/Collected Sounds` (defaults to `~/.config/MUTAGEN/Collected Sounds`) |
 
 **EXPORT WAV** copies the whole collection to a folder you choose.
 
@@ -486,3 +486,13 @@ See [LICENSE](LICENSE).
 Rare play-minute rolls reveal acoustic Dream Rooms, a Phantom call-and-answer encounter, or a Tuner chord-resolution duel. Move and click in a room, click scale notes to answer the Phantom, or drag orange Tuner cells into the lower target rings. Each encounter can be left without a penalty. Solved rooms and earned relics persist. Phantom Monte, Eclipse Slots and Spectral Dice also appear through independent chance offers.
 
 Audio export offers 4, 8, 12 or 30 seconds of stereo capture while in Instrument role. The Environment page includes Memory, and the Performance XY field has a right-click centre action.
+
+### Host and keyboard workflow
+
+The DAW program browser exposes the factory environments, beginning with Factory Default (the former Init). Host bypass silences Instrument output and passes through Effect/Hybrid input. Both A/B snapshots are saved with the host project. The processing graph reports zero fixed latency; creative delay/reverb times are effects rather than host compensation delay.
+
+Escape cancels MIDI learn or closes the current dismissible overlay. Ctrl/Cmd+Shift with R, F, J, H or M invokes Random, FX, Journal, Help or a centre mutation. Shortcuts are inactive during text entry and modal views. Gesture knobs accept Up/Down; the XY field accepts arrows and Shift for smaller steps. Hover value changes apply immediately to the open editor.
+
+RESET SOUND keeps the score and achievements while resetting the sound, parameters and MIDI mappings. NEW WORLD starts a fresh score run and chance-game schedule. Standalone device choices are saved by JUCE; DAW plugin devices remain host-owned. Supported audio import formats come from the readers registered by each platform build.
+
+Maintainers can publish a fresh beta from a reviewed main merge by including `[release:beta.4]` (with an unused suffix) in the merge commit subject. All platform builds and tests must pass before publication; existing releases are never overwritten. Normal merges only build artifacts. Tag and manual-dispatch releases remain supported.

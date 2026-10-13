@@ -17,6 +17,7 @@ namespace mutagen
         imply a setting you could return to, and there isn't one.
         ------------------------------------------------------------------ */
     class GestureKnob : public juce::Component,
+                        public juce::SettableTooltipClient,
                         private juce::Timer
     {
     public:
@@ -26,6 +27,8 @@ namespace mutagen
             speed is 0..1. */
         std::function<void (float amount, float speed)> onGesture;
 
+        bool keyPressed (const juce::KeyPress&) override;
+        std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override;
         void paint (juce::Graphics&) override;
         void mouseDown (const juce::MouseEvent&) override;
         void mouseDrag (const juce::MouseEvent&) override;

@@ -116,6 +116,8 @@ namespace mutagen
 
     TopBar::TopBar (MutagenProcessor& p) : processor (p)
     {
+        setWantsKeyboardFocus (true);
+        presetBox.setComponentID ("factoryPresetSelector");
         // ---- identity ---------------------------------------------------
         wordmark.setText ("MUTAGEN", juce::dontSendNotification);
         wordmark.setFont (uiFont (14.0f, true));
@@ -174,6 +176,9 @@ namespace mutagen
         bBtn.setTooltip ("Compare slot B. The first switch copies A into B, so you are "
                          "always comparing against something.");
         copyBtn.setTooltip ("Copy the slot you are in over the other one");
+        onSlotB = processor.parameterSlots.isB();
+        aBtn.setToggleState (! onSlotB, juce::dontSendNotification);
+        bBtn.setToggleState (onSlotB, juce::dontSendNotification);
         aBtn.onClick    = [this] { toggleAB (false); };
         bBtn.onClick    = [this] { toggleAB (true); };
         copyBtn.onClick = [this] { copyAcross(); };
@@ -239,7 +244,7 @@ namespace mutagen
                               "first resets first, so you get a new world rather than a "
                               "drift away from the last random one.");
         resetBtn.setTooltip ("Every parameter, the colony, the source and the MIDI "
-                             "mappings back to their defaults.");
+                             "mappings back to their defaults. Keeps the score and lifetime achievements.");
 
         cloneBtn.onClick     = [this] { if (onClone) onClone(); };
         freezeBtn.onClick    = [setParam] { setParam (params::exploreMode, 0.0f); };
@@ -257,6 +262,7 @@ namespace mutagen
             setStatus ("reset to defaults");
         };
 
+        perfToggle.setComponentID ("performanceViewToggle");
         perfToggle.setClickingTogglesState (true);
         perfToggle.getProperties().set ("tint", (int) spectralV.getARGB());
         perfToggle.setTooltip ("The performance page: macros, the XY pad and the keyboard");
@@ -266,6 +272,7 @@ namespace mutagen
             if (onPerformanceToggled) onPerformanceToggled (perfToggle.getToggleState());
         };
 
+        fxToggle.setComponentID ("fxViewToggle");
         fxToggle.setClickingTogglesState (true);
         fxToggle.getProperties().set ("tint", (int) infection.getARGB());
         fxToggle.setTooltip ("The post-colony rack: oscillators, filter, LFOs, EQ, gator, glitch");
@@ -320,13 +327,17 @@ namespace mutagen
 
         // Show what is actually loaded. A user preset and a factory preset can
         // share a name, so the file is checked first.
-        const auto currentName = processor.presets.currentName();
+        auto currentName = processor.presets.currentName();
+        if (processor.presets.currentFile() == juce::File{} && currentName == "Factory Default")
+            currentName = processor.getProgramName (processor.getCurrentProgram());
+        displayedProgram = processor.getCurrentProgram();
+        displayedPresetName = processor.presets.currentName();
         int id = 0;
         if (processor.presets.currentFile() != juce::File())
             id = firstUserId + userNames.indexOf (currentName);
         else
             for (int i = 0; i < factory.size(); ++i)
-                if (factory[i].fromFirstOccurrenceOf (": ", false, false) == currentName)
+                if (factory[i].fromFirstOccurrenceOf (": ", false, false) == (currentName == "Init" ? juce::String ("Factory Default") : currentName))
                     id = firstFactoryId + i;
 
         if (id >= firstFactoryId)
@@ -356,7 +367,7 @@ namespace mutagen
         }
         else
         {
-            processor.presets.loadFactory (id - firstFactoryId);
+            processor.setCurrentProgram (id - firstFactoryId);
             setStatus ("loaded " + processor.presets.currentName());
         }
     }
@@ -469,13 +480,7 @@ namespace mutagen
             return;
         }
 
-        (onSlotB ? slotB : slotA) = processor.apvts.copyState();
-
-        auto& target = wantB ? slotB : slotA;
-        if (! target.isValid())
-            target = processor.apvts.copyState();   // first visit: seed from here
-        else
-            processor.apvts.replaceState (target.createCopy());
+        processor.parameterSlots.switchTo (wantB);
 
         onSlotB = wantB;
         aBtn.setToggleState (! wantB, juce::dontSendNotification);
@@ -485,9 +490,7 @@ namespace mutagen
 
     void TopBar::copyAcross()
     {
-        const auto here = processor.apvts.copyState();
-        (onSlotB ? slotA : slotB) = here;
-        (onSlotB ? slotB : slotA) = here;
+        processor.parameterSlots.copyAcross();
         setStatus (onSlotB ? "B copied to A" : "A copied to B");
     }
 
@@ -563,12 +566,17 @@ namespace mutagen
 
     void TopBar::setStatus (const juce::String& s)
     {
+        statusLabel.setColour (juce::Label::textColourId, spectral);
         statusLabel.setText (s, juce::dontSendNotification);
         statusClearAt = juce::Time::getMillisecondCounterHiRes() * 0.001 + 4.0;
     }
 
     void TopBar::timerCallback()
     {
+        if (displayedProgram != processor.getCurrentProgram() || displayedPresetName != processor.presets.currentName()) refreshPresets();
+        onSlotB = processor.parameterSlots.isB();
+        aBtn.setToggleState (! onSlotB, juce::dontSendNotification);
+        bBtn.setToggleState (onSlotB, juce::dontSendNotification);
         if (statusClearAt > 0.0
             && juce::Time::getMillisecondCounterHiRes() * 0.001 > statusClearAt)
         {
@@ -665,8 +673,8 @@ namespace mutagen
         // ---- verb strip ---------------------------------------------------
         auto r = getLocalBounds().withTrimmedTop (headerRow).reduced (edgePadding, 4);
 
-        auto row = r.removeFromRight (566);
-        resetBtn.setBounds     (row.removeFromRight (56));
+        auto row = r.removeFromRight (602);
+        resetBtn.setBounds     (row.removeFromRight (92));
         row.removeFromRight (4);
         randomBtn.setBounds    (row.removeFromRight (66));
         row.removeFromRight (gridUnit);

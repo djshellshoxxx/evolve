@@ -33,6 +33,7 @@ namespace mutagen
 
         std::function<void()> onClose;
         std::function<void (bool)> onTooltipsChanged;
+        std::function<void (bool)> onHoverValuesChanged;
 
     private:
         MutagenProcessor& processor;

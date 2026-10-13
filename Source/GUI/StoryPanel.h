@@ -33,6 +33,7 @@ namespace mutagen
 
         /** Advance the director. Call from the editor's UI timer. */
         void tick (double dt, bool paused);
+        void restartRun();
 
         /** Queue a capture of the colony `delaySec` from now (so a reward
             sound that has just been triggered is inside the recording). */

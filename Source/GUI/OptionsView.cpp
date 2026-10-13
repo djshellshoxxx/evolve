@@ -25,7 +25,9 @@ namespace mutagen
         hoverValueToggle.setTooltip ("Show a knob's value while you hover or drag it");
         hoverValueToggle.onClick = [this]
         {
-            AppOptions::get().setShowValueOnHover (hoverValueToggle.getToggleState());
+            const bool on = hoverValueToggle.getToggleState();
+            AppOptions::get().setShowValueOnHover (on);
+            if (onHoverValuesChanged) onHoverValuesChanged (on);
         };
         addAndMakeVisible (hoverValueToggle);
 

@@ -50,6 +50,8 @@ namespace mutagen
         void paint (juce::Graphics&) override;
         void resized() override;
         void mouseDown (const juce::MouseEvent&) override;
+        bool keyPressed (const juce::KeyPress&) override;
+        void applyHoverValues (bool);
 
     private:
         void timerCallback() override;

@@ -19,7 +19,7 @@ namespace mutagen
         static const std::vector<FactoryPreset> bank =
         {
             // ---- Foundations -------------------------------------------
-            { "Init", "Foundations",
+            { "Factory Default", "Foundations",
               "Factory defaults. A balanced colony on the tonal seed - the "
               "starting point every other preset is a departure from.",
               {} },

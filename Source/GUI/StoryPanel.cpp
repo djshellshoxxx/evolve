@@ -45,6 +45,22 @@ namespace mutagen
         }
     }
 
+    void StoryPanel::restartRun()
+    {
+        releaseAll(); runStory = story::RunStory (freshSeed()); chanceDir = chance::Director (freshSeed());
+        ++prog.runsPlayed;
+        clock = playClock = factClock = quizWait = twistClock = 0;
+        for (auto& button : answerButtons) button.setVisible (false);
+        currentAct = 0; quizIndex = -1; keyIntroDone = false; keyIntroAt = 14;
+        lastManualCollect = -10; pendingFactRewards = 0;
+        captures.clear(); lineQueue.clear();
+        int mask = 0;
+        for (int step : story::modes()[(size_t) runStory.mode].steps)
+            if (step != story::kNo) mask |= 1 << (((step % 12) + 12) % 12);
+        processor.setMorphScale (mask, runStory.root % 12);
+        persist();
+    }
+
     StoryPanel::StoryPanel (MutagenProcessor& p)
         : processor (p), prog (storyio::load()), runStory (freshSeed()), chanceDir (freshSeed()),
           factDeck (factSeedFor (prog), prog.factCounter)
@@ -687,14 +703,7 @@ namespace mutagen
 
     void StoryPanel::releaseAll()
     {
-        for (const auto& n : noteQueue)
-            if (! n.on)
-            {
-                EngineCommand c;
-                c.type = CommandType::noteRelease;
-                c.ia = n.note;
-                processor.pushCommand (c);
-            }
+        for (const auto& n : noteQueue) if (! n.on) processor.releaseNoteReliably (n.note);
         noteQueue.clear();
     }
 

@@ -1,3 +1,11 @@
+## MUTAGEN 0.3.0 beta 4: Host and keyboard workflows
+
+Completes host factory programs and bypass, saves A/B comparisons in projects, adds keyboard/Escape/MIDI-learn workflows, fixes live hover values and gesture tooltips, and aligns audio import filters with compiled readers. New regressions cover host state, bypass, import and UI actions. Native screen-reader, high-DPI/multi-monitor, device unplug and DAW/listening QA remain unverified.
+
+Host bypass also preserves mono input across stereo outputs, and Escape keeps FX/performance toolbar state synchronized.
+
+---
+
 ## MUTAGEN 0.3.0 beta 3: Colony Morph
 
 This is a **beta**. The effect is covered by automated tests (including a headless run of the real processor), but it has not yet been heard on a wide range of hosts. Please report anything odd.
