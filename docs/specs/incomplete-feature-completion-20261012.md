@@ -56,7 +56,7 @@ Contract: support minimum 1060x700 and 125%/150%/200% desktop scales, with no cl
 Contract: plugin audio/MIDI hardware routing is host-controlled. Keep standalone device selection; in plugin mode show explanatory text and optional MIDI channel filter only if spec requires it. Amend include.md and Help so promises accurately distinguish standalone from DAW host. Acceptance: no misleading device picker in VST3/AU/CLAP.
 
 ### F-27 Platform paths
-Contract: use platform-accurate application-data locations for collected sounds and presets (macOS ~/Library/Application Support/MUTAGEN, Windows roaming app data, Linux platform-specific JUCE result); prefer userApplicationDataDirectory as canonical runtime source. Documentation must not promise hardcoded paths contrary to implementation. Validate README examples.
+Contract: use platform-accurate application-data locations for collected sounds and presets (macOS ~/Library/MUTAGEN for the pinned JUCE 8.0.6 runtime, Windows roaming app data, Linux platform-specific JUCE result); prefer userApplicationDataDirectory as canonical runtime source. Documentation must not promise hardcoded paths contrary to implementation. Validate README examples.
 
 ### F-28 M4A import filtering
 Contract: only advertise/allow formats supported by registered JUCE audio readers in each build. Remove unsupported .m4a from drag filter unless a decoder exists. Unsupported file must show actionable failure rather than silently modifying colony; supported WAV/AIFF/FLAC/MP3 handling checked platform by platform. Tests: file filter, bad extension, corrupt supported file, stereo data.

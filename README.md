@@ -119,7 +119,7 @@ pair, the **options gear** and the **manual**.
 - **Presets** are the *environment*, not the organism — the conditions the colony
   lives in. Loading one changes the world and lets the running colony react to it,
   rather than replacing the thing that has been evolving. Twenty-odd factory presets in
-  six categories, plus your own in the platform application-data directory (`%APPDATA%/MUTAGEN/Presets` on Windows; `~/Library/Application Support/MUTAGEN/Presets` on macOS).
+  six categories, plus your own in the platform application-data directory (`%APPDATA%/MUTAGEN/Presets` on Windows; `~/Library/MUTAGEN/Presets` on macOS).
 - **A/B** holds two whole parameter states and flips between them under the same living
   colony. The first switch copies the slot you are leaving into the empty one, so there
   is always something to compare against.
@@ -274,8 +274,8 @@ then written straight away as a **24-bit WAV** to
 | OS | Folder |
 |---|---|
 | Windows | `%APPDATA%\MUTAGEN\Collected Sounds` |
-| macOS | `~/Library/Application Support/MUTAGEN/Collected Sounds` |
-| Linux | `~/.config/MUTAGEN/Collected Sounds` |
+| macOS | `~/Library/MUTAGEN/Collected Sounds` |
+| Linux | `$XDG_CONFIG_HOME/MUTAGEN/Collected Sounds` (defaults to `~/.config/MUTAGEN/Collected Sounds`) |
 
 **EXPORT WAV** copies the whole collection to a folder you choose.
 

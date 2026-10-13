@@ -48,3 +48,5 @@ F-31: gesture accessibility actions and keyboard control, named parameter slider
 F-32: retains the existing 1060x740 logical minimum; shrinking to 700 would reduce established panel space. Host regression checks visible top-level bounds at the minimum. Native 125/150/200% screenshots, multi-monitor movement and screen-reader/DAW listening QA remain unverified.
 
 Validation includes MutagenHostFeaturesTest for programs, bypass, dry impulse latency, A/B project restore and malformed slots, import filtering, Escape/MIDI learn, new-run score reset and minimum-size bounds; GUI smoke covers action tooltips and keyboard gestures. Latest CI must pass before merge. Broad DSP profiling and native QA are not claimed complete.
+
+Path verification: the pinned JUCE 8.0.6 macOS implementation returns `~/Library` for `userApplicationDataDirectory`, so the actual MUTAGEN folder is `~/Library/MUTAGEN`. README now reflects the runtime rather than the previous incorrect Application Support claim. Linux honours `XDG_CONFIG_HOME`, defaulting to `~/.config`. Existing data locations are preserved.
