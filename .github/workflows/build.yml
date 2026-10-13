@@ -21,11 +21,15 @@ permissions:
 
 env:
   RELEASE_SUFFIX: ${{ inputs.suffix }}
+  RELEASE_PUBLISH: ${{ inputs.release }}
 
 jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.version.outputs.publish }}
     strategy:
       fail-fast: false
       matrix:
@@ -48,10 +52,14 @@ jobs:
             libxrender-dev libglu1-mesa-dev libgtk-3-dev ninja-build
 
       - name: Validate release version
+        id: version
         shell: bash
         run: |
           python tools/test_release_version.py
-          echo "VERSION=$(bash tools/release-version.sh)" >> "$GITHUB_ENV"
+          version=$(bash tools/release-version.sh)
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "publish=$(bash tools/release-version.sh --requested)" >> "$GITHUB_OUTPUT"
 
       - name: Configure
         shell: bash
@@ -96,8 +104,10 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release:'))
+    if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -106,7 +116,7 @@ jobs:
           merge-multiple: true
       - name: Version
         run: |
-          ver="$(bash tools/release-version.sh)"
+          ver="$RELEASE_VERSION"
           echo "VERSION=$ver" >> "$GITHUB_ENV"
           case "$ver" in *-*) echo "PRERELEASE=true" >> "$GITHUB_ENV" ;; *) echo "PRERELEASE=false" >> "$GITHUB_ENV" ;; esac
       - name: Refuse to replace a published release

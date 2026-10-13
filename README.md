@@ -495,4 +495,4 @@ Escape cancels MIDI learn or closes the current dismissible overlay. Ctrl/Cmd+Sh
 
 RESET SOUND keeps the score and achievements while resetting the sound, parameters and MIDI mappings. NEW WORLD starts a fresh score run and chance-game schedule. Standalone device choices are saved by JUCE; DAW plugin devices remain host-owned. Supported audio import formats come from the readers registered by each platform build.
 
-Maintainers can publish a fresh beta from a reviewed main merge by including `[release:beta.4]` (with an unused suffix) in the merge commit message. All platform builds and tests must pass before publication; existing releases are never overwritten. Normal merges only build artifacts. Tag and manual-dispatch releases remain supported.
+Maintainers can publish a fresh beta from a reviewed main merge by including `[release:beta.4]` (with an unused suffix) in the merge commit subject. All platform builds and tests must pass before publication; existing releases are never overwritten. Normal merges only build artifacts. Tag and manual-dispatch releases remain supported.
