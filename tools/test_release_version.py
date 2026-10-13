@@ -28,7 +28,7 @@ class VersionTest(unittest.TestCase):
             subprocess.run(['git', '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
                             'commit', '-qm', message, '--allow-empty'], cwd=root, check=True)
             env = dict(os.environ, GITHUB_EVENT_NAME=event, GITHUB_REF=ref, RELEASE_SUFFIX=suffix, GITHUB_SHA='HEAD')
-            return subprocess.run([BASH, str(SCRIPT)], cwd=root, env=env, text=True, capture_output=True)
+            return subprocess.run([BASH, SCRIPT.as_posix()], cwd=root, env=env, text=True, capture_output=True)
 
     def test_pull_request_cannot_release_by_marker(self):
         self.assertEqual(self.version(message='change [release:beta.4]').stdout.strip(), '0.3.0')
