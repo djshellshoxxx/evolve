@@ -41,8 +41,10 @@ int main()
     CHECK (std::abs (p->apvts.getRawParameterValue (params::memory)->load() - 0.2f) < 0.001f);
     p->parameterSlots.switchTo (true);
     CHECK (std::abs (p->apvts.getRawParameterValue (params::memory)->load() - 0.8f) < 0.001f);
+    p->setCurrentProgram (2);
     juce::MemoryBlock state; p->getStateInformation (state);
     auto restored = std::make_unique<MutagenProcessor>(); restored->setStateInformation (state.getData(), (int) state.getSize());
+    CHECK (restored->getCurrentProgram() == 2);
     CHECK (restored->parameterSlots.isB()); restored->parameterSlots.switchTo (false);
     CHECK (std::abs (restored->apvts.getRawParameterValue (params::memory)->load() - 0.2f) < 0.001f);
     auto malformed = p->parameterSlots.toValueTree();
@@ -63,6 +65,11 @@ int main()
         for (auto* child : editor->getChildren())
         {
             if (dynamic_cast<IntroOverlay*> (child) || dynamic_cast<NameOverlay*> (child)) child->setVisible (false);
+            if (auto* toolbar = dynamic_cast<TopBar*> (child))
+            {
+                auto* selector = dynamic_cast<juce::ComboBox*> (toolbar->findChildWithID ("factoryPresetSelector"));
+                CHECK (selector != nullptr && selector->getSelectedId() == 3);
+            }
             if (auto* view = dynamic_cast<OptionsView*> (child)) options = view;
             if (auto* view = dynamic_cast<HelpView*> (child)) help = view;
             if (auto* view = dynamic_cast<GameBar*> (child)) actions = view;

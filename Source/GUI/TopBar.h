@@ -134,6 +134,8 @@ namespace mutagen
         std::unique_ptr<juce::FileChooser> chooser;
         juce::StringArray userNames;
         double statusClearAt = 0.0;
+        int displayedProgram = -1;
+        juce::String displayedPresetName;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TopBar)
     };

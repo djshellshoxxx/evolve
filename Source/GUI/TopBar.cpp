@@ -117,6 +117,7 @@ namespace mutagen
     TopBar::TopBar (MutagenProcessor& p) : processor (p)
     {
         setWantsKeyboardFocus (true);
+        presetBox.setComponentID ("factoryPresetSelector");
         // ---- identity ---------------------------------------------------
         wordmark.setText ("MUTAGEN", juce::dontSendNotification);
         wordmark.setFont (uiFont (14.0f, true));
@@ -324,7 +325,11 @@ namespace mutagen
 
         // Show what is actually loaded. A user preset and a factory preset can
         // share a name, so the file is checked first.
-        const auto currentName = processor.presets.currentName();
+        auto currentName = processor.presets.currentName();
+        if (processor.presets.currentFile() == juce::File{} && currentName == "Factory Default")
+            currentName = processor.getProgramName (processor.getCurrentProgram());
+        displayedProgram = processor.getCurrentProgram();
+        displayedPresetName = processor.presets.currentName();
         int id = 0;
         if (processor.presets.currentFile() != juce::File())
             id = firstUserId + userNames.indexOf (currentName);
@@ -559,12 +564,14 @@ namespace mutagen
 
     void TopBar::setStatus (const juce::String& s)
     {
+        statusLabel.setColour (juce::Label::textColourId, spectral);
         statusLabel.setText (s, juce::dontSendNotification);
         statusClearAt = juce::Time::getMillisecondCounterHiRes() * 0.001 + 4.0;
     }
 
     void TopBar::timerCallback()
     {
+        if (displayedProgram != processor.getCurrentProgram() || displayedPresetName != processor.presets.currentName()) refreshPresets();
         onSlotB = processor.parameterSlots.isB();
         aBtn.setToggleState (! onSlotB, juce::dontSendNotification);
         bBtn.setToggleState (onSlotB, juce::dontSendNotification);
