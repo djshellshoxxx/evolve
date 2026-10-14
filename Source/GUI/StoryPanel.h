@@ -7,6 +7,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Engine/Storyline.h"
+#include "../Engine/Encore.h"
 #include "../Engine/ChanceEvents.h"
 #include "../Engine/MusicFacts.h"
 #include "../Engine/SoundCollection.h"
@@ -65,6 +66,9 @@ namespace mutagen
 
         const story::Progress& progress() const { return prog; }
 
+        /** The Echo Chorale ended with this many rounds cleared (lifetime best is kept). */
+        void recordEncore (int rounds) { prog.encoreBest = juce::jmax (prog.encoreBest, juce::jlimit (0, story::encore::kRounds, rounds)); persist(); repaint(); }
+
         /** Secrets, the intro and the odd visitors report back through these. */
         void markSecret (int id) { prog.secrets |= (std::uint64_t) 1 << id; persist(); repaint(); }
         void recordEncounter (std::uint32_t rooms, std::uint32_t relics) { prog.roomsSolved |= rooms; prog.relics |= relics; persist(); }
@@ -85,6 +89,16 @@ namespace mutagen
         /** Make the colony perform something (notes are offsets from the run's root). */
         void perform (story::Effect, const std::array<int, 4>& notes, int param);
         const story::RunStory& run() const { return runStory; }
+
+        /** True once, 30 s of play after the finale: the Echo Chorale encore is due. */
+        bool encoreDue (double dt)
+        {
+            if (! runStory.finaleDone || runStory.encoreOffered) return false;
+            runStory.encoreCountdown -= dt;
+            if (runStory.encoreCountdown > 0.0) return false;
+            runStory.encoreOffered = true;
+            return true;
+        }
         SoundCollection& collection() { return jar; }
 
         void paint (juce::Graphics&) override;

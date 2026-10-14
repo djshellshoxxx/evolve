@@ -64,6 +64,17 @@ namespace mutagen
         {
             for (const auto& note : encounterNotes) processor.keyboardState.noteOff (1, note.pitch, 0.0f);
             encounterNotes.clear();
+            if (k == EncounterOverlay::Kind::chorale)
+            {
+                const int rounds = (int) (mask & 0xffu), lives = (int) ((mask >> 8) & 0xffu);
+                storyPanel.recordEncore (rounds);
+                if (const auto pts = story::encore::pointsFor (rounds, lives); pts > 0)
+                    scoreSystem.adjustScore (pts, won ? "ECHO CHORALE: " + juce::String (story::encore::rankFor (rounds)) : "ECHO CHORALE");
+                if (rounds > 0) progressionSystem.recordGameCompleted();
+                if (won) storyPanel.grantFactReward();
+                presentNextLabGame();
+                return;
+            }
             if (won)
             {
                 scoreSystem.adjustScore (1500, "ENCOUNTER SOLVED");
@@ -87,15 +98,20 @@ namespace mutagen
         if (encounter.isVisible() && ! introOverlay.isVisible() && ! nameOverlay.isVisible()
             && ! helpView.isVisible() && ! optionsView.isVisible()) encounter.tick (dt);
         if (paused || encounter.isVisible()) return;
+        const auto beginEncounter = [this] (EncounterOverlay::Kind k)
+        {
+            encounter.begin (k, globalEntropy().nextSeed(), storyPanel.act(), storyPanel.run().mode,
+                             storyPanel.run().root, storyPanel.progress().relics);
+        };
+        if (storyPanel.encoreDue (dt)) { beginEncounter (EncounterOverlay::Kind::chorale); return; }
         const int minute = (int) (playSeconds / 60.0);
         if (minute == lastGameMinuteBucket || minute <= 0) return;
         int kind = -1;
         if (hauntedRng.rollInclusive (1, 97) == 1) kind = 0;
         else if (hauntedRng.rollInclusive (1, 131) == 1) kind = 1;
         else if (hauntedRng.rollInclusive (1, 173) == 1) kind = 2;
-        if (kind >= 0)
-            encounter.begin ((EncounterOverlay::Kind) kind, globalEntropy().nextSeed(), storyPanel.act(),
-                             storyPanel.run().mode, storyPanel.run().root, storyPanel.progress().relics);
+        else if (storyPanel.progress().endingsSeen != 0 && hauntedRng.rollInclusive (1, 41) == 1) kind = 3;
+        if (kind >= 0) beginEncounter ((EncounterOverlay::Kind) kind);
     }
 
     void MutagenEditor::wireLabGames()

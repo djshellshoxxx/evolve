@@ -808,7 +808,8 @@ namespace mutagen
                           + "  |  JAR " + juce::String (jar.size())
                           + "  |  SECRETS " + juce::String (prog.secretCount()) + "/39"
                           + "  |  EVENTS " + juce::String (prog.chanceCount()) + "/" + juce::String (chance::count)
-                          + "  |  ENDINGS " + juce::String (prog.endingCount()) + "/4";
+                          + "  |  ENDINGS " + juce::String (prog.endingCount()) + "/4"
+                          + (prog.encoreBest > 0 ? juce::String ("  |  ") + story::encore::rankFor (prog.encoreBest) : juce::String());
         g.setFont (theme::monoFont (9.5f));
         g.setColour (theme::textDim);
         g.drawText (status, area.removeFromTop (12), juce::Justification::centredLeft, true);
