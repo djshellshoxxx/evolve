@@ -26,6 +26,14 @@ void EncounterOverlay::begin (Kind k, std::uint64_t seed, int act, int mode, int
         playMotif (call);
         answerAt = call.beats.back() * story::phantom::kBeatSec + 0.8;
     }
+    else if (k == Kind::pulse)
+    {
+        pulse.start (seed); pulseFlash = -10; pulseErr = 0;
+    }
+    else if (k == Kind::hunt)
+    {
+        hunt.start (seed, act); huntFlash = -1; huntLastOk = false; huntDoneAt = 1.0e9;
+    }
     else if (k == Kind::chorale)
     {
         chorale.start (seed);
@@ -39,6 +47,12 @@ void EncounterOverlay::begin (Kind k, std::uint64_t seed, int act, int mode, int
     }
     setVisible (true); toFront (true); grabKeyboardFocus(); repaint();
 }
+void EncounterOverlay::playHunt()
+{
+    const int low = rootNote + hunt.rootOffset();
+    scheduled.push_back ({ clock, low });
+    scheduled.push_back ({ clock + 0.7, low + hunt.answerSemitones() });
+}
 void EncounterOverlay::playMotif (const story::phantom::Motif& m)
 {
     for (size_t i = 0; i < m.degrees.size(); ++i)
@@ -47,6 +61,9 @@ void EncounterOverlay::playMotif (const story::phantom::Motif& m)
 void EncounterOverlay::finish (bool won, std::uint32_t mask)
 {
     if (! isVisible()) return;
+    if (kind == Kind::pulse && mask == 0 && ! won)
+        mask = (std::uint32_t) pulse.hits() | ((std::uint32_t) pulse.perfects() << 8);
+    if (kind == Kind::hunt && mask == 0 && ! won) mask = (std::uint32_t) hunt.correctCount();
     if (kind == Kind::chorale && mask == 0 && ! won)   // left early: keep the rounds already cleared
         mask = (std::uint32_t) chorale.roundsCleared() | ((std::uint32_t) chorale.lives() << 8);
     setVisible (false); scheduled.clear();
@@ -78,6 +95,19 @@ void EncounterOverlay::tick (double dt)
         }
         if (answerAt >= 10000 && clock >= answerAt - 10000)
         { finish (clicked); return; }
+    }
+    else if (kind == Kind::pulse)
+    {
+        pulse.update (dt);
+        for (int i : pulse.takeSounded()) if (onNote) onNote (rootNote - 12 + (i == 0 ? 7 : 0), 0.12);
+        if (pulse.finished())
+        { finish (pulse.won(), (std::uint32_t) pulse.hits() | ((std::uint32_t) pulse.perfects() << 8)); return; }
+    }
+    else if (kind == Kind::hunt)
+    {
+        if (hunt.consumePlay()) playHunt();
+        if (hunt.finished() && clock > huntDoneAt)
+        { finish (hunt.won(), (std::uint32_t) hunt.correctCount()); return; }
     }
     else if (kind == Kind::chorale)
     {
@@ -123,7 +153,7 @@ void EncounterOverlay::resized()
 void EncounterOverlay::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (0xff111827)); g.setColour (juce::Colour (0xff7eead0)); g.setFont (21.0f);
-    const juce::String title = kind == Kind::room ? story::roomName (room->id()) : kind == Kind::phantom ? "PHANTOM: CALL AND ANSWER" : kind == Kind::chorale ? "ENCORE: THE ECHO CHORALE" : "TUNER DUEL";
+    const juce::String title = kind == Kind::room ? story::roomName (room->id()) : kind == Kind::phantom ? "PHANTOM: CALL AND ANSWER" : kind == Kind::chorale ? "ENCORE: THE ECHO CHORALE" : kind == Kind::pulse ? "PULSE: KEEP THE HEARTBEAT" : kind == Kind::hunt ? "INTERVAL HUNT" : "TUNER DUEL";
     g.drawText (title, 20, 16, getWidth() - 130, 30, juce::Justification::centredLeft);
     g.setFont (14.0f); g.setColour (juce::Colours::white);
     juce::String instruction;
@@ -164,6 +194,35 @@ void EncounterOverlay::paint (juce::Graphics& g)
             g.drawRect (field.getX() + (float) i * w, field.getY(), w, field.getHeight());
         }
     }
+    else if (kind == Kind::pulse)
+    {
+        const bool audible = pulse.clockNow() < pulse.beatTime (story::mini::Pulse::kAudible);
+        instruction = audible ? "Listen to the heartbeat, then tap (click or Space) on every beat. It goes silent - keep the time."
+                              : "Silent now. Keep the beat.";
+        instruction += "  Hits " + juce::String (pulse.hits()) + "/" + juce::String (story::mini::Pulse::kBeats)
+                     + " (need " + juce::String (story::mini::Pulse::kToWin) + ")"
+                     + (clock - pulseFlash < 0.6 ? juce::String (pulseErr < 0 ? "   EARLY" : "   LATE") : juce::String());
+        const auto c = field.getCentre();
+        const float r = 20.0f + (1.0f - (float) pulse.phase()) * 120.0f;
+        g.setColour (juce::Colour (0xff7eead0).withAlpha (0.8f)); g.drawEllipse (c.x - r, c.y - r, 2 * r, 2 * r, 3.0f);
+        g.setColour (juce::Colours::white); g.drawEllipse (c.x - 20, c.y - 20, 40, 40, 2.0f);
+    }
+    else if (kind == Kind::hunt)
+    {
+        instruction = "Question " + juce::String (juce::jmin (hunt.questionNumber(), story::mini::Hunt::kQuestions)) + "/"
+                    + juce::String (story::mini::Hunt::kQuestions) + ". Which interval did the colony play (low note, then high)? Press R to replay."
+                    + "  Correct " + juce::String (hunt.correctCount());
+        if (huntFlash >= 0) instruction += huntLastOk ? "   RIGHT" : "   WRONG";
+        if (! hunt.finished())
+            for (int i = 0; i < story::mini::Hunt::kOptions; ++i)
+            {
+                g.setColour (juce::Colour::fromHSV ((float) i * 0.22f + 0.05f, 0.5f, 0.55f, 1.0f));
+                g.fillRoundedRectangle (laneRect (i), 10.0f);
+                g.setColour (juce::Colours::white);
+                g.drawFittedText (juce::String (i + 1) + "  " + story::mini::intervalName (hunt.options()[(size_t) i]),
+                                  laneRect (i).toNearestInt(), juce::Justification::centred, 2);
+            }
+    }
     else if (kind == Kind::chorale)
     {
         using story::encore::State;
@@ -196,6 +255,13 @@ void EncounterOverlay::paint (juce::Graphics& g)
 }
 void EncounterOverlay::mouseDown (const juce::MouseEvent& e)
 {
+    if (kind == Kind::pulse) { pressPulse(); return; }
+    if (kind == Kind::hunt)
+    {
+        for (int i = 0; i < story::mini::Hunt::kOptions; ++i)
+            if (laneRect (i).contains (e.position)) { pressHunt (i); return; }
+        return;
+    }
     if (kind == Kind::chorale)
     {
         for (int i = 0; i < story::encore::kLanes; ++i)
@@ -230,6 +296,19 @@ void EncounterOverlay::mouseUp (const juce::MouseEvent&)
     }
     grabbed = -1;
 }
+void EncounterOverlay::pressPulse()
+{
+    const double err = pulse.tap();
+    if (err > 1.0e8) return;
+    pulseFlash = clock; pulseErr = err;
+    if (onNote) onNote (rootNote - 12, 0.1);
+}
+void EncounterOverlay::pressHunt (int i)
+{
+    if (hunt.finished()) return;
+    huntLastOk = hunt.answer (i); huntFlash = i;
+    if (hunt.finished()) huntDoneAt = clock + 1.5;
+}
 void EncounterOverlay::pressLane (int lane)
 {
     if (chorale.press (lane) == story::encore::Press::ignored) return;
@@ -239,6 +318,13 @@ void EncounterOverlay::pressLane (int lane)
 bool EncounterOverlay::keyPressed (const juce::KeyPress& k)
 {
     if (k == juce::KeyPress::escapeKey) { finish (false); return true; }
+    if (kind == Kind::pulse && k == juce::KeyPress::spaceKey) { pressPulse(); return true; }
+    if (kind == Kind::hunt)
+    {
+        const int pick = k.getTextCharacter() - '1';
+        if (pick >= 0 && pick < story::mini::Hunt::kOptions) { pressHunt (pick); return true; }
+        if (k.getTextCharacter() == 'r' || k.getTextCharacter() == 'R') { hunt.replay(); return true; }
+    }
     if (kind == Kind::chorale)
     {
         const int lane = k.getTextCharacter() - '1';

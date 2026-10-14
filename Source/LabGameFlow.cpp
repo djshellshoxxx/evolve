@@ -64,6 +64,18 @@ namespace mutagen
         {
             for (const auto& note : encounterNotes) processor.keyboardState.noteOff (1, note.pitch, 0.0f);
             encounterNotes.clear();
+            if (k == EncounterOverlay::Kind::pulse || k == EncounterOverlay::Kind::hunt)
+            {
+                const int hits = (int) (mask & 0xffu), perfects = k == EncounterOverlay::Kind::pulse ? (int) ((mask >> 8) & 0xffu) : 0;
+                if (hits > 0)
+                {
+                    scoreSystem.adjustScore (250 * hits + 100 * perfects, k == EncounterOverlay::Kind::pulse ? "PULSE" : "INTERVAL HUNT");
+                    progressionSystem.recordGameCompleted();
+                }
+                if (won) storyPanel.grantFactReward();
+                presentNextLabGame();
+                return;
+            }
             if (k == EncounterOverlay::Kind::chorale)
             {
                 const int rounds = (int) (mask & 0xffu), lives = (int) ((mask >> 8) & 0xffu);
@@ -111,6 +123,8 @@ namespace mutagen
         else if (hauntedRng.rollInclusive (1, 131) == 1) kind = 1;
         else if (hauntedRng.rollInclusive (1, 173) == 1) kind = 2;
         else if (storyPanel.progress().endingsSeen != 0 && hauntedRng.rollInclusive (1, 41) == 1) kind = 3;
+        else if (hauntedRng.rollInclusive (1, 59) == 1) kind = 4;
+        else if (hauntedRng.rollInclusive (1, 67) == 1) kind = 5;
         if (kind >= 0) beginEncounter ((EncounterOverlay::Kind) kind);
     }
 

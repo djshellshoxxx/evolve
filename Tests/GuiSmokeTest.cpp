@@ -169,6 +169,15 @@ int main()
     for (int i = 0; i < 60; ++i) encounter.tick (0.1);
     encounter.keyPressed (juce::KeyPress ('1'));
     encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::pulse, 42, 2, 0, 60, 0);
+    for (int i = 0; i < 40; ++i) encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::hunt, 42, 2, 0, 60, 0);
+    encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress ('r'));
+    encounter.keyPressed (juce::KeyPress ('2'));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
     encounter.begin (mutagen::EncounterOverlay::Kind::tuner, 42, 2, 0, 60, 0);
     const int before = noteCount;
     encounter.tick (2.1);

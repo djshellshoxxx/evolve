@@ -321,7 +321,7 @@ if(MUTAGEN_BUILD_TESTS)
     add_test(NAME MutagenMusicFactsTest COMMAND MutagenMusicFactsTest)
 
     # Pure-header engines for the story encounters (no JUCE needed).
-    foreach(name Phantom TunerDuel DreamRooms Encore)
+    foreach(name Phantom TunerDuel DreamRooms Encore Minigames)
         add_executable(Mutagen${name}Test Tests/${name}Test.cpp)
         target_include_directories(Mutagen${name}Test PRIVATE Source)
         add_test(NAME Mutagen${name}Test COMMAND Mutagen${name}Test)
