@@ -12,7 +12,7 @@ namespace mutagen
 class EncounterOverlay : public juce::Component
 {
 public:
-    enum class Kind { room, phantom, tuner, chorale, pulse, hunt };
+    enum class Kind { room, phantom, tuner, chorale, pulse, hunt, seek, flash };
     EncounterOverlay();
     void begin (Kind, std::uint64_t seed, int act, int mode, int root, std::uint32_t relics);
     void tick (double dt);
@@ -42,6 +42,13 @@ private:
     story::encore::Chorale chorale;
     story::mini::Pulse pulse;
     story::mini::Hunt hunt;
+    story::mini::Seek seek;
+    story::mini::Flash flash;
+    int seekLastNote = -1;
+    double flashDoneAt = 1.0e9;
+    bool flashLastOk = false;
+    void playFlash();
+    void pressFlash (int);
     double pulseFlash = -10, pulseErr = 0;
     int huntFlash = -1;
     double huntDoneAt = 1.0e9;

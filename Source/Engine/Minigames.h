@@ -150,4 +150,142 @@ namespace mutagen::story::mini
         int index = 0, right = 0, target = 0, base = 0;
         bool playPending = false;
     };
+
+    // ---- Seek: hot and cold by ear -----------------------------------------------
+
+    class Seek
+    {
+    public:
+        static constexpr int kRounds = 3, kToWin = 2;
+        static constexpr double kTimeLimit = 12.0, kLockRadius = 0.06;
+
+        void start (std::uint64_t seed)
+        {
+            rng = Rng (seed);
+            round = 0; found = 0; done = false;
+            newRound();
+        }
+
+        int roundNumber() const { return std::min (round + 1, kRounds); }
+        int foundCount() const { return found; }
+        bool finished() const { return done; }
+        bool won() const { return found >= kToWin; }
+        double timeLeft() const { return std::max (0.0, kTimeLimit - elapsed); }
+        double target() const { return goal; }
+        double lastDistance() const { return dist; }
+
+        /** Ping spacing: fast when close, slow when far. */
+        static double pingInterval (double distance) { return 0.12 + std::clamp (distance, 0.0, 1.0) * 1.2; }
+
+        /** Returns true when a ping should sound now (pitch the caller from the position). */
+        bool update (double dt, double pos)
+        {
+            if (done) return false;
+            elapsed += dt;
+            dist = std::abs (pos - goal);
+            if (elapsed >= kTimeLimit) { advance (false); return false; }
+            sincePing += dt;
+            if (sincePing >= pingInterval (dist)) { sincePing = 0.0; return true; }
+            return false;
+        }
+
+        /** Lock in the current position. Returns whether it was close enough. */
+        bool lock (double pos)
+        {
+            if (done) return false;
+            const bool ok = std::abs (pos - goal) <= kLockRadius;
+            advance (ok);
+            return ok;
+        }
+
+    private:
+        void advance (bool ok)
+        {
+            if (ok) ++found;
+            if (++round >= kRounds) done = true; else newRound();
+        }
+        void newRound() { goal = 0.1 + 0.8 * rng.unit(); elapsed = 0.0; sincePing = 0.0; dist = 1.0; }
+
+        Rng rng { 1 };
+        double goal = 0.5, elapsed = 0.0, sincePing = 0.0, dist = 1.0;
+        int round = 0, found = 0;
+        bool done = false;
+    };
+
+    // ---- Flash: chord quality, against the clock -----------------------------------
+
+    enum class Quality : int { major, minor, diminished, augmented, count };
+
+    inline const char* qualityName (Quality q)
+    {
+        static const char* n[] = { "MAJOR", "MINOR", "DIMINISHED", "AUGMENTED" };
+        return n[(int) q];
+    }
+
+    /** Semitone offsets of the three chord tones above the root. */
+    inline std::array<int, 3> qualityTones (Quality q)
+    {
+        switch (q)
+        {
+            case Quality::major:      return { 0, 4, 7 };
+            case Quality::minor:      return { 0, 3, 7 };
+            case Quality::diminished: return { 0, 3, 6 };
+            default:                  return { 0, 4, 8 };
+        }
+    }
+
+    class Flash
+    {
+    public:
+        static constexpr int kQuestions = 8, kToWin = 6;
+        static constexpr double kPerQuestion = 4.0;
+
+        void start (std::uint64_t seed)
+        {
+            rng = Rng (seed);
+            index = 0; right = 0; playPending = true;
+            ask();
+        }
+
+        int questionNumber() const { return std::min (index + 1, kQuestions); }
+        int correctCount() const { return right; }
+        bool finished() const { return index >= kQuestions; }
+        bool won() const { return right >= kToWin; }
+        Quality answerQuality() const { return current; }
+        int rootOffset() const { return base; }
+        double timeLeft() const { return std::max (0.0, kPerQuestion - elapsed); }
+
+        bool consumePlay() { const bool p = playPending; playPending = false; return p; }
+
+        /** A timeout counts as wrong. */
+        void update (double dt)
+        {
+            if (finished()) return;
+            elapsed += dt;
+            if (elapsed >= kPerQuestion) next (false);
+        }
+
+        bool answer (int option)
+        {
+            if (finished() || option < 0 || option >= (int) Quality::count) return false;
+            const bool ok = option == (int) current;
+            next (ok);
+            return ok;
+        }
+
+    private:
+        void next (bool ok)
+        {
+            if (ok) ++right;
+            ++index;
+            if (! finished()) ask();
+        }
+        void ask() { current = (Quality) rng.range (0, (int) Quality::count - 1); base = rng.range (-5, 5); elapsed = 0.0; playPending = true; }
+
+        Rng rng { 1 };
+        Quality current = Quality::major;
+        double elapsed = 0.0;
+        int index = 0, right = 0, base = 0;
+        bool playPending = false;
+    };
 }

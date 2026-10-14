@@ -64,12 +64,14 @@ namespace mutagen
         {
             for (const auto& note : encounterNotes) processor.keyboardState.noteOff (1, note.pitch, 0.0f);
             encounterNotes.clear();
-            if (k == EncounterOverlay::Kind::pulse || k == EncounterOverlay::Kind::hunt)
+            if (k == EncounterOverlay::Kind::pulse || k == EncounterOverlay::Kind::hunt
+                || k == EncounterOverlay::Kind::seek || k == EncounterOverlay::Kind::flash)
             {
                 const int hits = (int) (mask & 0xffu), perfects = k == EncounterOverlay::Kind::pulse ? (int) ((mask >> 8) & 0xffu) : 0;
                 if (hits > 0)
                 {
-                    scoreSystem.adjustScore (250 * hits + 100 * perfects, k == EncounterOverlay::Kind::pulse ? "PULSE" : "INTERVAL HUNT");
+                    scoreSystem.adjustScore (250 * hits + 100 * perfects, k == EncounterOverlay::Kind::pulse ? "PULSE" : k == EncounterOverlay::Kind::hunt ? "INTERVAL HUNT"
+                                                                                         : k == EncounterOverlay::Kind::seek ? "SEEK" : "CHORD FLASH");
                     progressionSystem.recordGameCompleted();
                 }
                 if (won) storyPanel.grantFactReward();
@@ -125,6 +127,8 @@ namespace mutagen
         else if (storyPanel.progress().endingsSeen != 0 && hauntedRng.rollInclusive (1, 41) == 1) kind = 3;
         else if (hauntedRng.rollInclusive (1, 59) == 1) kind = 4;
         else if (hauntedRng.rollInclusive (1, 67) == 1) kind = 5;
+        else if (hauntedRng.rollInclusive (1, 71) == 1) kind = 6;
+        else if (hauntedRng.rollInclusive (1, 79) == 1) kind = 7;
         if (kind >= 0) beginEncounter ((EncounterOverlay::Kind) kind);
     }
 

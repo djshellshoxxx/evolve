@@ -73,9 +73,41 @@ static void testHuntLoses()
     CHECK (std::string (intervalName (7)) == "PERFECT 5TH" && std::string (intervalName (99)) == "?");
 }
 
+static void testSeek()
+{
+    Seek s; s.start (5);
+    CHECK (Seek::pingInterval (0.0) < Seek::pingInterval (1.0));
+    int pings = 0;
+    for (int i = 0; i < 100; ++i) pings += s.update (0.01, s.target()) ? 1 : 0;
+    CHECK (pings >= 5 && s.lastDistance() == 0.0);
+    CHECK (s.lock (s.target()) && s.foundCount() == 1 && s.roundNumber() == 2);
+    CHECK (! s.lock (s.target() < 0.5 ? 0.99 : 0.01));
+    s.update (Seek::kTimeLimit + 0.1, 0.5);          // timeout spends the last round
+    CHECK (s.finished() && s.foundCount() == 1 && ! s.won());
+    CHECK (! s.lock (0.5));
+}
+
+static void testFlash()
+{
+    Flash f; f.start (2);
+    CHECK (f.consumePlay() && ! f.consumePlay());
+    for (int i = 0; i < Flash::kQuestions; ++i)
+    {
+        CHECK (! f.finished());
+        f.answer ((int) f.answerQuality());
+        if (! f.finished()) CHECK (f.consumePlay());
+    }
+    CHECK (f.finished() && f.won() && f.correctCount() == Flash::kQuestions);
+    Flash g; g.start (2);
+    for (int i = 0; i < Flash::kQuestions; ++i) g.update (Flash::kPerQuestion + 0.1);   // every one times out
+    CHECK (g.finished() && ! g.won() && g.correctCount() == 0);
+    CHECK (std::string (qualityName (Quality::augmented)) == "AUGMENTED" && qualityTones (Quality::minor)[1] == 3);
+    CHECK (! g.answer (0) && ! f.answer (9));
+}
+
 int main()
 {
-    testPulsePerfect(); testPulseMissesAndWindow(); testPulseSoundAndPhase(); testHunt(); testHuntLoses();
+    testPulsePerfect(); testPulseMissesAndWindow(); testPulseSoundAndPhase(); testHunt(); testHuntLoses(); testSeek(); testFlash();
     if (failures == 0) std::printf("All Minigames tests passed\n");
     return failures == 0 ? 0 : 1;
 }
