@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
+#include <cmath>
 #include "OrganismState.h"
 
 namespace mutagen
@@ -70,7 +71,12 @@ namespace mutagen
         void reset();
 
         /** Puts a saved run's score and play time back (Open Run). */
-        void restoreRun (juce::int64 savedScore, double savedSeconds) { reset(); total = (double) savedScore; runSeconds = savedSeconds; }
+        void restoreRun (juce::int64 savedScore, double savedSeconds)
+        {
+            reset();
+            total = (double) juce::jmax<juce::int64> (0, savedScore);
+            runSeconds = std::isfinite (savedSeconds) && savedSeconds >= 0.0 ? savedSeconds : 0.0;
+        }
 
         // ---- read-out --------------------------------------------------
         juce::int64 score()      const { return (juce::int64) total; }
