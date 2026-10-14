@@ -74,7 +74,7 @@ namespace mutagen
         void restoreRun (juce::int64 savedScore, double savedSeconds)
         {
             reset();
-            total = (double) juce::jmax<juce::int64> (0, savedScore);
+            total = (double) (savedScore > 0 ? savedScore : juce::int64 { 0 });
             runSeconds = std::isfinite (savedSeconds) && savedSeconds >= 0.0 ? savedSeconds : 0.0;
         }
 
