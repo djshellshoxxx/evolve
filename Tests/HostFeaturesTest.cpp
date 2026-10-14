@@ -134,6 +134,19 @@ int main()
     for (const auto& event : runScore.events())
         earnedBloom |= event.text == "BLOOM";
     CHECK (earnedBloom);
+    // Loading a damaged run must not produce negative scores or an invalid
+    // elapsed time; score restoration is also used for DAW project state.
+    runScore.restoreRun (-750, -12.0);
+    CHECK (runScore.score() == 0);
+    CHECK (runScore.elapsed() == 0.0);
+    runScore.restoreRun (1250, std::numeric_limits<double>::quiet_NaN());
+    CHECK (runScore.score() == 1250);
+    CHECK (runScore.elapsed() == 0.0);
+    runScore.restoreRun (1250, std::numeric_limits<double>::infinity());
+    CHECK (runScore.elapsed() == 0.0);
+    runScore.restoreRun (1250, 32.5);
+    CHECK (runScore.score() == 1250 && runScore.elapsed() == 32.5);
+
     std::printf ("Host feature tests: %s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }
