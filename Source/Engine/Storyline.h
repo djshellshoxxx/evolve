@@ -210,6 +210,7 @@ namespace mutagen::story
         std::string factSeen;           // base64 bitset of fact ids shown
         std::uint32_t chanceSeen = 0;   // bit per chance event witnessed
         std::uint32_t endingsSeen = 0;  // bit per ending reached
+        int encoreBest = 0;             // most Echo Chorale rounds cleared, lifetime
 
         int secretCount() const
         {
@@ -476,6 +477,8 @@ namespace mutagen::story
         double nextBanterSec = 120.0;
         bool twistRevealed = false;
         bool finaleDone = false;
+        double encoreCountdown = 30.0;  // seconds after the finale until the Echo Chorale is offered
+        bool encoreOffered = false;
 
         /** Next event for this act. Unheard lines first, so the lexicon grows,
             but heard ones still return so a run never falls silent. */

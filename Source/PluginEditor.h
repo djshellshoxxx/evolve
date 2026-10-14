@@ -25,6 +25,8 @@
 #include "GUI/HauntedOverlay.h"
 #include "GUI/LabGameOverlay.h"
 #include "GUI/EncounterOverlay.h"
+#include "GUI/PhreakOverlay.h"
+#include "Engine/Phreak.h"
 #include "GUI/StoryPanel.h"
 #include "GUI/SecretLayer.h"
 #include "GUI/StoryFx.h"
@@ -106,6 +108,11 @@ namespace mutagen
         std::vector<EncounterNote> encounterNotes;
         double encounterClock = 0;
         unsigned scoreRestoreRevision = 0;
+        PhreakOverlay phreak;
+        phreak::SequenceMatcher phreakKeys;
+        void wirePhreak();
+        bool phreakKey (const juce::KeyPress&);
+        std::vector<PhreakOverlay::Category> buildPhreakTree();
         void wireEncounters();
         void serviceEncounters (double dt, bool paused);
         StoryPanel        storyPanel { processor };
