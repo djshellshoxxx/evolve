@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
+#include <string>
 #include <vector>
 
 namespace mutagen::story::mini
@@ -287,5 +289,89 @@ namespace mutagen::story::mini
         double elapsed = 0.0;
         int index = 0, right = 0, base = 0;
         bool playPending = false;
+    };
+
+    // ---- Frequency Lab: pitch is hertz -------------------------------------------
+
+    class FrequencyLab
+    {
+    public:
+        static constexpr int kQuestions = 5, kToWin = 3;
+        static constexpr double kLowHz = 55.0, kOctaves = 5.0, kOkCents = 50.0, kPerfectCents = 15.0;
+
+        struct Question
+        {
+            std::string prompt, lesson;
+            double refHz = 0.0, targetHz = 440.0;
+        };
+
+        struct Result { bool ok = false, perfect = false; double cents = 0.0; };
+
+        static double hzAt (double pos) { return kLowHz * std::pow (2.0, std::clamp (pos, 0.0, 1.0) * kOctaves); }
+        static double posOf (double hz) { return std::clamp (std::log2 (hz / kLowHz) / kOctaves, 0.0, 1.0); }
+        static double centsBetween (double a, double b) { return 1200.0 * std::log2 (a / b); }
+        static int midiFor (double hz) { return (int) std::lround (69.0 + 12.0 * std::log2 (hz / 440.0)); }
+        static double hzForMidi (int m) { return 440.0 * std::pow (2.0, (m - 69) / 12.0); }
+
+        void start (std::uint64_t seed)
+        {
+            Rng rng (seed);
+            questions.clear();
+            auto pick = [&] (std::initializer_list<double> v) { return *(v.begin() + rng.range (0, (int) v.size() - 1)); };
+            static const char* names[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+
+            double r = pick ({ 110.0, 220.0, 440.0 });
+            questions.push_back ({ "Here is " + fmt (r) + " Hz. Find the note one octave ABOVE it.",
+                                   "Doubling the frequency raises the pitch by exactly one octave: " + fmt (r) + " Hz becomes " + fmt (2 * r) + " Hz.", r, 2 * r });
+            r = pick ({ 110.0, 220.0 });
+            questions.push_back ({ "Here is " + fmt (r) + " Hz. Find the perfect FIFTH above it.",
+                                   "A perfect fifth is a 3:2 ratio, so " + fmt (r) + " x 1.5 = " + fmt (1.5 * r) + " Hz.", r, 1.5 * r });
+            r = pick ({ 440.0, 880.0 });
+            questions.push_back ({ "Here is " + fmt (r) + " Hz. Find the note one octave BELOW it.",
+                                   "Halving the frequency drops one octave: " + fmt (r) + " Hz becomes " + fmt (r / 2) + " Hz.", r, r / 2 });
+            for (int i = 0; i < 2; ++i)
+            {
+                const int m = (int) pick ({ 60.0, 62.0, 64.0, 65.0, 67.0, 69.0, 71.0, 72.0 });
+                const std::string n = std::string (names[m % 12]) + std::to_string (m / 12 - 1);
+                questions.push_back ({ "Find " + n + " without a reference. Concert A4 is 440 Hz.",
+                                       n + " is " + fmt (hzForMidi (m)) + " Hz. Each semitone multiplies the frequency by 1.0595 (the 12th root of 2).", 0.0, hzForMidi (m) });
+            }
+            index = 0; right = 0; perfectCount = 0; lastLesson.clear();
+        }
+
+        bool finished() const { return index >= kQuestions; }
+        bool won() const { return right >= kToWin; }
+        int questionNumber() const { return std::min (index + 1, kQuestions); }
+        int correctCount() const { return right; }
+        int perfects() const { return perfectCount; }
+        const Question& current() const { return questions[(std::size_t) std::min (index, kQuestions - 1)]; }
+        const std::string& lastLessonText() const { return lastLesson; }
+
+        Result submit (double pos)
+        {
+            Result res;
+            if (finished()) return res;
+            const auto& q = current();
+            res.cents = centsBetween (hzAt (pos), q.targetHz);
+            res.ok = std::abs (res.cents) <= kOkCents;
+            res.perfect = std::abs (res.cents) <= kPerfectCents;
+            if (res.ok) ++right;
+            if (res.perfect) ++perfectCount;
+            lastLesson = q.lesson;
+            ++index;
+            return res;
+        }
+
+        static std::string fmt (double hz)
+        {
+            char buf[32];
+            std::snprintf (buf, sizeof buf, hz < 100.0 || std::abs (hz - std::round (hz)) > 0.05 ? "%.1f" : "%.0f", hz);
+            return buf;
+        }
+
+    private:
+        std::vector<Question> questions;
+        std::string lastLesson;
+        int index = 0, right = 0, perfectCount = 0;
     };
 }

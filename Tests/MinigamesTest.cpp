@@ -105,9 +105,38 @@ static void testFlash()
     CHECK (! g.answer (0) && ! f.answer (9));
 }
 
+static void testFrequencyLab()
+{
+    using F = FrequencyLab;
+    CHECK (std::abs (F::hzAt (0.0) - 55.0) < 1e-9 && std::abs (F::hzAt (1.0) - 1760.0) < 1e-6);
+    CHECK (std::abs (F::hzAt (F::posOf (440.0)) - 440.0) < 1e-6);
+    CHECK (std::abs (F::centsBetween (880.0, 440.0) - 1200.0) < 1e-9 && F::midiFor (440.0) == 69 && F::midiFor (261.63) == 60);
+    CHECK (std::abs (F::hzForMidi (69) - 440.0) < 1e-9 && F::fmt (440.0) == "440" && F::fmt (261.6256) == "261.6");
+    F f; f.start (6);
+    for (int i = 0; i < F::kQuestions; ++i)
+    {
+        const auto& q = f.current();
+        CHECK (q.targetHz >= 55.0 && q.targetHz <= 1760.0 && ! q.lesson.empty());
+        const auto r = f.submit (F::posOf (q.targetHz));
+        CHECK (r.ok && r.perfect);
+    }
+    CHECK (f.finished() && f.won() && f.perfects() == F::kQuestions && ! f.lastLessonText().empty());
+    F g; g.start (6);
+    for (int i = 0; i < F::kQuestions; ++i)
+    {
+        const double wrong = g.current().targetHz * 1.2;     // about 316 cents sharp
+        CHECK (! g.submit (F::posOf (wrong)).ok);
+    }
+    CHECK (g.finished() && ! g.won() && ! g.submit (0.5).ok);
+    F h; h.start (6);
+    CHECK (h.submit (F::posOf (h.current().targetHz * 1.02)).ok);   // 34 cents: ok, not perfect
+    F a, b; a.start (3); b.start (3);
+    CHECK (a.current().targetHz == b.current().targetHz && a.current().prompt == b.current().prompt);
+}
+
 int main()
 {
-    testPulsePerfect(); testPulseMissesAndWindow(); testPulseSoundAndPhase(); testHunt(); testHuntLoses(); testSeek(); testFlash();
+    testPulsePerfect(); testPulseMissesAndWindow(); testPulseSoundAndPhase(); testHunt(); testHuntLoses(); testSeek(); testFlash(); testFrequencyLab();
     if (failures == 0) std::printf("All Minigames tests passed\n");
     return failures == 0 ? 0 : 1;
 }

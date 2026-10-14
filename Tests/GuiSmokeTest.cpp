@@ -185,6 +185,11 @@ int main()
     encounter.tick (0.1);
     encounter.keyPressed (juce::KeyPress ('3'));
     encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::freq, 42, 2, 0, 60, 0);
+    encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::rightKey));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
     encounter.begin (mutagen::EncounterOverlay::Kind::tuner, 42, 2, 0, 60, 0);
     const int before = noteCount;
     encounter.tick (2.1);

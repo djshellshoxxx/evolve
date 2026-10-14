@@ -30,6 +30,11 @@ void EncounterOverlay::begin (Kind k, std::uint64_t seed, int act, int mode, int
     {
         pulse.start (seed); pulseFlash = -10; pulseErr = 0;
     }
+    else if (k == Kind::freq)
+    {
+        freq.start (seed); freqAnswered = false; freqDoneAt = 1.0e9; freqLastMidi = -1; position = 0.5;
+        playFreq();
+    }
     else if (k == Kind::seek)
     {
         seek.start (seed); seekLastNote = -1; huntDoneAt = 1.0e9;
@@ -61,6 +66,24 @@ void EncounterOverlay::playHunt()
     scheduled.push_back ({ clock, low });
     scheduled.push_back ({ clock + 0.7, low + hunt.answerSemitones() });
 }
+void EncounterOverlay::playFreq()
+{
+    const double ref = freq.current().refHz;
+    if (ref > 0.0) scheduled.push_back ({ clock + 0.1, story::mini::FrequencyLab::midiFor (ref) });
+}
+void EncounterOverlay::auditionFreq()
+{
+    // MIDI notes are semitone steps, so the audition snaps; the readout shows the exact hertz.
+    const int m = story::mini::FrequencyLab::midiFor (story::mini::FrequencyLab::hzAt (position));
+    if (m != freqLastMidi && onNote) { freqLastMidi = m; onNote (m, 0.5); }
+}
+void EncounterOverlay::submitFreq()
+{
+    if (freq.finished()) return;
+    freqResult = freq.submit (position); freqAnswered = true;
+    if (freq.finished()) freqDoneAt = clock + 3.0;
+    else { freqLastMidi = -1; scheduled.clear(); playFreq(); }
+}
 void EncounterOverlay::playFlash()
 {
     const int root = rootNote + flash.rootOffset();
@@ -80,6 +103,8 @@ void EncounterOverlay::playMotif (const story::phantom::Motif& m)
 void EncounterOverlay::finish (bool won, std::uint32_t mask)
 {
     if (! isVisible()) return;
+    if (kind == Kind::freq && mask == 0 && ! won)
+        mask = (std::uint32_t) freq.correctCount() | ((std::uint32_t) freq.perfects() << 8);
     if (kind == Kind::seek && mask == 0 && ! won) mask = (std::uint32_t) seek.foundCount();
     if (kind == Kind::flash && mask == 0 && ! won) mask = (std::uint32_t) flash.correctCount();
     if (kind == Kind::pulse && mask == 0 && ! won)
@@ -123,6 +148,11 @@ void EncounterOverlay::tick (double dt)
         for (int i : pulse.takeSounded()) if (onNote) onNote (rootNote - 12 + (i == 0 ? 7 : 0), 0.12);
         if (pulse.finished())
         { finish (pulse.won(), (std::uint32_t) pulse.hits() | ((std::uint32_t) pulse.perfects() << 8)); return; }
+    }
+    else if (kind == Kind::freq)
+    {
+        if (freq.finished() && clock > freqDoneAt)
+        { finish (freq.won(), (std::uint32_t) freq.correctCount() | ((std::uint32_t) freq.perfects() << 8)); return; }
     }
     else if (kind == Kind::seek)
     {
@@ -186,7 +216,7 @@ void EncounterOverlay::resized()
 void EncounterOverlay::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (0xff111827)); g.setColour (juce::Colour (0xff7eead0)); g.setFont (21.0f);
-    const juce::String title = kind == Kind::room ? story::roomName (room->id()) : kind == Kind::phantom ? "PHANTOM: CALL AND ANSWER" : kind == Kind::chorale ? "ENCORE: THE ECHO CHORALE" : kind == Kind::pulse ? "PULSE: KEEP THE HEARTBEAT" : kind == Kind::hunt ? "INTERVAL HUNT" : kind == Kind::seek ? "SEEK: HOT AND COLD" : kind == Kind::flash ? "CHORD FLASH" : "TUNER DUEL";
+    const juce::String title = kind == Kind::room ? story::roomName (room->id()) : kind == Kind::phantom ? "PHANTOM: CALL AND ANSWER" : kind == Kind::chorale ? "ENCORE: THE ECHO CHORALE" : kind == Kind::pulse ? "PULSE: KEEP THE HEARTBEAT" : kind == Kind::hunt ? "INTERVAL HUNT" : kind == Kind::seek ? "SEEK: HOT AND COLD" : kind == Kind::flash ? "CHORD FLASH" : kind == Kind::freq ? "FREQUENCY LAB" : "TUNER DUEL";
     g.drawText (title, 20, 16, getWidth() - 130, 30, juce::Justification::centredLeft);
     g.setFont (14.0f); g.setColour (juce::Colours::white);
     juce::String instruction;
@@ -239,6 +269,33 @@ void EncounterOverlay::paint (juce::Graphics& g)
         const float r = 20.0f + (1.0f - (float) pulse.phase()) * 120.0f;
         g.setColour (juce::Colour (0xff7eead0).withAlpha (0.8f)); g.drawEllipse (c.x - r, c.y - r, 2 * r, 2 * r, 3.0f);
         g.setColour (juce::Colours::white); g.drawEllipse (c.x - 20, c.y - 20, 40, 40, 2.0f);
+    }
+    else if (kind == Kind::freq)
+    {
+        namespace F = story::mini;
+        const auto& q = freq.current();
+        instruction = juce::String (q.prompt) + "  Drag along the strip, release to answer.   Correct "
+                    + juce::String (freq.correctCount()) + "/" + juce::String (F::FrequencyLab::kToWin) + " needed";
+        const auto strip = field.withSizeKeepingCentre (field.getWidth(), 50.0f);
+        g.setColour (juce::Colour (0xff1f2a44)); g.fillRoundedRectangle (strip, 8.0f);
+        g.setFont (11.0f);
+        for (int o = 0; o <= 5; ++o)
+        {
+            const float x = strip.getX() + (float) o / 5.0f * strip.getWidth();
+            g.setColour (juce::Colours::grey); g.drawVerticalLine ((int) x, strip.getY(), strip.getBottom());
+            g.drawText (juce::String ((int) (55 << o)) + " Hz", (int) x - 30, (int) strip.getBottom() + 4, 60, 14, juce::Justification::centred);
+        }
+        const float cx = strip.getX() + (float) position * strip.getWidth();
+        g.setColour (juce::Colour (0xff7eead0)); g.fillRect (cx - 2.0f, strip.getY() - 8.0f, 4.0f, strip.getHeight() + 16.0f);
+        g.setFont (22.0f);
+        g.drawText (juce::String (F::FrequencyLab::hzAt (position), 1) + " Hz", strip.translated (0, -60.0f).toNearestInt(), juce::Justification::centred);
+        g.setFont (13.0f); g.setColour (juce::Colours::white);
+        if (freqAnswered)
+        {
+            const juce::String verdict = freqResult.perfect ? "PERFECT" : freqResult.ok ? "CLOSE ENOUGH" : "MISSED";
+            g.drawFittedText (verdict + " (" + juce::String (freqResult.cents, 0) + " cents).  " + juce::String (freq.lastLessonText()),
+                              (int) field.getX(), (int) strip.getBottom() + 30, (int) field.getWidth(), 50, juce::Justification::centredLeft, 3);
+        }
     }
     else if (kind == Kind::seek)
     {
@@ -313,6 +370,12 @@ void EncounterOverlay::paint (juce::Graphics& g)
 void EncounterOverlay::mouseDown (const juce::MouseEvent& e)
 {
     if (kind == Kind::pulse) { pressPulse(); return; }
+    if (kind == Kind::freq)
+    {
+        position = std::clamp ((double) ((e.position.x - field.getX()) / std::max (1.0f, field.getWidth())), 0.0, 1.0);
+        auditionFreq();
+        return;
+    }
     if (kind == Kind::seek)
     {
         position = std::clamp ((double) ((e.position.x - field.getX()) / std::max (1.0f, field.getWidth())), 0.0, 1.0);
@@ -357,9 +420,13 @@ void EncounterOverlay::mouseDown (const juce::MouseEvent& e)
     }
 }
 void EncounterOverlay::mouseDrag (const juce::MouseEvent& e)
-{ position = std::clamp ((double) ((e.position.x - field.getX()) / std::max (1.0f, field.getWidth())), 0.0, 1.0); }
+{
+    position = std::clamp ((double) ((e.position.x - field.getX()) / std::max (1.0f, field.getWidth())), 0.0, 1.0);
+    if (kind == Kind::freq) auditionFreq();
+}
 void EncounterOverlay::mouseUp (const juce::MouseEvent&)
 {
+    if (kind == Kind::freq) { submitFreq(); return; }
     if (grabbed < 0) return;
     const auto cells = duel.cells();
     if (duel.drop (grabbed, (float) position) == story::duel::DropResult::correct)
@@ -392,6 +459,15 @@ bool EncounterOverlay::keyPressed (const juce::KeyPress& k)
 {
     if (k == juce::KeyPress::escapeKey) { finish (false); return true; }
     if (kind == Kind::pulse && k == juce::KeyPress::spaceKey) { pressPulse(); return true; }
+    if (kind == Kind::freq)
+    {
+        if (k == juce::KeyPress::spaceKey || k == juce::KeyPress::returnKey) { submitFreq(); return true; }
+        if (k == juce::KeyPress::leftKey || k == juce::KeyPress::rightKey)
+        {
+            position = std::clamp (position + (k == juce::KeyPress::rightKey ? 1.0 : -1.0) / 60.0, 0.0, 1.0);
+            auditionFreq(); return true;
+        }
+    }
     if (kind == Kind::flash)
     {
         const int pick = k.getTextCharacter() - '1';

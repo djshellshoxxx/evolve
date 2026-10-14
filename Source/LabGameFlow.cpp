@@ -65,13 +65,15 @@ namespace mutagen
             for (const auto& note : encounterNotes) processor.keyboardState.noteOff (1, note.pitch, 0.0f);
             encounterNotes.clear();
             if (k == EncounterOverlay::Kind::pulse || k == EncounterOverlay::Kind::hunt
-                || k == EncounterOverlay::Kind::seek || k == EncounterOverlay::Kind::flash)
+                || k == EncounterOverlay::Kind::seek || k == EncounterOverlay::Kind::flash
+                || k == EncounterOverlay::Kind::freq)
             {
-                const int hits = (int) (mask & 0xffu), perfects = k == EncounterOverlay::Kind::pulse ? (int) ((mask >> 8) & 0xffu) : 0;
+                const int hits = (int) (mask & 0xffu), perfects = (k == EncounterOverlay::Kind::pulse || k == EncounterOverlay::Kind::freq) ? (int) ((mask >> 8) & 0xffu) : 0;
                 if (hits > 0)
                 {
                     scoreSystem.adjustScore (250 * hits + 100 * perfects, k == EncounterOverlay::Kind::pulse ? "PULSE" : k == EncounterOverlay::Kind::hunt ? "INTERVAL HUNT"
-                                                                                         : k == EncounterOverlay::Kind::seek ? "SEEK" : "CHORD FLASH");
+                                                                                         : k == EncounterOverlay::Kind::seek ? "SEEK"
+                                                                                         : k == EncounterOverlay::Kind::freq ? "FREQUENCY LAB" : "CHORD FLASH");
                     progressionSystem.recordGameCompleted();
                 }
                 if (won) storyPanel.grantFactReward();
@@ -129,6 +131,7 @@ namespace mutagen
         else if (hauntedRng.rollInclusive (1, 67) == 1) kind = 5;
         else if (hauntedRng.rollInclusive (1, 71) == 1) kind = 6;
         else if (hauntedRng.rollInclusive (1, 79) == 1) kind = 7;
+        else if (hauntedRng.rollInclusive (1, 83) == 1) kind = 8;
         if (kind >= 0) beginEncounter ((EncounterOverlay::Kind) kind);
     }
 
