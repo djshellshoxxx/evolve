@@ -577,10 +577,10 @@ namespace mutagen
         runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 20.0);
     }
 
-    void StoryPanel::playFinale()
+    void StoryPanel::playFinale (int forcedEnding)
     {
         runStory.finaleDone = true;
-        const int idx = story::endingFor (prog);
+        const int idx = forcedEnding >= 0 ? forcedEnding : story::endingFor (prog);
         const auto& e = story::endings()[(std::size_t) idx];
         const bool fresh = ((prog.endingsSeen >> idx) & 1u) == 0;
         prog.endingsSeen |= 1u << idx;

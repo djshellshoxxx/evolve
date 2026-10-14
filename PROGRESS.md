@@ -813,3 +813,4 @@ duplicate story notes; overlay button layout; -50 dBFS collect gate.
 - Audited the open items (CLAP, Source selector, fine-drag, W9/W11 are already done; remaining perf work needs profiling).
 - Added the post-ending Echo Chorale memory game, lifetime rank and persisted best (docs/specs/encore-spec.md). Full CTest suite passes on Linux.
 - Added Pulse and Interval Hunt chance minigames (docs/specs/minigames-spec.md).
+- Added the phreak cheat menu (docs/specs/phreak-spec.md); merged outstanding fix branches.

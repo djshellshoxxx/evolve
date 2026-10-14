@@ -83,6 +83,24 @@ namespace mutagen
         story::Speaker currentSpeaker() const { return speakerId; }
         int act() const { return currentAct; }
 
+        /** Phreak cheat menu entry points: each plays the real thing now. */
+        void cheatAct (int act) { act = juce::jlimit (1, story::actCount, act); prog.plotFloor = juce::jmax (prog.plotFloor, act); openAct (act); }
+        void cheatEnding (int ending) { playFinale (juce::jlimit (0, 3, ending)); }
+        void cheatTwist() { revealTwist(); }
+        void cheatQuiz() { askQuiz(); }
+        void cheatBanter() { fireBanter(); }
+        void cheatFact() { presentFact (true); }
+        void cheatUnlockAll()
+        {
+            prog.endingsSeen = 0xfu;
+            prog.chanceSeen = chance::count >= 32 ? 0xffffffffu : (1u << chance::count) - 1u;
+            prog.twistsSeen = (1u << story::twists().size()) - 1u;
+            prog.secrets = (std::uint64_t) 1 << 39; prog.secrets -= 1;
+            prog.lexicon = story::lexiconSize >= 64 ? ~(std::uint64_t) 0 : (((std::uint64_t) 1 << story::lexiconSize) - 1);
+            prog.plotFloor = story::actCount;
+            persist(); repaint();
+        }
+
         /** Test hook: fire a specific chance event now. */
         void fireChanceForTest (int id) { if (id >= 0 && id < chance::count) fireChance (id); }
 
@@ -120,7 +138,7 @@ namespace mutagen
         void playDemo (const facts::Demo&);
         void applyChance (const chance::Chance&);
         void fireBanter();
-        void playFinale();
+        void playFinale (int forcedEnding = -1);
         void drawSigil (juce::Graphics&, juce::Rectangle<float>) const;
         juce::Rectangle<int> sigilBounds() const;
         void doCollect (const juce::String& label, float seconds);

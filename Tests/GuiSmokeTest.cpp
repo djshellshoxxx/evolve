@@ -1,5 +1,6 @@
 #include "../Source/GUI/GameBar.h"
 #include "../Source/GUI/EncounterOverlay.h"
+#include "../Source/GUI/PhreakOverlay.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Source/GUI/ScoreHud.h"
 #include "../Source/GUI/StoryFx.h"
@@ -148,6 +149,21 @@ int main()
     std::printf ("Story animations: %s\n", storyFxDraws ? "PASS" : "FAIL");
     std::printf ("Fact toast: %s\n", factToastDraws ? "PASS" : "FAIL");
     std::printf ("Steering intensity: %s\n", steeringIntensity ? "PASS" : "FAIL");
+
+    {
+        mutagen::PhreakOverlay phreak;
+        phreak.setSize (800, 500);
+        int ran = 0;
+        phreak.setTree ({ { "ONE", { { "a", [&] { ++ran; } }, { "b", [&] { ran += 10; } } } }, { "TWO", { { "c", [&] { ran += 100; } } } } });
+        phreak.open();
+        juce::Image img (juce::Image::ARGB, 800, 500, true);
+        { juce::Graphics g (img); phreak.paintEntireComponent (g, false); }
+        const bool ok = phreak.isVisible() && phreak.categoryCount() == 2 && phreak.itemCount (0) == 2
+                        && phreak.run (0, 1) && ! phreak.isVisible() && ran == 10
+                        && ! phreak.run (2, 0) && ! phreak.run (0, 5) && phreak.run (1, 0) && ran == 110;
+        std::printf ("Phreak menu: %s\n", ok ? "PASS" : "FAIL");
+        if (! ok) return 1;
+    }
 
     mutagen::EncounterOverlay encounter;
     encounter.setSize (700, 450);
