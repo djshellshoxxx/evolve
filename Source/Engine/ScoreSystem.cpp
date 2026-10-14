@@ -39,6 +39,7 @@ namespace mutagen
         lastCoverage = 0.0f;
         lastGeneration = 0;
         lastPopulation = 0;
+        sinceMilestone = 0.0f;  // A new run must earn its own four seconds before BLOOM.
         wasNoiseLocked = wasStuck = false;
         goodSeconds = 0.0f;
         rewardCooldown = 0.0f;
