@@ -113,6 +113,27 @@ int main()
         if (actions != nullptr && actions->onNewWorld)
         { restored->savedRunScore.store (234); actions->onNewWorld(); CHECK (restored->savedRunScore.load() == 0); }
     }
+    // A new run must start its own four-second bloom cooldown rather than
+    // inheriting elapsed time from the preceding run.
+    ScoreSystem runScore;
+    EngineSnapshot bloomSnapshot;
+    bloomSnapshot.population = 1;
+    runScore.update (bloomSnapshot, 5.0);
+    runScore.reset();
+    bloomSnapshot.population = 20;
+    runScore.update (bloomSnapshot, 0.1);
+    bool earlyBloom = false;
+    for (const auto& event : runScore.events())
+        earlyBloom |= event.text == "BLOOM";
+    CHECK (! earlyBloom);
+
+    // Legitimate growth after four seconds must still award the bloom.
+    bloomSnapshot.population = 40;
+    runScore.update (bloomSnapshot, 4.1);
+    bool earnedBloom = false;
+    for (const auto& event : runScore.events())
+        earnedBloom |= event.text == "BLOOM";
+    CHECK (earnedBloom);
     std::printf ("Host feature tests: %s\n", failures == 0 ? "PASS" : "FAIL");
     return failures == 0 ? 0 : 1;
 }
