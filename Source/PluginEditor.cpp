@@ -79,6 +79,8 @@ namespace mutagen
         addChildComponent (cameraSynth);
         addChildComponent (cameraSynthLaunch);
         cameraSynthLaunch.onClick = [this] { cameraSynth.show(); };
+        cameraSynthDiscovered = progressionSystem.webcamSynthUnlocked();
+        cameraSynthLaunch.setVisible (cameraSynthDiscovered);
         storyPanel.onAnim   = [this] (chance::Anim a, juce::Colour c, float i) { storyFx.play (a, c, i); };
         storyPanel.onBanner = [this] (const juce::String& t, const juce::String& s, juce::Colour c) { storyFx.banner (t, s, c); };
         storyPanel.onGlitch = [this] (juce::Colour c) { storyFx.glitch (c); };
@@ -882,6 +884,7 @@ namespace mutagen
         if (! cameraSynthDiscovered && playSeconds >= 1800.0)
         {
             cameraSynthDiscovered = true;
+            progressionSystem.unlockWebcamSynth();
             cameraSynthLaunch.setVisible (true);
             storyFx.banner ("CHROMATIC PORTAL UNLOCKED", "Move to make music. Webcam optional.",
                             juce::Colours::cyan);
