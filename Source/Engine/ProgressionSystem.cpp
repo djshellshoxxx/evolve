@@ -88,6 +88,7 @@ namespace mutagen
             gameSkillCounts[(size_t) i] = readInt (root, key.toRawUTF8());
         }
         earnedGameSkills = juce::jmax (0, readInt (root, "earnedGameSkills"));
+        webcamSynthUnlockedFlag = readInt (root, "webcamSynthUnlocked") != 0;
         hiddenAttemptedMask = (unsigned) juce::jlimit (0, 31, readInt (root, "hiddenAttemptedMask"));
         hiddenUnlockedMask = (unsigned) juce::jlimit (0, 31, readInt (root, "hiddenUnlockedMask"));
         hiddenUnlockedMask &= hiddenAttemptedMask;
@@ -361,6 +362,13 @@ namespace mutagen
         return true;
     }
 
+    void ProgressionSystem::unlockWebcamSynth()
+    {
+        if (webcamSynthUnlockedFlag) return;
+        webcamSynthUnlockedFlag = true;
+        markDirty ("SECRET GAME DISCOVERED: CHROMATIC PORTAL");
+    }
+
     void ProgressionSystem::awardHiddenLevelRolls (int earnedCount, int rollBits)
     {
         if (earnedCount <= 0) return;
@@ -623,6 +631,7 @@ namespace mutagen
         for (int i = 0; i < 5; ++i)
             root->setProperty ("gameSkill" + juce::String (i), gameSkillCounts[(size_t) i]);
         root->setProperty ("earnedGameSkills", earnedGameSkills);
+        root->setProperty ("webcamSynthUnlocked", webcamSynthUnlockedFlag ? 1 : 0);
         root->setProperty ("hiddenAttemptedMask", (int) hiddenAttemptedMask);
         root->setProperty ("hiddenUnlockedMask", (int) hiddenUnlockedMask);
         root->setProperty ("gameSounds", gameSoundCount);
