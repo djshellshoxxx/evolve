@@ -181,6 +181,7 @@ target_link_libraries(MUTAGEN PRIVATE
     juce::juce_audio_processors
     juce::juce_dsp
     juce::juce_gui_extra
+    juce::juce_video
     PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)
