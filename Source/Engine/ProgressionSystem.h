@@ -80,6 +80,28 @@ namespace mutagen
             return total;
         }
 
+        // Five concealed skill milestones, each with one permanent 50/50 discovery roll.
+        // A missed roll does not reroll when skills are lost and earned again.
+        static constexpr int hiddenLevelCount = 5;
+        static int hiddenLevelThreshold (int index)
+        {
+            constexpr int thresholds[] { 5, 10, 20, 35, 50 };
+            return index >= 0 && index < hiddenLevelCount ? thresholds[index] : 0;
+        }
+        static const char* hiddenLevelName (int index)
+        {
+            constexpr const char* names[] { "Ghost Culture", "Echo Genome", "Prism Colony",
+                                            "Phantom Resonance", "The Fifth Specimen" };
+            return index >= 0 && index < hiddenLevelCount ? names[index] : "";
+        }
+        bool hiddenLevelUnlocked (int index) const
+        {
+            return index >= 0 && index < hiddenLevelCount
+                && (hiddenUnlockedMask & (1u << index)) != 0;
+        }
+        int lifetimeGameSkillsEarned() const { return earnedGameSkills; }
+        void awardHiddenLevelRolls (int earnedCount, int rollBits);
+
         void changeGameSkill (int index, int delta);
         int removeRandomGameSkill (int selector);
         void addGameSounds (int count);
@@ -131,6 +153,9 @@ namespace mutagen
         std::set<int> milestoneIds;
 
         std::array<int, 5> gameSkillCounts {};
+        int earnedGameSkills = 0;
+        unsigned hiddenAttemptedMask = 0;
+        unsigned hiddenUnlockedMask = 0;
         int gameSoundCount = 0;
         int specialOrbCount = 0;
         int rainbowOrbCount = 0;
