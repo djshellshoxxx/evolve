@@ -76,6 +76,9 @@ namespace mutagen
 
         addAndMakeVisible (secretLayer);
         addAndMakeVisible (storyFx);
+        addChildComponent (cameraSynth);
+        addChildComponent (cameraSynthLaunch);
+        cameraSynthLaunch.onClick = [this] { cameraSynth.show(); };
         storyPanel.onAnim   = [this] (chance::Anim a, juce::Colour c, float i) { storyFx.play (a, c, i); };
         storyPanel.onBanner = [this] (const juce::String& t, const juce::String& s, juce::Colour c) { storyFx.banner (t, s, c); };
         storyPanel.onGlitch = [this] (juce::Colour c) { storyFx.glitch (c); };
@@ -876,6 +879,13 @@ namespace mutagen
             || labGameOverlay.isVisible() || encounter.isVisible()
             || introOverlay.isVisible() || nameOverlay.isVisible();
         if (! playPaused) playSeconds += dt;
+        if (! cameraSynthDiscovered && playSeconds >= 1800.0)
+        {
+            cameraSynthDiscovered = true;
+            cameraSynthLaunch.setVisible (true);
+            storyFx.banner ("CHROMATIC PORTAL UNLOCKED", "Move to make music. Webcam optional.",
+                            juce::Colours::cyan);
+        }
         serviceEncounters (dt, playPaused);
         secretLayer.update (dt, scoreSystem.score(), snapshot.generation, snapshot.population,
                             introOverlay.isVisible() || nameOverlay.isVisible()
@@ -1013,6 +1023,7 @@ namespace mutagen
         secretLayer.toFront (false);
         storyFx.setBounds (chamber.getBounds());
         storyFx.toFront (false);
+        if (cameraSynthDiscovered) cameraSynthLaunch.setVisible (true);
         // Whatever modal layer is open stays above the secret layer.
         for (juce::Component* c : { (juce::Component*) &labGameOverlay, (juce::Component*) &introOverlay, (juce::Component*) &nameOverlay })
             if (c->isVisible()) c->toFront (false);
@@ -1034,6 +1045,9 @@ namespace mutagen
         performance.setBounds (overlay.reduced (24));
         introOverlay.setBounds (getLocalBounds());
         nameOverlay.setBounds (getLocalBounds());
+        cameraSynthLaunch.setBounds (chamber.getBounds().removeFromTop (36).removeFromRight (175));
+        cameraSynth.setBounds (overlay.reduced (24));
+        if (cameraSynth.isVisible()) cameraSynth.toFront (false);
         labGameOverlay.setBounds (chamber.getBounds().withSizeKeepingCentre (juce::jmin (520, chamber.getWidth()), juce::jmin (300, chamber.getHeight())));
         encounter.setBounds (overlay.reduced (24));
         fxRack.setBounds (overlay.reduced (16));
