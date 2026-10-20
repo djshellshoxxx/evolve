@@ -77,6 +77,17 @@ namespace mutagen
         addAndMakeVisible (secretLayer);
         addAndMakeVisible (storyFx);
         addChildComponent (cameraSynth);
+        addChildComponent (secretArcade);
+        secretArcade.onAward = [this] (int points)
+        {
+            scoreSystem.adjustScore (points, "SECRET ARCADE");
+        };
+        for (int i = 0; i < (int) arcadeButtons.size(); ++i)
+        {
+            addChildComponent (arcadeButtons[(size_t) i]);
+            arcadeButtons[(size_t) i].onClick = [this, i] { secretArcade.open (i); };
+        }
+        refreshSecretArcadeButtons();
         addChildComponent (cameraSynthLaunch);
         cameraSynthLaunch.onClick = [this] { cameraSynth.show(); };
         cameraSynthDiscovered = progressionSystem.webcamSynthUnlocked();
@@ -851,6 +862,18 @@ namespace mutagen
 
     // =====================================================================
 
+    void MutagenEditor::refreshSecretArcadeButtons()
+    {
+        const int earned = progressionSystem.lifetimeGameSkillsEarned();
+        static const int thresholds[] { 12, 24, 40 };
+        static const char* labels[] { "ECHO", "SPECTRAL", "PHASE" };
+        for (int i = 0; i < 3; ++i)
+        {
+            arcadeButtons[(size_t) i].setButtonText (labels[i]);
+            arcadeButtons[(size_t) i].setVisible (earned >= thresholds[i]);
+        }
+    }
+
     void MutagenEditor::timerCallback()
     {
         const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
@@ -872,6 +895,7 @@ namespace mutagen
         scoreSystem.update (snapshot, dt);
         const auto runScoreAfter = scoreSystem.score();
         progressionSystem.observe (snapshot, scoreSystem);
+        refreshSecretArcadeButtons();
         storyPanel.tick (dt, breedingLab.isVisible() || performance.isVisible()
                                || helpView.isVisible() || encounter.isVisible() || labGameOverlay.isVisible()
                                || introOverlay.isVisible() || nameOverlay.isVisible());
@@ -1050,6 +1074,11 @@ namespace mutagen
         nameOverlay.setBounds (getLocalBounds());
         cameraSynthLaunch.setBounds (chamber.getBounds().removeFromTop (36).removeFromRight (175));
         cameraSynth.setBounds (overlay.reduced (24));
+        secretArcade.setBounds (overlay.reduced (24));
+        for (int i = 0; i < (int) arcadeButtons.size(); ++i)
+            arcadeButtons[(size_t) i].setBounds (chamber.getX() + 10 + i * 82,
+                                                chamber.getBottom() - 37, 78, 32);
+        if (secretArcade.isVisible()) secretArcade.toFront (false);
         if (cameraSynth.isVisible()) cameraSynth.toFront (false);
         labGameOverlay.setBounds (chamber.getBounds().withSizeKeepingCentre (juce::jmin (520, chamber.getWidth()), juce::jmin (300, chamber.getHeight())));
         encounter.setBounds (overlay.reduced (24));
