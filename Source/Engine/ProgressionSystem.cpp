@@ -87,6 +87,14 @@ namespace mutagen
             const auto key = "gameSkill" + juce::String (i);
             gameSkillCounts[(size_t) i] = readInt (root, key.toRawUTF8());
         }
+        earnedGameSkills = juce::jmax (0, readInt (root, "earnedGameSkills"));
+        hiddenAttemptedMask = (unsigned) juce::jlimit (0, 31, readInt (root, "hiddenAttemptedMask"));
+        hiddenUnlockedMask = (unsigned) juce::jlimit (0, 31, readInt (root, "hiddenUnlockedMask"));
+        hiddenUnlockedMask &= hiddenAttemptedMask;
+        // Older saves have no lifetime counter. Seed from currently owned skills
+        // so existing players are not penalized and future milestones remain reachable.
+        if (! root.getDynamicObject()->hasProperty ("earnedGameSkills"))
+            earnedGameSkills = totalGameSkills();
         gameSoundCount = readInt (root, "gameSounds");
         specialOrbCount = readInt (root, "specialOrbs");
         rainbowOrbCount = readInt (root, "rainbowOrbs");
@@ -353,6 +361,26 @@ namespace mutagen
         return true;
     }
 
+    void ProgressionSystem::awardHiddenLevelRolls (int earnedCount, int rollBits)
+    {
+        if (earnedCount <= 0) return;
+        const int before = earnedGameSkills;
+        earnedGameSkills = juce::jmin (1000000000, earnedGameSkills + earnedCount);
+        for (int i = 0; i < hiddenLevelCount; ++i)
+        {
+            const auto bit = 1u << i;
+            if (hiddenAttemptedMask & bit || before >= hiddenLevelThreshold (i)
+                || earnedGameSkills < hiddenLevelThreshold (i)) continue;
+            hiddenAttemptedMask |= bit;
+            if ((rollBits & (1 << i)) != 0)
+            {
+                hiddenUnlockedMask |= bit;
+                markDirty ("HIDDEN LEVEL DISCOVERED: " + juce::String (hiddenLevelName (i)));
+            }
+        }
+        markDirty();
+    }
+
     void ProgressionSystem::changeGameSkill (int index, int delta)
     {
         if (index < 0 || index >= 5 || delta == 0) return;
@@ -594,6 +622,9 @@ namespace mutagen
 
         for (int i = 0; i < 5; ++i)
             root->setProperty ("gameSkill" + juce::String (i), gameSkillCounts[(size_t) i]);
+        root->setProperty ("earnedGameSkills", earnedGameSkills);
+        root->setProperty ("hiddenAttemptedMask", (int) hiddenAttemptedMask);
+        root->setProperty ("hiddenUnlockedMask", (int) hiddenUnlockedMask);
         root->setProperty ("gameSounds", gameSoundCount);
         root->setProperty ("specialOrbs", specialOrbCount);
         root->setProperty ("rainbowOrbs", rainbowOrbCount);
