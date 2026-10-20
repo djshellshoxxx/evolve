@@ -100,6 +100,8 @@ namespace mutagen
                 && (hiddenUnlockedMask & (1u << index)) != 0;
         }
         int lifetimeGameSkillsEarned() const { return earnedGameSkills; }
+        bool webcamSynthUnlocked() const { return webcamSynthUnlockedFlag; }
+        void unlockWebcamSynth();
         void awardHiddenLevelRolls (int earnedCount, int rollBits);
 
         void changeGameSkill (int index, int delta);
@@ -154,6 +156,7 @@ namespace mutagen
 
         std::array<int, 5> gameSkillCounts {};
         int earnedGameSkills = 0;
+        bool webcamSynthUnlockedFlag = false;
         unsigned hiddenAttemptedMask = 0;
         unsigned hiddenUnlockedMask = 0;
         int gameSoundCount = 0;
