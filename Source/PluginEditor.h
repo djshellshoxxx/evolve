@@ -29,6 +29,7 @@
 #include "GUI/SecretLayer.h"
 #include "GUI/StoryFx.h"
 #include "GUI/CameraSynthGame.h"
+#include "GUI/SecretArcade.h"
 #include "GUI/IntroOverlay.h"
 #include "Engine/ScoreSystem.h"
 #include "Engine/HauntedEvents.h"
@@ -113,6 +114,9 @@ namespace mutagen
         SecretLayer       secretLayer { processor, chamber, storyPanel };
         StoryFx           storyFx;
         CameraSynthGame cameraSynth { processor.keyboardState };
+        SecretArcade secretArcade;
+        std::array<juce::TextButton, 3> arcadeButtons;
+        void refreshSecretArcadeButtons();
         juce::TextButton cameraSynthLaunch { "CHROMATIC PORTAL" };
         bool cameraSynthDiscovered = false;
         IntroOverlay      introOverlay;
