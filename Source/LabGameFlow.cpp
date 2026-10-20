@@ -383,7 +383,26 @@ namespace mutagen
     {
         const int before = progressionSystem.totalGameSkills();
         progressionSystem.changeGameSkill (juce::jlimit (0, 4, index), count);
-        if (count > 0) storyPanel.grantFactReward();
+        if (count > 0)
+        {
+            int discoveryBits = 0;
+            for (int tier = 0; tier < ProgressionSystem::hiddenLevelCount; ++tier)
+                if (hauntedRng.rollInclusive (0, 1) == 1) discoveryBits |= 1 << tier;
+            progressionSystem.awardHiddenLevelRolls (count, discoveryBits);
+            storyPanel.grantFactReward();
+
+            // Every discovered secret grants a distinct persistent gameplay perk.
+            if (progressionSystem.hiddenLevelUnlocked (0))
+                scoreSystem.adjustScore (count * 5, "GHOST CULTURE");
+            if (progressionSystem.hiddenLevelUnlocked (1))
+                progressionSystem.addGameSounds (count);
+            if (progressionSystem.hiddenLevelUnlocked (2))
+                progressionSystem.addSpecialOrbs (count);
+            if (progressionSystem.hiddenLevelUnlocked (3))
+                scoreSystem.adjustScore (count * 25, "PHANTOM RESONANCE");
+            if (progressionSystem.hiddenLevelUnlocked (4))
+                progressionSystem.addRainbowOrbs (count);
+        }
         scoreSystem.adjustScore (labgames::skillDiscoveryPoints (count), "SKILL +" + juce::String (count));
         // Every second skill earned is worth another 93 points.
         for (int i = 0; i < count; ++i)
