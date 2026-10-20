@@ -310,7 +310,7 @@ namespace mutagen
         if (focus != nullptr && (dynamic_cast<juce::TextEditor*> (focus) != nullptr
             || focus->findParentComponentOfClass<juce::TextEditor>() != nullptr)) return false;
         if (introOverlay.isVisible() || nameOverlay.isVisible() || encounter.isVisible()
-            || labGameOverlay.isVisible() || helpView.isVisible() || optionsView.isVisible()
+            || labGameOverlay.isVisible() || secretArcade.isVisible() || cameraSynth.isVisible() || helpView.isVisible() || optionsView.isVisible()
             || progressionView.isVisible() || breedingLab.isVisible() || performance.isVisible() || fxRack.isVisible()) return false;
         const auto modifiers = key.getModifiers();
         if (! modifiers.isShiftDown() || (! modifiers.isCtrlDown() && ! modifiers.isCommandDown()) || modifiers.isAltDown()) return false;
@@ -903,6 +903,7 @@ namespace mutagen
         const bool playPaused = breedingLab.isVisible() || performance.isVisible()
             || helpView.isVisible() || optionsView.isVisible() || progressionView.isVisible()
             || labGameOverlay.isVisible() || encounter.isVisible()
+            || secretArcade.isVisible() || cameraSynth.isVisible()
             || introOverlay.isVisible() || nameOverlay.isVisible();
         if (! playPaused) playSeconds += dt;
         if (! cameraSynthDiscovered && playSeconds >= 1800.0)
