@@ -28,6 +28,7 @@
 #include "GUI/StoryPanel.h"
 #include "GUI/SecretLayer.h"
 #include "GUI/StoryFx.h"
+#include "GUI/CameraSynthGame.h"
 #include "GUI/IntroOverlay.h"
 #include "Engine/ScoreSystem.h"
 #include "Engine/HauntedEvents.h"
@@ -111,6 +112,9 @@ namespace mutagen
         StoryPanel        storyPanel { processor };
         SecretLayer       secretLayer { processor, chamber, storyPanel };
         StoryFx           storyFx;
+        CameraSynthGame cameraSynth { processor.keyboardState };
+        juce::TextButton cameraSynthLaunch { "CHROMATIC PORTAL" };
+        bool cameraSynthDiscovered = false;
         IntroOverlay      introOverlay;
         NameOverlay       nameOverlay;
         void askName();
