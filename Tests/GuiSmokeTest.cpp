@@ -1,5 +1,6 @@
 #include "../Source/GUI/GameBar.h"
 #include "../Source/GUI/EncounterOverlay.h"
+#include "../Source/GUI/PhreakOverlay.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Source/GUI/ScoreHud.h"
 #include "../Source/GUI/StoryFx.h"
@@ -149,6 +150,21 @@ int main()
     std::printf ("Fact toast: %s\n", factToastDraws ? "PASS" : "FAIL");
     std::printf ("Steering intensity: %s\n", steeringIntensity ? "PASS" : "FAIL");
 
+    {
+        mutagen::PhreakOverlay phreak;
+        phreak.setSize (800, 500);
+        int ran = 0;
+        phreak.setTree ({ { "ONE", { { "a", [&] { ++ran; } }, { "b", [&] { ran += 10; } } } }, { "TWO", { { "c", [&] { ran += 100; } } } } });
+        phreak.open();
+        juce::Image img (juce::Image::ARGB, 800, 500, true);
+        { juce::Graphics g (img); phreak.paintEntireComponent (g, false); }
+        const bool ok = phreak.isVisible() && phreak.categoryCount() == 2 && phreak.itemCount (0) == 2
+                        && phreak.run (0, 1) && ! phreak.isVisible() && ran == 10
+                        && ! phreak.run (2, 0) && ! phreak.run (0, 5) && phreak.run (1, 0) && ran == 110;
+        std::printf ("Phreak menu: %s\n", ok ? "PASS" : "FAIL");
+        if (! ok) return 1;
+    }
+
     mutagen::EncounterOverlay encounter;
     encounter.setSize (700, 450);
     int noteCount = 0, completions = 0;
@@ -164,6 +180,31 @@ int main()
     encounter.onRoomTargets = [&] (const auto& t) { roomAudio |= t.combMix > 0 || t.reverbMacro > 0 || t.dopplerDepth > 0 || t.lowShelfDb != 0 || t.phaseOffset > 0; };
     encounter.begin (mutagen::EncounterOverlay::Kind::room, 42, 2, 0, 60, 0);
     for (int i = 0; i < 20; ++i) encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::chorale, 42, 2, 0, 60, 0);
+    for (int i = 0; i < 60; ++i) encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress ('1'));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::pulse, 42, 2, 0, 60, 0);
+    for (int i = 0; i < 40; ++i) encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::hunt, 42, 2, 0, 60, 0);
+    encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress ('r'));
+    encounter.keyPressed (juce::KeyPress ('2'));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::seek, 42, 2, 0, 60, 0);
+    for (int i = 0; i < 20; ++i) encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::flash, 42, 2, 0, 60, 0);
+    encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress ('3'));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
+    encounter.begin (mutagen::EncounterOverlay::Kind::freq, 42, 2, 0, 60, 0);
+    encounter.tick (0.1);
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::rightKey));
+    encounter.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey));
     encounter.keyPressed (juce::KeyPress (juce::KeyPress::escapeKey));
     encounter.begin (mutagen::EncounterOverlay::Kind::tuner, 42, 2, 0, 60, 0);
     const int before = noteCount;
