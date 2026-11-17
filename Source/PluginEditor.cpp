@@ -77,6 +77,22 @@ namespace mutagen
 
         addAndMakeVisible (secretLayer);
         addAndMakeVisible (storyFx);
+        addChildComponent (cameraSynth);
+        addChildComponent (secretArcade);
+        secretArcade.onAward = [this] (int points)
+        {
+            scoreSystem.adjustScore (points, "SECRET ARCADE");
+        };
+        for (int i = 0; i < (int) arcadeButtons.size(); ++i)
+        {
+            addChildComponent (arcadeButtons[(size_t) i]);
+            arcadeButtons[(size_t) i].onClick = [this, i] { secretArcade.open (i); };
+        }
+        refreshSecretArcadeButtons();
+        addChildComponent (cameraSynthLaunch);
+        cameraSynthLaunch.onClick = [this] { cameraSynth.show(); };
+        cameraSynthDiscovered = progressionSystem.webcamSynthUnlocked();
+        cameraSynthLaunch.setVisible (cameraSynthDiscovered);
         storyPanel.onAnim   = [this] (chance::Anim a, juce::Colour c, float i) { storyFx.play (a, c, i); };
         storyPanel.onBanner = [this] (const juce::String& t, const juce::String& s, juce::Colour c) { storyFx.banner (t, s, c); };
         storyPanel.onGlitch = [this] (juce::Colour c) { storyFx.glitch (c); };
@@ -296,7 +312,7 @@ namespace mutagen
             || focus->findParentComponentOfClass<juce::TextEditor>() != nullptr)) return false;
         if (phreakKey (key)) return true;
         if (introOverlay.isVisible() || nameOverlay.isVisible() || encounter.isVisible()
-            || labGameOverlay.isVisible() || helpView.isVisible() || optionsView.isVisible()
+            || labGameOverlay.isVisible() || secretArcade.isVisible() || cameraSynth.isVisible() || helpView.isVisible() || optionsView.isVisible()
             || progressionView.isVisible() || breedingLab.isVisible() || performance.isVisible() || fxRack.isVisible()) return false;
         const auto modifiers = key.getModifiers();
         if (! modifiers.isShiftDown() || (! modifiers.isCtrlDown() && ! modifiers.isCommandDown()) || modifiers.isAltDown()) return false;
@@ -848,6 +864,18 @@ namespace mutagen
 
     // =====================================================================
 
+    void MutagenEditor::refreshSecretArcadeButtons()
+    {
+        const int earned = progressionSystem.lifetimeGameSkillsEarned();
+        static const int thresholds[] { 12, 24, 40 };
+        static const char* labels[] { "ECHO", "SPECTRAL", "PHASE" };
+        for (int i = 0; i < 3; ++i)
+        {
+            arcadeButtons[(size_t) i].setButtonText (labels[i]);
+            arcadeButtons[(size_t) i].setVisible (earned >= thresholds[i]);
+        }
+    }
+
     void MutagenEditor::timerCallback()
     {
         const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
@@ -869,6 +897,7 @@ namespace mutagen
         scoreSystem.update (snapshot, dt);
         const auto runScoreAfter = scoreSystem.score();
         progressionSystem.observe (snapshot, scoreSystem);
+        refreshSecretArcadeButtons();
         storyPanel.tick (dt, breedingLab.isVisible() || performance.isVisible()
                                || helpView.isVisible() || encounter.isVisible() || labGameOverlay.isVisible()
                                || introOverlay.isVisible() || nameOverlay.isVisible());
@@ -876,8 +905,17 @@ namespace mutagen
         const bool playPaused = breedingLab.isVisible() || performance.isVisible()
             || helpView.isVisible() || optionsView.isVisible() || progressionView.isVisible()
             || labGameOverlay.isVisible() || encounter.isVisible()
+            || secretArcade.isVisible() || cameraSynth.isVisible()
             || introOverlay.isVisible() || nameOverlay.isVisible();
         if (! playPaused) playSeconds += dt;
+        if (! cameraSynthDiscovered && playSeconds >= 1800.0)
+        {
+            cameraSynthDiscovered = true;
+            progressionSystem.unlockWebcamSynth();
+            cameraSynthLaunch.setVisible (true);
+            storyFx.banner ("CHROMATIC PORTAL UNLOCKED", "Move to make music. Webcam optional.",
+                            juce::Colours::cyan);
+        }
         serviceEncounters (dt, playPaused);
         secretLayer.update (dt, scoreSystem.score(), snapshot.generation, snapshot.population,
                             introOverlay.isVisible() || nameOverlay.isVisible()
@@ -1015,6 +1053,7 @@ namespace mutagen
         secretLayer.toFront (false);
         storyFx.setBounds (chamber.getBounds());
         storyFx.toFront (false);
+        if (cameraSynthDiscovered) cameraSynthLaunch.setVisible (true);
         // Whatever modal layer is open stays above the secret layer.
         for (juce::Component* c : { (juce::Component*) &labGameOverlay, (juce::Component*) &introOverlay, (juce::Component*) &nameOverlay })
             if (c->isVisible()) c->toFront (false);
@@ -1036,6 +1075,14 @@ namespace mutagen
         performance.setBounds (overlay.reduced (24));
         introOverlay.setBounds (getLocalBounds());
         nameOverlay.setBounds (getLocalBounds());
+        cameraSynthLaunch.setBounds (chamber.getBounds().removeFromTop (36).removeFromRight (175));
+        cameraSynth.setBounds (overlay.reduced (24));
+        secretArcade.setBounds (overlay.reduced (24));
+        for (int i = 0; i < (int) arcadeButtons.size(); ++i)
+            arcadeButtons[(size_t) i].setBounds (chamber.getX() + 10 + i * 82,
+                                                chamber.getBottom() - 37, 78, 32);
+        if (secretArcade.isVisible()) secretArcade.toFront (false);
+        if (cameraSynth.isVisible()) cameraSynth.toFront (false);
         labGameOverlay.setBounds (chamber.getBounds().withSizeKeepingCentre (juce::jmin (520, chamber.getWidth()), juce::jmin (300, chamber.getHeight())));
         encounter.setBounds (overlay.reduced (24));
         phreak.setBounds (getLocalBounds());

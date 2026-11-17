@@ -50,6 +50,8 @@ if(NOT APPLE)
 endif()
 
 juce_add_plugin(MUTAGEN
+    CAMERA_PERMISSION_ENABLED TRUE
+    CAMERA_PERMISSION_TEXT "Use your camera to control the optional Chromatic Portal game."
     COMPANY_NAME              "Colonyworks"
     COMPANY_WEBSITE           "https://github.com/djshellshoxxx/mutagen"
     BUNDLE_ID                 com.colonyworks.mutagen
@@ -171,6 +173,7 @@ if(MUTAGEN_TEST_HOOKS)
 endif()
 
 target_compile_definitions(MUTAGEN PUBLIC
+    JUCE_USE_CAMERA=$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Windows>>
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
@@ -183,6 +186,7 @@ target_link_libraries(MUTAGEN PRIVATE
     juce::juce_audio_processors
     juce::juce_dsp
     juce::juce_gui_extra
+    juce::juce_video
     PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)

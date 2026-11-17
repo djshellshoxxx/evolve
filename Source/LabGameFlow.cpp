@@ -346,17 +346,20 @@ namespace mutagen
         if (minute == lastGameMinuteBucket) return;
         lastGameMinuteBucket = minute;
 
-        if (labgames::shouldOfferSlots (minute, hauntedRng.rollInclusive (1, 10)))       queueLabGame (PendingGame::slots);
-        if (labgames::shouldOfferRoulette (minute, hauntedRng.rollInclusive (1, 5)))     queueLabGame (PendingGame::roulette);
-        if (labgames::shouldOfferTwentyOne (minute, hauntedRng.rollInclusive (1, 11)))   queueLabGame (PendingGame::twentyOne);
-        if (labgames::shouldOfferMonte (minute, hauntedRng.rollInclusive (1, 3)))        queueLabGame (PendingGame::monte);
-        if (labgames::shouldOfferDice (minute, hauntedRng.rollInclusive (1, 30)))        queueLabGame (PendingGame::dice);
+        // Chance-only lab games were interrupting play too often. Preserve each
+        // game's original timing and odds, but accept just 1% of successful offers.
+        // Roll independently per eligible game so their relative rarities stay intact.
+        const auto rareOffer = [this] { return hauntedRng.rollInclusive (1, 100) == 1; };
+        if (labgames::shouldOfferSlots (minute, hauntedRng.rollInclusive (1, 10)) && rareOffer())       queueLabGame (PendingGame::slots);
+        if (labgames::shouldOfferRoulette (minute, hauntedRng.rollInclusive (1, 5)) && rareOffer())     queueLabGame (PendingGame::roulette);
+        if (labgames::shouldOfferTwentyOne (minute, hauntedRng.rollInclusive (1, 11)) && rareOffer())   queueLabGame (PendingGame::twentyOne);
+        if (labgames::shouldOfferMonte (minute, hauntedRng.rollInclusive (1, 3)) && rareOffer())        queueLabGame (PendingGame::monte);
+        if (labgames::shouldOfferDice (minute, hauntedRng.rollInclusive (1, 30)) && rareOffer())        queueLabGame (PendingGame::dice);
 
-        // Three entirely chance-gated, optional hidden variants. One independent
-        // roll per elapsed play-minute; no progress, click sequence or score requirement.
-        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::phantomMonte, minute, hauntedRng.rollInclusive (1, 257))) queueLabGame (PendingGame::phantomMonte);
-        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::eclipseSlots, minute, hauntedRng.rollInclusive (1, 389))) queueLabGame (PendingGame::eclipseSlots);
-        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::spectralDice, minute, hauntedRng.rollInclusive (1, 601))) queueLabGame (PendingGame::spectralDice);
+        // The hidden variants use the same 1% offer multiplier.
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::phantomMonte, minute, hauntedRng.rollInclusive (1, 257)) && rareOffer()) queueLabGame (PendingGame::phantomMonte);
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::eclipseSlots, minute, hauntedRng.rollInclusive (1, 389)) && rareOffer()) queueLabGame (PendingGame::eclipseSlots);
+        if (labgames::shouldOfferHiddenGame (labgames::HiddenGame::spectralDice, minute, hauntedRng.rollInclusive (1, 601)) && rareOffer()) queueLabGame (PendingGame::spectralDice);
     }
 
     void MutagenEditor::queueLabGame (PendingGame g, bool allowRepeat)
@@ -417,7 +420,26 @@ namespace mutagen
     {
         const int before = progressionSystem.totalGameSkills();
         progressionSystem.changeGameSkill (juce::jlimit (0, 4, index), count);
-        if (count > 0) storyPanel.grantFactReward();
+        if (count > 0)
+        {
+            int discoveryBits = 0;
+            for (int tier = 0; tier < ProgressionSystem::hiddenLevelCount; ++tier)
+                if (hauntedRng.rollInclusive (0, 1) == 1) discoveryBits |= 1 << tier;
+            progressionSystem.awardHiddenLevelRolls (count, discoveryBits);
+            storyPanel.grantFactReward();
+
+            // Every discovered secret grants a distinct persistent gameplay perk.
+            if (progressionSystem.hiddenLevelUnlocked (0))
+                scoreSystem.adjustScore (count * 5, "GHOST CULTURE");
+            if (progressionSystem.hiddenLevelUnlocked (1))
+                progressionSystem.addGameSounds (count);
+            if (progressionSystem.hiddenLevelUnlocked (2))
+                progressionSystem.addSpecialOrbs (count);
+            if (progressionSystem.hiddenLevelUnlocked (3))
+                scoreSystem.adjustScore (count * 25, "PHANTOM RESONANCE");
+            if (progressionSystem.hiddenLevelUnlocked (4))
+                progressionSystem.addRainbowOrbs (count);
+        }
         scoreSystem.adjustScore (labgames::skillDiscoveryPoints (count), "SKILL +" + juce::String (count));
         // Every second skill earned is worth another 93 points.
         for (int i = 0; i < count; ++i)
@@ -428,7 +450,8 @@ namespace mutagen
 
     void MutagenEditor::checkSkillRouletteTrigger (int before, int after)
     {
-        if (labgames::skillRouletteOfferDue (before, after, hauntedRng.rollInclusive (1, 4)))
+        if (labgames::skillRouletteOfferDue (before, after, hauntedRng.rollInclusive (1, 4))
+            && hauntedRng.rollInclusive (1, 100) == 1)
             queueLabGame (PendingGame::skillRoulette);
     }
 
