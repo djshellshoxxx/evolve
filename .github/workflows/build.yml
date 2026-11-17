@@ -73,6 +73,13 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel 4
 
+      - name: Upload Windows standalone first
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MUTAGEN-windows-standalone-exe
+          path: build/MUTAGEN_artefacts/Release/Standalone/MUTAGEN.exe
+
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
 

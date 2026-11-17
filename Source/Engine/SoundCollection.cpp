@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 #include "SoundCollection.h"
+#include "Encore.h"
 
 namespace mutagen
 {
@@ -155,6 +156,7 @@ namespace mutagen
                 p.factSeen = o->getProperty ("factSeen").toString().toStdString();
                 p.chanceSeen = (std::uint32_t) (juce::int64) o->getProperty ("chanceSeen");
                 p.endingsSeen = (std::uint32_t) (juce::int64) o->getProperty ("endingsSeen");
+                p.encoreBest = juce::jlimit (0, story::encore::kRounds, (int) o->getProperty ("encoreBest"));
                 p.playerName = o->getProperty ("playerName").toString().substring (0, 40).toStdString();
             }
             return p;
@@ -195,6 +197,7 @@ namespace mutagen
                     p.factSeen = disk.factSeen;
             }
             p.endingsSeen |= disk.endingsSeen;
+            p.encoreBest = juce::jmax (p.encoreBest, disk.encoreBest);
             p.introSeen = p.introSeen || disk.introSeen;
             p.plotFloor = juce::jmax (p.plotFloor, disk.plotFloor);
             if (p.playerName.empty()) p.playerName = disk.playerName;
@@ -222,6 +225,7 @@ namespace mutagen
             o->setProperty ("factSeen", juce::String (p.factSeen));
             o->setProperty ("chanceSeen", (juce::int64) p.chanceSeen);
             o->setProperty ("endingsSeen", (juce::int64) p.endingsSeen);
+            o->setProperty ("encoreBest", p.encoreBest);
             o->setProperty ("introSeen", p.introSeen);
             o->setProperty ("plotFloor", p.plotFloor);
             o->setProperty ("playerName", juce::String (juce::CharPointer_UTF8 (p.playerName.c_str())));

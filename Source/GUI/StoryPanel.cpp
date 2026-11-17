@@ -577,10 +577,10 @@ namespace mutagen
         runStory.nextEventSec = juce::jmax (runStory.nextEventSec, clock + 20.0);
     }
 
-    void StoryPanel::playFinale()
+    void StoryPanel::playFinale (int forcedEnding)
     {
         runStory.finaleDone = true;
-        const int idx = story::endingFor (prog);
+        const int idx = forcedEnding >= 0 ? forcedEnding : story::endingFor (prog);
         const auto& e = story::endings()[(std::size_t) idx];
         const bool fresh = ((prog.endingsSeen >> idx) & 1u) == 0;
         prog.endingsSeen |= 1u << idx;
@@ -808,7 +808,8 @@ namespace mutagen
                           + "  |  JAR " + juce::String (jar.size())
                           + "  |  SECRETS " + juce::String (prog.secretCount()) + "/39"
                           + "  |  EVENTS " + juce::String (prog.chanceCount()) + "/" + juce::String (chance::count)
-                          + "  |  ENDINGS " + juce::String (prog.endingCount()) + "/4";
+                          + "  |  ENDINGS " + juce::String (prog.endingCount()) + "/4"
+                          + (prog.encoreBest > 0 ? juce::String ("  |  ") + story::encore::rankFor (prog.encoreBest) : juce::String());
         g.setFont (theme::monoFont (9.5f));
         g.setColour (theme::textDim);
         g.drawText (status, area.removeFromTop (12), juce::Justification::centredLeft, true);

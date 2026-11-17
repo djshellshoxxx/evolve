@@ -808,3 +808,9 @@ duplicate story notes; overlay button layout; -50 dBFS collect gate.
   banter queue, finale. Progress persists chanceSeen / endingsSeen.
 - Tests: chance distribution/gating, banter, endings; GuiSmokeTest renders every animation.
 - Release workflow: tag v*-beta.N gives a prerelease named from the tag.
+
+### 2026-10-14 - Encore: the Echo Chorale
+- Audited the open items (CLAP, Source selector, fine-drag, W9/W11 are already done; remaining perf work needs profiling).
+- Added the post-ending Echo Chorale memory game, lifetime rank and persisted best (docs/specs/encore-spec.md). Full CTest suite passes on Linux.
+- Added Pulse and Interval Hunt chance minigames (docs/specs/minigames-spec.md).
+- Added the phreak cheat menu (docs/specs/phreak-spec.md); merged outstanding fix branches.

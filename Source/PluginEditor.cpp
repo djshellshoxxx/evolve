@@ -70,6 +70,7 @@ namespace mutagen
         addAndMakeVisible (storyPanel);
         wireLabGames();
         wireEncounters();
+        wirePhreak();
         scoreSystem.restoreRun (processor.savedRunScore.load(), processor.savedRunSeconds.load());
         scoreSystem.setRunId (juce::String (processor.savedRunId.load()));
         scoreRestoreRevision = processor.runRestoreRevision.load();
@@ -298,8 +299,8 @@ namespace mutagen
                 { topBar.closePerformanceView(); topBar.grabKeyboardFocus(); return true; }
                 if (child == &fxRack)
                 { topBar.closeFxView(); topBar.grabKeyboardFocus(); return true; }
-                for (juce::Component* overlay : std::array<juce::Component*, 4> { &optionsView, &helpView,
-                        &progressionView, &breedingLab })
+                for (juce::Component* overlay : std::array<juce::Component*, 5> { &optionsView, &helpView,
+                        &progressionView, &breedingLab, &phreak })
                     if (child == overlay)
                     { overlay->setVisible (false); topBar.grabKeyboardFocus(); return true; }
             }
@@ -309,6 +310,7 @@ namespace mutagen
         auto* focus = juce::Component::getCurrentlyFocusedComponent();
         if (focus != nullptr && (dynamic_cast<juce::TextEditor*> (focus) != nullptr
             || focus->findParentComponentOfClass<juce::TextEditor>() != nullptr)) return false;
+        if (phreakKey (key)) return true;
         if (introOverlay.isVisible() || nameOverlay.isVisible() || encounter.isVisible()
             || labGameOverlay.isVisible() || secretArcade.isVisible() || cameraSynth.isVisible() || helpView.isVisible() || optionsView.isVisible()
             || progressionView.isVisible() || breedingLab.isVisible() || performance.isVisible() || fxRack.isVisible()) return false;
@@ -1083,6 +1085,7 @@ namespace mutagen
         if (cameraSynth.isVisible()) cameraSynth.toFront (false);
         labGameOverlay.setBounds (chamber.getBounds().withSizeKeepingCentre (juce::jmin (520, chamber.getWidth()), juce::jmin (300, chamber.getHeight())));
         encounter.setBounds (overlay.reduced (24));
+        phreak.setBounds (getLocalBounds());
         fxRack.setBounds (overlay.reduced (16));
 
         // Help and options are read, not played with, so they are narrower

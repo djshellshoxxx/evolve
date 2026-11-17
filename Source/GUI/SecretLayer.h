@@ -41,6 +41,7 @@ namespace mutagen
         void playFate (secrets::Fate);
 
         /** Test hook: open a secret room directly. */
+        void openSecretRoom (int id) { openSecretForTest (id); }
         void openSecretForTest (int id) { if (id >= 0 && id < secrets::secretCount) openSecret (id); }
 
         class Roamer;

@@ -9,7 +9,9 @@ namespace mutagen
 {
     // Camera access is strictly opt-in. The game also works with mouse movement.
     class CameraSynthGame final : public juce::Component,
+#if JUCE_USE_CAMERA
                                   private juce::CameraDevice::Listener,
+#endif
                                   private juce::Timer
     {
     public:
@@ -19,7 +21,11 @@ namespace mutagen
             addAndMakeVisible (closeButton);
             cameraButton.setButtonText ("ENABLE CAMERA");
             closeButton.setButtonText ("CLOSE");
+#if JUCE_USE_CAMERA
             cameraButton.onClick = [this] { openCamera(); };
+#else
+            cameraButton.setVisible (false);
+#endif
             closeButton.onClick = [this] { setVisible (false); };
             setVisible (false);
             setWantsKeyboardFocus (true);
@@ -65,7 +71,7 @@ namespace mutagen
             g.drawText ("CHROMATIC PORTAL", 20, 14, getWidth() - 40, 32, juce::Justification::centred);
             g.setFont (14.0f);
             g.drawText (cameraEnabled ? "Move through the frame to play notes."
-                                      : "Move the mouse to play. Camera access is optional.",
+                                      : (cameraButton.isVisible() ? "Move the mouse to play. Camera access is optional." : "Move the mouse to play."),
                         20, 47, getWidth() - 40, 22, juce::Justification::centred);
             const float x = view.getX() + horizontal * view.getWidth();
             const float y = view.getY() + vertical * view.getHeight();
@@ -86,6 +92,7 @@ namespace mutagen
             vertical = juce::jlimit (0.0f, 1.0f, p.y / juce::jmax (1.0f, (float) getHeight()));
         }
 
+#if JUCE_USE_CAMERA
         void openCamera()
         {
             if (cameraEnabled) { closeCamera(); return; }
@@ -113,6 +120,8 @@ namespace mutagen
             const juce::ScopedLock lock (frameLock);
             pendingFrame = frame;
         }
+
+#endif
 
         void timerCallback() override
         {
@@ -167,12 +176,16 @@ namespace mutagen
         {
             stopTimer();
             releaseNote();
+#if JUCE_USE_CAMERA
             closeCamera();
+#endif
         }
 
         juce::MidiKeyboardState& keyboard;
         juce::TextButton cameraButton, closeButton;
+#if JUCE_USE_CAMERA
         std::unique_ptr<juce::CameraDevice> camera;
+#endif
         juce::CriticalSection frameLock;
         juce::Image pendingFrame, latestFrame;
         bool cameraEnabled = false;

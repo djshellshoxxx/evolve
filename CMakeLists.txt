@@ -50,6 +50,8 @@ if(NOT APPLE)
 endif()
 
 juce_add_plugin(MUTAGEN
+    CAMERA_PERMISSION_ENABLED TRUE
+    CAMERA_PERMISSION_TEXT "Use your camera to control the optional Chromatic Portal game."
     COMPANY_NAME              "Colonyworks"
     COMPANY_WEBSITE           "https://github.com/djshellshoxxx/mutagen"
     BUNDLE_ID                 com.colonyworks.mutagen
@@ -100,6 +102,7 @@ target_sources(MUTAGEN PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/LabGameFlow.cpp
+    Source/PhreakFlow.cpp
     Source/Parameters.cpp
     Source/ParamHelp.cpp
 
@@ -143,6 +146,7 @@ target_sources(MUTAGEN PRIVATE
     Source/GUI/ProgressionView.cpp
     Source/GUI/HauntedOverlay.cpp
     Source/GUI/EncounterOverlay.cpp
+    Source/GUI/PhreakOverlay.cpp
     Source/GUI/LabGameOverlay.cpp
     Source/GUI/StoryPanel.cpp
     Source/GUI/SecretLayer.cpp
@@ -169,6 +173,7 @@ if(MUTAGEN_TEST_HOOKS)
 endif()
 
 target_compile_definitions(MUTAGEN PUBLIC
+    JUCE_USE_CAMERA=$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Windows>>
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
@@ -261,6 +266,7 @@ if(MUTAGEN_BUILD_TESTS)
         Source/GUI/GameBar.cpp
         Tests/GuiSmokeTest.cpp
         Source/GUI/EncounterOverlay.cpp
+        Source/GUI/PhreakOverlay.cpp
         Source/GUI/ScoreHud.cpp
         Source/GUI/StoryFx.cpp
         Source/GUI/MutagenLookAndFeel.cpp
@@ -322,7 +328,7 @@ if(MUTAGEN_BUILD_TESTS)
     add_test(NAME MutagenMusicFactsTest COMMAND MutagenMusicFactsTest)
 
     # Pure-header engines for the story encounters (no JUCE needed).
-    foreach(name Phantom TunerDuel DreamRooms)
+    foreach(name Phantom TunerDuel DreamRooms Encore Minigames Phreak)
         add_executable(Mutagen${name}Test Tests/${name}Test.cpp)
         target_include_directories(Mutagen${name}Test PRIVATE Source)
         add_test(NAME Mutagen${name}Test COMMAND Mutagen${name}Test)
