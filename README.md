@@ -279,6 +279,10 @@ then written straight away as a **24-bit WAV** to
 
 **EXPORT WAV** copies the whole collection to a folder you choose.
 
+## Wiki
+
+Wiki source pages are in [docs/wiki/](docs/wiki/Home.md): user guide, developer guide, architecture rationale and codebase map.
+
 ## Downloads
 
 Builds are on the [Releases](https://github.com/djshellshoxxx/evolve/releases) page:
